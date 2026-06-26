@@ -1417,7 +1417,7 @@ function renderIOList(){
         '<span class="w"><b>'+esc(prim)+'</b>'+(sec?'<span>'+esc(sec)+'</span>':'')+stamp+'</span>'+
         (r.loc?'<span class="loc">'+esc(r.loc)+'</span>':'')+'</div>';
     }).join("");
-    var chip='<span class="chip" style="background:'+esc(p.color||'#c7c2b8')+'">'+esc(p.pack?p.pack.replace("Pack ","P"):"—")+'</span>';
+    var chip='<span class="chip" style="background:'+esc(p.color||'#c7c2b8')+'">'+esc(p.id || "—")+'</span>';
     var qx=p.qmix?'<span class="qx">Q-Mix '+esc(p.qmix)+'</span>':'';
     var tag=p.off?'<span class="iotag">Not used</span>':'';
     return '<div class="ioperf'+(p.off?' off':'')+'"><div class="ph">'+chip+
