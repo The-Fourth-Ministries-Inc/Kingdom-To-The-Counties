@@ -211,7 +211,7 @@
   #tpApp.show{display:block}
   #tpCam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;transform:scaleX(-1)}
   #tpCam.rear{transform:none}
-  #tpWrap{position:absolute;left:0;right:0;top:11%;height:46%;display:flex;align-items:flex-start;justify-content:center;pointer-events:none;
+  #tpWrap{position:absolute;left:0;right:0;top:11%;height:46%;display:flex;align-items:flex-start;justify-content:center;pointer-events:auto;touch-action:none;cursor:grab;
     -webkit-mask-image:linear-gradient(to bottom,transparent 0%,black 10%,black 90%,transparent 100%);
     mask-image:linear-gradient(to bottom,transparent 0%,black 10%,black 90%,transparent 100%)}
   #tpBand{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(20,19,18,.15),rgba(20,19,18,.62) 20%,rgba(20,19,18,.62) 80%,rgba(20,19,18,.15))}
@@ -219,6 +219,16 @@
   #tpText{font-weight:700;line-height:1.35;text-align:center;color:var(--cream);text-shadow:0 2px 10px rgba(0,0,0,.85);white-space:pre-wrap;word-wrap:break-word;padding:40vh 0;font-size:28px}
   #tpText u{text-underline-offset:4px}
   #tpGuide{position:absolute;left:6%;right:6%;top:50%;border-top:1px dashed rgba(184,98,57,.6);pointer-events:none}
+  /* v1.2.0 — reading-window contrast: dim copy away from the guide line */
+  #tpWrap::before,#tpWrap::after{content:"";position:absolute;left:0;right:0;z-index:5;pointer-events:none}
+  #tpWrap::before{top:0;bottom:calc(50% + 34px);background:linear-gradient(to bottom,rgba(20,19,18,.55),rgba(20,19,18,.14))}
+  #tpWrap::after{top:calc(50% + 34px);bottom:0;background:linear-gradient(to top,rgba(20,19,18,.55),rgba(20,19,18,.14))}
+  /* v1.2.0 — progress bar, mirror mode, active-toggle state, landscape */
+  #tpProg{position:absolute;left:0;right:0;top:0;height:4px;background:rgba(245,242,233,.14);z-index:210}
+  #tpProg i{display:block;height:100%;width:0%;background:var(--rust)}
+  #tpWrap.mirror #tpText{transform:scaleX(-1)}
+  #tpControls button.on{background:rgba(184,98,57,.55);border-color:var(--rust)}
+  @media (orientation:landscape){#tpWrap{top:6%;height:56%}#tpControls{padding:6px 10px calc(env(safe-area-inset-bottom,6px) + 6px)}#tpControls button{min-height:40px;padding:8px 12px}}
   #tpLabel{position:absolute;top:calc(env(safe-area-inset-top,12px) + 10px);left:12px;background:rgba(20,19,18,.8);border:1px solid rgba(245,242,233,.16);padding:6px 12px;border-radius:16px;font-size:12px;color:var(--powder);font-weight:700;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #tpBack{position:absolute;top:calc(env(safe-area-inset-top,12px) + 6px);right:12px;min-height:36px;padding:7px 13px;font-size:13px;border-radius:16px;border:1px solid rgba(245,242,233,.25);background:transparent;color:var(--cream);cursor:pointer}
   #tpRecInd{position:absolute;top:calc(env(safe-area-inset-top,12px) + 52px);left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;background:rgba(20,19,18,.8);padding:6px 14px;border-radius:20px;font-size:14px;color:var(--cream);font-variant-numeric:tabular-nums}
@@ -419,7 +429,7 @@
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.1.2</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.2.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -486,6 +496,7 @@
       <div class="dashrow"><div class="t"><span>Setup readiness</span><span class="v" id="dSetup">0 / 0 · 0%</span></div><div class="pbar"><i id="dSetupBar"></i></div></div>
       <div class="dashrow"><div class="t"><span>Tech I/O patched</span><span class="v" id="dIo">0 / 0 · 0%</span></div><div class="pbar"><i id="dIoBar"></i></div></div>
       <div class="dashrow"><div class="t"><span>Overdue setup items</span><span class="v" id="dOver">0</span></div></div>
+      <button class="btn ghost" id="csvBtn" style="margin-top:6px">📊 Export day report (CSV)</button>
       <button class="btn ink" id="resetBtn" style="margin-top:6px">♻️ Reset all data for next event</button>
       <p class="hint">Reset clears checklists, check-ins, head count, issues, praise & announcements (keeps event name, Day PIN & Tech I/O roster; clears patch checkmarks). Leaders only.</p>
     </div>
@@ -689,7 +700,8 @@
 #page-playbook .pb .callout.note{background:var(--canvas-soft);border:1px solid var(--line);}
 #page-playbook .pb .callout.fire{background:#F8E9DF;border:1px solid #E5BC9C;}
 #page-playbook .pb .callout.cool{background:#EAF1F6;border:1px solid var(--powder);}
-#page-playbook .pb .stop{font-family:var(--body);font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--burgundy);}#page-playbook .pb .contact{display:flex;gap:12px;align-items:flex-start;padding:13px 0;border-bottom:1px solid var(--line);}
+#page-playbook .pb .stop{font-family:var(--body);font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--burgundy);}
+#page-playbook .pb .contact{display:flex;gap:12px;align-items:flex-start;padding:13px 0;border-bottom:1px solid var(--line);}
 #page-playbook .pb .contact:last-child{border-bottom:none;}
 #page-playbook .pb .c-name{font-family:var(--display);font-weight:700;font-size:17px;color:var(--ink);line-height:1.1;}
 #page-playbook .pb .c-role{font-size:12px;color:var(--ink-soft);margin-top:2px;}
@@ -756,7 +768,6 @@
         <div class="contact"><div><div class="c-name">Kat Roedell</div><div class="c-role">Director of Logistics / Intercession</div><div class="c-links"><a class="call" href="tel:6036570259">📱 Call</a><a href="mailto:kat.roedell@thefourthministries.com">✉ Email</a></div></div></div>
         <div class="contact"><div><div class="c-name">Laura McCollum, R.N.</div><div class="c-role">First-Aid Lead / Director of Marketing</div><div class="c-links"><a class="call" href="tel:6034938226">📱 Call</a><a href="mailto:laura.mccollum@thefourthministries.com">✉ Email</a></div></div></div>
         <div class="contact"><div><div class="c-name">Michael Nelson</div><div class="c-role">Director of Technology</div><div class="c-links"><a class="call" href="tel:9738647534">📱 Call</a><a href="mailto:michael.nelson@thefourthministries.com">✉ Email</a></div></div></div>
-
         <div class="callout note"><strong>Chain of contact:</strong> Jeff &amp; Rich are your primary contacts for all Ambassador questions outside your direct team lead (worship, logistics, etc.). Contact <strong>Zach or Kyle only for emergencies or major decisions.</strong></div>
       </div>
     </details>
@@ -1135,7 +1146,7 @@
       <summary><span class="s-ico">🎤</span><span class="s-tt"><h3>TTT Moments</h3><div class="s-sub">Tell · Testimony · Teaser (FYI)</div></span><span class="chev">▶</span></summary>
       <div class="body">
         <div class="callout note">ℹ️ Informational. TTT slots are filled by <strong>invitation, not signup</strong> at the event. Feel led to share? Talk to Kyle, Zach, Jeff, or Pastor Rich. Testimonies for social media are ALWAYS welcome!</div>
-        <p><strong>TTT Moment 1:</strong> 2:25 PM  ·  <strong>TTT Moment 2:</strong> 3:45 PM</p>
+        <p><strong>TTT Moment 1:</strong> 2:25 PM  ·  <strong>TTT Moment 2:</strong> 3:45 PM</p>
         <p>A TTT Moment is not a sermon. It's a 10-minute moment of pure momentum — crowd-oriented, rooted in a real testimony, laser-focused on one thing: getting people to STAY for the gospel presentation and altar call.</p>
 
         <h4>📋 The Three T's — Hard Cap: 10 Minutes</h4>
@@ -1363,6 +1374,7 @@
 <div id="tpApp">
   <video id="tpCam" autoplay muted playsinline></video>
   <div id="tpWrap"><div id="tpBand"></div><div id="tpTrack"><div id="tpText"></div></div><div id="tpGuide"></div></div>
+  <div id="tpProg"><i></i></div>
   <div id="tpLabel"></div>
   <button id="tpBack">‹ Scripts</button>
   <div id="tpRecInd"><div id="tpRecDot"></div><span id="tpRecTime">00:00</span></div>
@@ -1385,19 +1397,21 @@
     <div class="trow">
       <div style="text-align:center"><button id="tpFontDown">A−</button><div class="tlbl">Font</div></div>
       <div style="text-align:center"><button id="tpFontUp">A+</button></div>
-      <div style="text-align:center"><button id="tpSpeedDown">⟨⟨</button><div class="tlbl">Speed <span id="tpSpeedVal">1.0×</span></div></div>
+      <div style="text-align:center"><button id="tpSpeedDown">⟨⟨</button><div class="tlbl">Speed <span id="tpSpeedVal">1.0×</span> · <span id="tpEta">–:–</span></div></div>
       <div style="text-align:center"><button id="tpSpeedUp">⟩⟩</button></div>
       <div style="text-align:center"><button id="tpFlip">🔄</button><div class="tlbl">Flip</div></div>
+      <div style="text-align:center"><button id="tpMirror">🪞</button><div class="tlbl">Mirror</div></div>
+      <div style="text-align:center"><button id="tpVoice">🎙</button><div class="tlbl">Voice</div></div>
       <div style="text-align:center"><button id="tpTipsBtn">💡</button><div class="tlbl">Tips</div></div>
     </div>
     <div class="trow">
-      <button id="tpReset" class="wide">⤒ Reset</button>
+      <button id="tpReset" class="wide">⤤ Reset</button>
       <button id="tpPlay" class="wide prim">▶ Play</button>
       <button id="tpRecBtn"></button>
     </div>
   </div>
   <div id="tpPost">
-    <p>🎬 Nice work! Now <b>⬇ Save</b> the video to your phone, then <b>📤 send it to Laura</b> (Teams, text, or email — whatever works). Once it's in her hands, tap <b>✅ Mark done</b>.</p>
+    <p>Nice work! 🎬 Save the video to your phone, then send it to <b>Laura (Marketing)</b> — and mark it done so the team knows it's covered.</p>
     <div class="trow">
       <a id="tpDl" href="#" download="k2c-video.webm"><button class="save">⬇ Save</button></a>
       <button id="tpShare">📤 Share</button>
@@ -1762,6 +1776,7 @@ var SETUP=[
 var TEARDOWN=[];
 var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],count:0,event:{name:"",date:""},ioList:[],dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]}};
 var LIVE=false,LEADER=false,seenAnn=0,seenIssue=0,barDismissed=false,inflight=0,pendingCount=0,countFlushT=null;
+var lastSyncAt=0,everSynced=false; /* v1.2.0 — sync freshness */
 function settled(){return inflight===0&&pendingCount===0;}
 var API="/.netlify/functions/data";
 var MY={name:"",initials:""};
@@ -1989,7 +2004,12 @@ function updateBadges(){
   var u=Math.max(0,(STATE.announcements.length-seenAnn)+(visCount(STATE.feedback)-seenIssue));
   var b=document.getElementById("boardBadge");b.textContent=u;b.style.display=u?"flex":"none";
 }
-function updateSync(){var els=document.querySelectorAll(".syncpill");for(var i=0;i<els.length;i++){els[i].classList.toggle("live",LIVE);els[i].innerHTML='<span class="d"></span>'+(LIVE?"Live — synced to everyone":"Demo mode — deploy to sync");}}
+function updateSync(){var els=document.querySelectorAll(".syncpill");var label;
+  if(LIVE){var ago=lastSyncAt?Math.max(0,Math.round((Date.now()-lastSyncAt)/1000)):null;label="Live — synced"+(ago==null?" to everyone":(ago<3?" just now":" "+ago+"s ago"));}
+  else if(everSynced){label="Offline — reconnecting…";}
+  else{label="Demo mode — deploy to sync";}
+  for(var i=0;i<els.length;i++){els[i].classList.toggle("live",LIVE);els[i].innerHTML='<span class="d"></span>'+label;}}
+setInterval(updateSync,1000);
 var pinThen=null;
 function askPin(then){pinThen=then;document.getElementById("pinErr").textContent="";document.getElementById("pinInput").value="";document.getElementById("pinModal").classList.add("show");setTimeout(function(){document.getElementById("pinInput").focus();},50);}
 function closePin(){document.getElementById("pinModal").classList.remove("show");}
@@ -2088,6 +2108,22 @@ document.getElementById("fundSave").addEventListener("click",function(){
   doAction("setFunding",{pct:pct,needed:need},function(){STATE.funding={pct:pct,needed:need||STATE.funding.needed};});
 });
 document.getElementById("evSave").addEventListener("click",function(){var name=document.getElementById("evName").value.trim(),date=document.getElementById("evDate").value.trim();doAction("setEvent",{name:name,date:date},function(){STATE.event={name:name,date:date};});});
+/* v1.2.0 — one-tap CSV export of the day's data (leaders) */
+function csvCell(v){v=String(v==null?"":v);return '"'+v.replace(/"/g,'""')+'"';}
+document.getElementById("csvBtn").addEventListener("click",function(){
+  var rows=[["Section","Name / item","Detail","Time / status"]];
+  (STATE.checkins||[]).forEach(function(c){rows.push(["Check-in",c.name||"",c.team||"",c.t||""]);});
+  rows.push(["Head count","Attendees",String(STATE.count||0),""]);
+  (STATE.feedback||[]).forEach(function(f){rows.push(["Issue",f.who||f.name||"",f.txt||f.text||f.msg||"",f.t||""]);});
+  (STATE.praises||[]).forEach(function(p){rows.push(["Praise",p.who||p.name||"",p.txt||p.text||p.msg||"",p.t||""]);});
+  (STATE.announcements||[]).forEach(function(a){rows.push(["Announcement",a.who||a.name||"",a.txt||a.text||a.msg||"",a.t||""]);});
+  Object.keys(STATE.checklist||{}).forEach(function(k){var r=STATE.checklist[k]||{};rows.push(["Checklist",k,"done by "+(r.by||"?"),r.t||""]);});
+  var csv=rows.map(function(r){return r.map(csvCell).join(",");}).join("\r\n");
+  var blob=new Blob(["\ufeff"+csv],{type:"text/csv"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="k2c-day-report-v1.2.0-"+new Date().toISOString().slice(0,10)+".csv";
+  document.body.appendChild(a);a.click();a.remove();
+});
 document.getElementById("resetBtn").addEventListener("click",function(){if(confirm("Reset event data (checklists, check-ins, head count, issues, praise, announcements)? Keeps event name, Day PIN & Tech I/O roster; clears patch checkmarks. This can't be undone.")){doAction("reset",{},function(){var ev=STATE.event,dp=STATE.dayPin,io=ioListClearProgress(STATE.ioList);STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],count:0,event:ev,dayPin:dp,ioList:io};});}});
 document.addEventListener("click",function(e){var row=e.target.closest(".chk");if(row)toggleCheck(row.getAttribute("data-id"));});
 document.getElementById("annBarX").addEventListener("click",function(e){e.stopPropagation();barDismissed=true;document.getElementById("annBar").classList.remove("show");});
@@ -2120,7 +2156,7 @@ function finishBoot(){
   setInterval(function(){renderClock();renderNow();renderStrip();updateDueChips();if(simActive)document.getElementById("simNow").textContent="Previewing "+fmt(Math.floor(nowMinutes()))+" (running)";},1000);
   setInterval(function(){refreshChecklists();renderDashboard();renderSpine();},15000);
   var lastSnap="";
-  setInterval(function(){if(LIVE&&settled()&&document.visibilityState==="visible"){apiGet().then(function(s){if(settled()){var snap=JSON.stringify(s);var changed=snap!==lastSnap;lastSnap=snap;STATE=normalize(s);maybeDayGate();if(changed)renderDynamic();}}).catch(function(){LIVE=false;updateSync();});}},5000);
+  setInterval(function(){if(settled()&&document.visibilityState==="visible"&&(LIVE||everSynced)){apiGet().then(function(s){if(settled()){lastSyncAt=Date.now();everSynced=true;if(!LIVE){LIVE=true;updateSync();}var snap=JSON.stringify(s);var changed=snap!==lastSnap;lastSnap=snap;STATE=normalize(s);maybeDayGate();if(changed)renderDynamic();}}).catch(function(){if(LIVE){LIVE=false;updateSync();}});}},5000);
 }
 boot();
 /* Offline shell: network-first SW. When online, behavior is identical to
@@ -2133,9 +2169,11 @@ if("serviceWorker" in navigator){window.addEventListener("load",function(){navig
    Adding/editing scripts (title, event, due date, assignee, body) is
    leader-PIN only, so Laura (Marketing) owns the board. */
 var TP_SEED = [{"id":"strafford-A","event":"Strafford County — Jul 11 · Rochester Fairgrounds","title":"Script A — Come As You Are","due":"2026-06-27","assignee":"","body":"Hey — I want to tell you about something happening right here in Strafford County. On Saturday, July 11th, from 2 to 5 in the afternoon, we're setting up at the Rochester Fairgrounds. No dress code, no expectations, no church background needed. Just come as you are. There's live music, real conversation, and a few hours to breathe. It's completely free. We're not asking you to come to us — we're coming to you. If you've got questions, doubts, or you're just curious, this is for you. July 11th, Rochester Fairgrounds, 2 to 5 PM. Hope. Healing. Salvation. Look up kingdomtothecounties.com for more.","done":null},{"id":"strafford-B","event":"Strafford County — Jul 11 · Rochester Fairgrounds","title":"Script B — Logistics / Urgency","due":"2026-06-27","assignee":"","body":"Mark your calendar — Saturday, July 11th, 2 to 5 PM, Rochester Fairgrounds. This is a one-day gathering for Strafford County. Bring your kids, your neighbors, whoever needs a reason to hope. It's outdoors, it's free, and it's built for anyone — whether you've never set foot in a church or you grew up in one and walked away. Live worship, real conversation, a chance to reset. We only get one shot at this in Strafford County this year — there isn't a second date. July 11th. Rochester Fairgrounds. 2 to 5 PM. Hope. Healing. Salvation. Everything you need is at kingdomtothecounties.com.","done":null},{"id":"strafford-C","event":"Strafford County — Jul 11 · Rochester Fairgrounds","title":"Script C — Pain Point / Hope","due":"2026-06-27","assignee":"","body":"If you're tired — really tired, the kind sleep doesn't fix — I want you to hear this. On Saturday, July 11th, from 2 to 5 PM at the Rochester Fairgrounds, a group of us are gathering for one afternoon to remind Strafford County you are not forgotten and not too far gone. No judgment, no pressure — just an open field, real worship, and people who care whether you show up. You don't have to have it figured out. You don't have to carry it alone. Come as you are. July 11th, Rochester Fairgrounds, 2 to 5 PM. Hope. Healing. Salvation. Find out more at kingdomtothecounties.com.","done":null},{"id":"carroll-A","event":"Carroll County — Jul 25 · King Pine Ski Area","title":"Script A — Come As You Are","due":"2026-07-11","assignee":"","body":"Hey — something's happening right here in Carroll County. Saturday, July 25th, 2 to 5 in the afternoon, at King Pine Ski Area in Madison. No dress code, no expectations, no church background needed — just come as you are. Live music, real conversation, a few hours to breathe. Completely free. We're not asking you to come to us — we're coming to you. If you've got questions, doubts, or you're just curious, this is for you. July 25th, King Pine, 2 to 5 PM. Hope. Healing. Salvation. Look up kingdomtothecounties.com.","done":null},{"id":"carroll-B","event":"Carroll County — Jul 25 · King Pine Ski Area","title":"Script B — Logistics / Urgency","due":"2026-07-11","assignee":"","body":"Mark your calendar — Saturday, July 25th, 2 to 5 PM, King Pine Ski Area in Madison. One-day gathering for Carroll County. Bring your kids, your neighbors, whoever needs a reason to hope. Outdoors, free, built for anyone — church background or none at all. Live worship, real conversation, a chance to reset. One shot at this in Carroll County this year — no second date. July 25th. King Pine. 2 to 5 PM. Hope. Healing. Salvation. Everything you need is at kingdomtothecounties.com.","done":null},{"id":"carroll-C","event":"Carroll County — Jul 25 · King Pine Ski Area","title":"Script C — Pain Point / Hope","due":"2026-07-11","assignee":"","body":"If you're tired — really tired, the kind sleep doesn't fix — hear this. Saturday, July 25th, 2 to 5 PM at King Pine Ski Area, we're gathering for one afternoon to remind Carroll County you are not forgotten and not too far gone. No judgment, no pressure — an open field, real worship, people who care whether you show up. You don't have to have it figured out or carry it alone. Come as you are. July 25th, King Pine, 2 to 5 PM. Hope. Healing. Salvation. Find out more at kingdomtothecounties.com.","done":null},{"id":"cheshire-A","event":"Cheshire County — Aug 15 · Cheshire Fair","title":"Script A — Come As You Are","due":"2026-08-01","assignee":"","body":"Hey — something's happening right here in Cheshire County. Saturday, August 15th, 2 to 5 in the afternoon, at the Cheshire Fair in Swanzey. No dress code, no expectations, no church background needed — just come as you are. Live music, real conversation, a few hours to breathe. Completely free. We're not asking you to come to us — we're coming to you. If you've got questions, doubts, or you're just curious, this is for you. August 15th, Cheshire Fair, 2 to 5 PM. Hope. Healing. Salvation. Look up kingdomtothecounties.com.","done":null},{"id":"cheshire-B","event":"Cheshire County — Aug 15 · Cheshire Fair","title":"Script B — Logistics / Urgency","due":"2026-08-01","assignee":"","body":"Mark your calendar — Saturday, August 15th, 2 to 5 PM, Cheshire Fair in Swanzey. One-day gathering for Cheshire County. Bring your kids, your neighbors, whoever needs a reason to hope. Outdoors, free, built for anyone — church background or none at all. Live worship, real conversation, a chance to reset. One shot at this in Cheshire County this year — no second date. August 15th. Cheshire Fair. 2 to 5 PM. Hope. Healing. Salvation. Everything you need is at kingdomtothecounties.com.","done":null},{"id":"cheshire-C","event":"Cheshire County — Aug 15 · Cheshire Fair","title":"Script C — Pain Point / Hope","due":"2026-08-01","assignee":"","body":"If you're tired — really tired, the kind sleep doesn't fix — hear this. Saturday, August 15th, 2 to 5 PM at the Cheshire Fair, we're gathering for one afternoon to remind Cheshire County you are not forgotten and not too far gone. No judgment, no pressure — an open field, real worship, people who care whether you show up. You don't have to have it figured out or carry it alone. Come as you are. August 15th, Cheshire Fair, 2 to 5 PM. Hope. Healing. Salvation. Find out more at kingdomtothecounties.com.","done":null},{"id":"belknap-A","event":"Belknap County — Aug 22 · Belknap 4-H Fairgrounds","title":"Script A — Come As You Are","due":"2026-08-08","assignee":"","body":"Hey — something's happening right here in Belknap County. Saturday, August 22nd, 2 to 5 in the afternoon, at the Belknap County 4-H Fairgrounds in Belmont. No dress code, no expectations, no church background needed — just come as you are. Live music, real conversation, a few hours to breathe. Completely free. We're not asking you to come to us — we're coming to you. If you've got questions, doubts, or you're just curious, this is for you. August 22nd, Belknap 4-H Fairgrounds, 2 to 5 PM. Hope. Healing. Salvation. Look up kingdomtothecounties.com.","done":null},{"id":"belknap-B","event":"Belknap County — Aug 22 · Belknap 4-H Fairgrounds","title":"Script B — Logistics / Urgency","due":"2026-08-08","assignee":"","body":"Mark your calendar — Saturday, August 22nd, 2 to 5 PM, Belknap County 4-H Fairgrounds in Belmont. One-day gathering for Belknap County. Bring your kids, your neighbors, whoever needs a reason to hope. Outdoors, free, built for anyone — church background or none at all. Live worship, real conversation, a chance to reset. One shot at this in Belknap County this year — no second date. August 22nd. Belmont. 2 to 5 PM. Hope. Healing. Salvation. Everything you need is at kingdomtothecounties.com.","done":null},{"id":"belknap-C","event":"Belknap County — Aug 22 · Belknap 4-H Fairgrounds","title":"Script C — Pain Point / Hope","due":"2026-08-08","assignee":"","body":"If you're tired — really tired, the kind sleep doesn't fix — hear this. Saturday, August 22nd, 2 to 5 PM at the Belknap County 4-H Fairgrounds, we're gathering for one afternoon to remind Belknap County you are not forgotten and not too far gone. No judgment, no pressure — an open field, real worship, people who care whether you show up. You don't have to have it figured out or carry it alone. Come as you are. August 22nd, Belmont, 2 to 5 PM. Hope. Healing. Salvation. Find out more at kingdomtothecounties.com.","done":null},{"id":"coos-A","event":"Coös County — Sep 5 · Gorham Town Common","title":"Script A — Come As You Are","due":"2026-08-22","assignee":"","body":"Hey — something's happening right here in Coös County. Saturday, September 5th, 2 to 5 in the afternoon, at the Gorham Town Common. No dress code, no expectations, no church background needed — just come as you are. Live music, real conversation, a few hours to breathe. Completely free. We're not asking you to come to us — we're coming to you. If you've got questions, doubts, or you're just curious, this is for you. September 5th, Gorham Town Common, 2 to 5 PM. Hope. Healing. Salvation. Look up kingdomtothecounties.com.","done":null},{"id":"coos-B","event":"Coös County — Sep 5 · Gorham Town Common","title":"Script B — Logistics / Urgency","due":"2026-08-22","assignee":"","body":"Mark your calendar — Saturday, September 5th, 2 to 5 PM, Gorham Town Common. One-day gathering for Coös County. Bring your kids, your neighbors, whoever needs a reason to hope. Outdoors, free, built for anyone — church background or none at all. Live worship, real conversation, a chance to reset. One shot at this in Coös County this year — no second date. September 5th. Gorham. 2 to 5 PM. Hope. Healing. Salvation. Everything you need is at kingdomtothecounties.com.","done":null},{"id":"coos-C","event":"Coös County — Sep 5 · Gorham Town Common","title":"Script C — Pain Point / Hope","due":"2026-08-22","assignee":"","body":"If you're tired — really tired, the kind sleep doesn't fix — hear this. Saturday, September 5th, 2 to 5 PM at the Gorham Town Common, we're gathering for one afternoon to remind Coös County you are not forgotten and not too far gone. No judgment, no pressure — an open field, real worship, people who care whether you show up. You don't have to have it figured out or carry it alone. Come as you are. September 5th, Gorham, 2 to 5 PM. Hope. Healing. Salvation. Find out more at kingdomtothecounties.com.","done":null},{"id":"rockingham-A","event":"Rockingham County — Oct 10 · Star Speedway","title":"Script A — Come As You Are","due":"2026-09-26","assignee":"","body":"Hey — something's happening right here in Rockingham County. Saturday, October 10th, 2 to 5 in the afternoon, at Star Speedway in Epping. No dress code, no expectations, no church background needed — just come as you are. Live music, real conversation, a few hours to breathe. Completely free. We're not asking you to come to us — we're coming to you. If you've got questions, doubts, or you're just curious, this is for you. October 10th, Star Speedway, 2 to 5 PM. Hope. Healing. Salvation. Look up kingdomtothecounties.com.","done":null},{"id":"rockingham-B","event":"Rockingham County — Oct 10 · Star Speedway","title":"Script B — Logistics / Urgency","due":"2026-09-26","assignee":"","body":"Mark your calendar — Saturday, October 10th, 2 to 5 PM, Star Speedway in Epping. This is the final stop of the tour this year. Bring your kids, your neighbors, whoever needs a reason to hope. Outdoors, free, built for anyone — church background or none at all. Live worship, real conversation, a chance to reset. One shot at this in Rockingham County — no second date. October 10th. Star Speedway. 2 to 5 PM. Hope. Healing. Salvation. Everything you need is at kingdomtothecounties.com.","done":null},{"id":"rockingham-C","event":"Rockingham County — Oct 10 · Star Speedway","title":"Script C — Pain Point / Hope","due":"2026-09-26","assignee":"","body":"If you're tired — really tired, the kind sleep doesn't fix — hear this. Saturday, October 10th, 2 to 5 PM at Star Speedway, we're gathering for one afternoon to remind Rockingham County you are not forgotten and not too far gone. No judgment, no pressure — an open field, real worship, people who care whether you show up. You don't have to have it figured out or carry it alone. Come as you are. October 10th, Star Speedway, 2 to 5 PM. Hope. Healing. Salvation. Find out more at kingdomtothecounties.com.","done":null},{"id":"sullivan-A","event":"Sullivan County — Date & venue TBD (leaders: edit me!)","title":"Script A — Come As You Are","due":"","assignee":"","body":"Hey — I want to tell you about something happening right here in Sullivan County. On Saturday, [DATE], from 2 to 5 in the afternoon, we're setting up at [VENUE]. No dress code, no expectations, no church background needed. Just come as you are. There's live music, real conversation, and a few hours to breathe. It's completely free. We're not asking you to come to us — we're coming to you. If you've got questions, doubts, or you're just curious, this is for you. [DATE], [VENUE], 2 to 5 PM. Hope. Healing. Salvation. Look up kingdomtothecounties.com for more.","done":null},{"id":"sullivan-B","event":"Sullivan County — Date & venue TBD (leaders: edit me!)","title":"Script B — Logistics / Urgency","due":"","assignee":"","body":"Mark your calendar — Saturday, [DATE], 2 to 5 PM, [VENUE]. This is a one-day gathering for Sullivan County. Bring your kids, your neighbors, whoever needs a reason to hope. It's outdoors, it's free, and it's built for anyone — whether you've never set foot in a church or you grew up in one and walked away. Live worship, real conversation, a chance to reset. We only get one shot at this in Sullivan County this year — there isn't a second date. [DATE]. [VENUE]. 2 to 5 PM. Hope. Healing. Salvation. Everything you need is at kingdomtothecounties.com.","done":null},{"id":"sullivan-C","event":"Sullivan County — Date & venue TBD (leaders: edit me!)","title":"Script C — Pain Point / Hope","due":"","assignee":"","body":"If you're tired — really tired, the kind sleep doesn't fix — I want you to hear this. On Saturday, [DATE], from 2 to 5 PM at [VENUE], a group of us are gathering for one afternoon to remind Sullivan County you are not forgotten and not too far gone. No judgment, no pressure — just an open field, real worship, and people who care whether you show up. You don't have to have it figured out. You don't have to carry it alone. Come as you are. [DATE], [VENUE], 2 to 5 PM. Hope. Healing. Salvation. Find out more at kingdomtothecounties.com.","done":null}];
+/* v1.2.0 — starter scripts also live in data/scripts.json (single source of truth on the deployed site). If present, it wins over the inline copy above. */
+fetch("data/scripts.json").then(function(r){return r.ok?r.json():null;}).then(function(j){if(j&&j.length){TP_SEED=j;if(typeof renderPrompt==="function"&&!tpScripts().length)renderPrompt();}}).catch(function(){});
 
 function tpScripts(){return (STATE.prompter&&STATE.prompter.scripts)||[];}
-function tpById(id){return tpScripts().filter(function(x){return x.id===id;})[0];}
+function tpById(id){return tpScripts().filter(function(x){return x.id===id;})[0]||TP_SEED.filter(function(x){return x.id===id;})[0];}
 function tpTodayISO(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function tpDueChip(s){
   if(s.done)return '<span class="duechip good">✅ done</span>';
@@ -2152,11 +2190,12 @@ function renderPrompt(){
   var lock=document.getElementById("tpLock"),bar=document.getElementById("tpAddBar"),seedBtn=document.getElementById("tpSeedBtn");
   if(LEADER){lock.innerHTML="";bar.style.display="flex";seedBtn.style.display=tpScripts().length?"none":"block";}
   else{lock.innerHTML='<div class="lockbar">🔒 Scripts, due dates &amp; assignees are managed by leaders (Laura/Marketing).<button onclick="askPin(function(){})">Unlock</button></div>';bar.style.display="none";}
-  var list=tpScripts();
+  var list=tpScripts(),localOnly=false;
+  if(!list.length&&TP_SEED.length){list=TP_SEED.slice();localOnly=true;}
   if(!list.length){board.innerHTML='<div class="empty">No scripts yet. '+(LEADER?'Tap <b>Load starter scripts</b> above to seed all 7 counties.':'Leaders will load them shortly. 🎬')+'</div>';tpBadge();return;}
   var groups=[],map={};
   list.forEach(function(s){if(!(s.event in map)){map[s.event]=[];groups.push(s.event);}map[s.event].push(s);});
-  board.innerHTML=groups.map(function(g){
+  board.innerHTML=(localOnly?'<div class="empty">👀 Previewing the built-in starter scripts (read-only board). Leaders: tap <b>Load starter scripts</b> to publish them for everyone.</div>':"")+groups.map(function(g){
     var rows=map[g].slice().sort(function(a,b){return (a.due||"9999")<(b.due||"9999")?-1:(a.due===b.due?(a.title<b.title?-1:1):1);}).map(function(s){
       return '<div class="tpcard'+(s.done?' done':'')+'">'
         +'<div class="info"><div class="t">'+esc(s.title)+'</div>'
@@ -2164,7 +2203,7 @@ function renderPrompt(){
         +'<span class="who'+(s.assignee?'':' unset')+'">'+(s.assignee?'🎥 '+esc(s.assignee):'unassigned')+'</span>'
         +(s.done?'<span class="doneby">✅ '+esc(s.done.initials)+' · '+esc(s.done.date)+'</span>':'')
         +'</div></div>'
-        +(LEADER?'<button class="editb" onclick="tpOpenEditor(\''+s.id+'\')">✏️</button>':'')
+        +(LEADER&&!localOnly?'<button class="editb" onclick="tpOpenEditor(\''+s.id+'\')">✏️</button>':'')
         +'<button class="open" onclick="tpOpen(\''+s.id+'\')">Open ▶</button></div>';
     }).join("");
     return '<div class="tpgroup"><h3>'+esc(g)+'</h3>'+rows+'</div>';
@@ -2222,7 +2261,7 @@ function tpOpen(id){
   tpCurId=id;var s=tpById(id);if(!s)return;
   tpTextEl.innerHTML=s.body;
   document.getElementById("tpLabel").textContent=s.event.split("—")[0].trim()+" · "+s.title;
-  tpResetPos();tpSetPlaying(false);
+  tpResetPos();tpSetPlaying(false);tpUpdateEta();
   document.getElementById("tpPost").classList.remove("show");
   document.getElementById("tpApp").classList.add("show");
   document.body.style.overflow="hidden";
@@ -2233,7 +2272,7 @@ function tpClose(){
   if(tpRecording)return;
   document.getElementById("tpApp").classList.remove("show");
   document.body.style.overflow="";
-  tpStopCam();if(tpRAF){cancelAnimationFrame(tpRAF);tpRAF=null;}
+  tpVoiceStop();tpStopCam();if(tpRAF){cancelAnimationFrame(tpRAF);tpRAF=null;}
   renderPrompt();
 }
 document.getElementById("tpBack").addEventListener("click",tpClose);
@@ -2252,12 +2291,20 @@ function tpStopCam(){if(tpStream){tpStream.getTracks().forEach(function(t){t.sto
 document.getElementById("tpFlip").addEventListener("click",function(){if(tpRecording)return;tpFacing=tpFacing==="user"?"environment":"user";tpStartCam(tpFacing);});
 document.getElementById("tpFontUp").addEventListener("click",function(){tpFontSize=Math.min(tpFontSize+4,96);tpTextEl.style.fontSize=tpFontSize+"px";});
 document.getElementById("tpFontDown").addEventListener("click",function(){tpFontSize=Math.max(tpFontSize-4,14);tpTextEl.style.fontSize=tpFontSize+"px";});
-document.getElementById("tpSpeedUp").addEventListener("click",function(){tpSpeed=Math.min(tpSpeed+0.1,4);document.getElementById("tpSpeedVal").textContent=tpSpeed.toFixed(1)+"×";});
-document.getElementById("tpSpeedDown").addEventListener("click",function(){tpSpeed=Math.max(tpSpeed-0.1,0.1);document.getElementById("tpSpeedVal").textContent=tpSpeed.toFixed(1)+"×";});
+document.getElementById("tpSpeedUp").addEventListener("click",function(){tpSpeed=Math.min(tpSpeed+0.1,4);document.getElementById("tpSpeedVal").textContent=tpSpeed.toFixed(1)+"×";tpUpdateEta();});
+document.getElementById("tpSpeedDown").addEventListener("click",function(){tpSpeed=Math.max(tpSpeed-0.1,0.1);document.getElementById("tpSpeedVal").textContent=tpSpeed.toFixed(1)+"×";tpUpdateEta();});
 function tpLoop(){
   if(!document.getElementById("tpApp").classList.contains("show")){tpRAF=null;return;}
   if(tpPlaying){tpPos+=tpBase*tpSpeed;tpTrack.style.transform="translateY(-"+tpPos+"px)";}
+  tpProgTick();
   tpRAF=requestAnimationFrame(tpLoop);
+}
+/* v1.2.0 — progress bar across the top of the studio */
+function tpProgTick(){
+  var bar=document.getElementById("tpProg");if(!bar)return;
+  var total=Math.max(1,tpTrack.scrollHeight-innerHeight*0.8);
+  var pct=Math.max(0,Math.min(100,tpPos/total*100));
+  bar.firstElementChild.style.width=pct+"%";
 }
 function tpSetPlaying(v){tpPlaying=v;document.getElementById("tpPlay").textContent=v?"⏸ Pause":"▶ Play";}
 document.getElementById("tpPlay").addEventListener("click",function(){tpSetPlaying(!tpPlaying);});
@@ -2265,6 +2312,8 @@ function tpResetPos(){tpPos=0;tpTrack.style.transform="translateY(0)";}
 document.getElementById("tpReset").addEventListener("click",tpResetPos);
 function tpMime(){var o=["video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];for(var i=0;i<o.length;i++){if(window.MediaRecorder&&MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(o[i]))return o[i];}return "";}
 function tpFmtTime(s){return String(Math.floor(s/60)).padStart(2,"0")+":"+String(Math.floor(s%60)).padStart(2,"0");}
+/* v1.2.0 — estimated runtime at current speed (~140 wpm at 1.0×) */
+function tpUpdateEta(){var el=document.getElementById("tpEta");if(!el)return;var w=(tpTextEl.textContent||"").trim().split(/\s+/).filter(Boolean).length;var secs=Math.round(w/(140*tpSpeed)*60);el.textContent="~"+tpFmtTime(secs);}
 function tpStartRec(){
   if(!tpStream)return;
   tpChunks=[];var mt=tpMime();
@@ -2276,11 +2325,11 @@ function tpStartRec(){
     var a=document.getElementById("tpDl");a.href=url;a.download="k2c-"+tpCurId+"-"+Date.now()+"."+ext;
     document.getElementById("tpPost").classList.add("show");
   };
-  tpRecorder.start();
+  tpRecorder.start(1000);
   tpRecording=true;tpSecs=0;document.getElementById("tpRecTime").textContent="00:00";
   document.getElementById("tpRecInd").classList.add("show");
   document.getElementById("tpRecBtn").classList.add("recording");
-  tpTimer=setInterval(function(){tpSecs++;document.getElementById("tpRecTime").textContent=tpFmtTime(tpSecs);},1000);
+  tpTimer=setInterval(function(){tpSecs++;document.getElementById("tpRecTime").textContent=tpFmtTime(tpSecs);if(tpSecs===180)alert("⏱ 3 minutes — long takes make huge files on phones. Consider wrapping up or splitting into two takes.");},1000);
   if(!tpPlaying)tpSetPlaying(true);
 }
 function tpStopRec(){
@@ -2327,6 +2376,49 @@ function tpConfirmDone(){
   tpClose();
 }
 /* keep the board fresh with the rest of the app */
+/* v1.2.0 — tap the script to pause/resume; drag to scrub */
+(function(){
+  var wrap=document.getElementById("tpWrap");if(!wrap)return;
+  var startY=0,startPos=0,moved=false,down=false;
+  wrap.addEventListener("pointerdown",function(e){down=true;moved=false;startY=e.clientY;startPos=tpPos;if(wrap.setPointerCapture)try{wrap.setPointerCapture(e.pointerId);}catch(err){}});
+  wrap.addEventListener("pointermove",function(e){
+    if(!down)return;
+    var dy=e.clientY-startY;
+    if(Math.abs(dy)>8)moved=true;
+    if(moved){tpPos=Math.max(0,startPos-dy);tpTrack.style.transform="translateY(-"+tpPos+"px)";tpProgTick();}
+  });
+  wrap.addEventListener("pointerup",function(){if(down&&!moved)tpSetPlaying(!tpPlaying);down=false;});
+  wrap.addEventListener("pointercancel",function(){down=false;});
+})();
+/* v1.2.0 — mirror text for reflector-style teleprompter rigs */
+document.getElementById("tpMirror").addEventListener("click",function(){var w=document.getElementById("tpWrap");w.classList.toggle("mirror");this.classList.toggle("on",w.classList.contains("mirror"));});
+/* v1.2.0 — \ud83c\udf99 Voice follow (beta): scrolling follows your spoken words */
+var tpVoiceOn=false,tpRec=null;
+function tpVoiceStop(){tpVoiceOn=false;var b=document.getElementById("tpVoice");if(b)b.classList.remove("on");if(tpRec){try{tpRec.stop();}catch(e){}tpRec=null;}}
+function tpVoiceStart(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert("Voice follow isn't supported in this browser \u2014 normal auto-scroll still works great.");return;}
+  var words=(tpTextEl.textContent||"").toLowerCase().split(/\s+/).filter(Boolean);
+  var idx=0;
+  tpRec=new SR();tpRec.continuous=true;tpRec.interimResults=true;tpRec.lang="en-US";
+  tpRec.onresult=function(ev){
+    var heard="";
+    for(var i=ev.resultIndex;i<ev.results.length;i++)heard+=ev.results[i][0].transcript+" ";
+    heard.toLowerCase().split(/\s+/).filter(Boolean).forEach(function(w){
+      w=w.replace(/[^a-z0-9']/g,"");
+      for(var j=idx;j<Math.min(idx+8,words.length);j++){
+        if(words[j].replace(/[^a-z0-9']/g,"")===w){idx=j+1;break;}
+      }
+    });
+    var frac=words.length?idx/words.length:0;
+    var total=Math.max(1,tpTrack.scrollHeight-innerHeight*0.8);
+    tpPos=Math.max(0,tpPos+(frac*total-tpPos)*0.5);
+    tpTrack.style.transform="translateY(-"+tpPos+"px)";tpProgTick();
+  };
+  tpRec.onend=function(){if(tpVoiceOn){try{tpRec.start();}catch(e){}}};
+  try{tpRec.start();tpVoiceOn=true;document.getElementById("tpVoice").classList.add("on");tpSetPlaying(false);}catch(e){alert("Couldn't start voice follow: "+e.message);}
+}
+document.getElementById("tpVoice").addEventListener("click",function(){if(tpVoiceOn)tpVoiceStop();else tpVoiceStart();});
 var tpPrevRD=renderDynamic;renderDynamic=function(){tpPrevRD();renderPrompt();};
 PARENT.prompter="guides";
 renderPrompt();
