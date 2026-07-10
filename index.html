@@ -289,6 +289,7 @@
   .ioperf .chip{flex:none;min-width:30px;height:30px;padding:0 7px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;letter-spacing:.3px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
   .ioperf .pn{flex:1;min-width:0;font-family:var(--serif);font-weight:700;font-size:15px;line-height:1.12}
   .ioperf .pn small{display:block;font-family:var(--sans);font-weight:600;font-size:11px;color:var(--muted);margin-top:1px}
+  .ioperf .iotx{display:block;font-family:var(--sans);font-weight:700;font-size:10px;color:var(--muted);letter-spacing:.2px;margin-top:3px;line-height:1.3}
   .ioperf .qx{flex:none;font-size:11px;font-weight:700;color:var(--wine);background:#fff;border:1px solid var(--line);border-radius:7px;padding:4px 8px;white-space:nowrap}
   .iorow{display:flex;align-items:center;gap:11px;padding:9px 12px;border-bottom:1px solid var(--line)}
   .iorow:last-child{border-bottom:none}.iorow.tap{cursor:pointer}
@@ -1506,48 +1507,59 @@ function renderClock(){
 }
 /* ===== Tech I/O List (Input / Mic / IEM Pack assignments) ===== */
 var IO_DEFAULT=[
-  {id:"Pack1 (Orange)",name:"Karielle",inst:"",pack:"Pack 1",color:"#ED8B0B",qmix:"1 / 2",rows:[
-    {id:"karielle-lead-vox-wireless-mic-b-tuned",role:"Lead Vox",gear:"Wireless Mic B (Tuned)",loc:"(Wls) ARK – 7"}
+  {id:"Pack1 (Orange)",name:"Karielle",inst:"",pack:"Pack 1",color:"#ED8B0B",qmix:"1 / 2",tx:"Tx 1",rows:[
+    {id:"karielle-lead-vox-mic-b",role:"Lead Vox",gear:"Wireless Mic B (Tuned)",loc:"Ch 2 · AVB 2 · Ark 7 · Mic B"}
   ]},
-  {id:"Pack2 (Red)",name:"Zach",inst:"Acoustic Guitar 1",pack:"Pack 2",color:"#E23B2E",qmix:"3 / 4",rows:[
-    {id:"zach-lead-vox-wireless-mic-a-tuned",role:"Lead Vox",gear:"Wireless Mic A (Tuned)",loc:"(Wls) ARK – 6"},
-    {id:"zach-stage-talkback-wireless-mic-i",role:"Stage Talkback",gear:"Wireless Mic I",loc:"(Wls) ARK – 14"},
-    {id:"zach-acoustic-guitar-1-1x-active-di",role:"Acoustic Guitar 1",gear:"1x Active DI",loc:"ARK – 21"}
+  {id:"Pack2 (Red)",name:"Zach",inst:"Acoustic Guitar 1",pack:"Pack 2",color:"#E23B2E",qmix:"3 / 4",tx:"Tx 2",rows:[
+    {id:"zach-lead-vox-mic-a",role:"Lead Vox",gear:"Wireless Mic A (Tuned)",loc:"Ch 1 · AVB 1 · Ark 6 · Mic A"},
+    {id:"zach-stage-talkback-wired-tb-1",role:"Stage Talkback",gear:"Wired TB 1",loc:"Ch 9 · AVB 14 · Ark 14 · Wired TB 1"},
+    {id:"zach-acoustic-guitar-1-di",role:"Acoustic Guitar 1",gear:"1x Active DI",loc:"ARK In 21"}
   ]},
-  {id:"Pack3 (Green)",name:"Annie",inst:"",pack:"Pack 3",color:"#79C24A",qmix:"5",rows:[
-    {id:"annie-add-l-vox-wireless-mic-c-tuned",role:"Add'l Vox",gear:"Wireless Mic C (Tuned)",loc:"(Wls) ARK – 8"}
+  {id:"Pack3 (Green)",name:"Annie",inst:"",pack:"Pack 3",color:"#79C24A",qmix:"5",tx:"Tx 3 L",rows:[
+    {id:"annie-add-l-vox-mic-c",role:"Add'l Vox",gear:"Wireless Mic C (Tuned)",loc:"Ch 3 · AVB 3 · Ark 8 · Mic C"}
   ]},
-  {id:"Spare Pack2",name:"Bill",inst:"Bass Guitar",pack:"Spare Pack 2",color:"#c7c2b8",qmix:"6",rows:[
-    {id:"bill-bass-guitar-1x-active-di-modeler",role:"Bass Guitar",gear:"1x Active DI / Modeler",loc:"ARK – 18"}
+  {id:"Spare Pack1",name:"Sean",inst:"Bass Guitar",pack:"Spare Pack 1",color:"#c7c2b8",qmix:"6",tx:"Tx 3 R",rows:[
+    {id:"sean-bass-guitar-di",role:"Bass Guitar",gear:"1x Active DI / Modeler",loc:"ARK In 18"}
   ]},
-  {id:"Pack4 (Brown)",name:"Mike",inst:"",pack:"Pack 4",color:"#9E6B33",qmix:"7",rows:[
-    {id:"mike-add-l-vox-wireless-mic-d-tuned",role:"Add'l Vox",gear:"Wireless Mic D (Tuned)",loc:"(Wls) ARK – 9"},
-    {id:"mike-stage-talkback-wireless-mic-k",role:"Stage Talkback",gear:"Wireless Mic K",loc:"(Wls) ARK – 16"}
+  {id:"Pack4 (Brown)",name:"Mike",inst:"",pack:"Pack 4",color:"#9E6B33",qmix:"7",tx:"Tx 4 L",rows:[
+    {id:"mike-add-l-vox-mic-d",role:"Add'l Vox",gear:"Wireless Mic D (Tuned)",loc:"Ch 4 · AVB 4 · Ark 9 · Mic D"},
+    {id:"mike-stage-talkback-wired-tb-3",role:"Stage Talkback",gear:"Wired TB 3",loc:"Ch 11 · AVB 16 · Ark 16 · Wired TB 3"}
   ]},
-  {id:"Spare Pack3",name:"Jeff",inst:"Acoustic Guitar 2",pack:"Spare Pack 3",color:"#c7c2b8",qmix:"8",rows:[
-    {id:"jeff-acoustic-guitar-2-1x-active-di",role:"Acoustic Guitar 2",gear:"1x Active DI",loc:"ARK – 22"}
+  {id:"Spare Pack2",name:"Jeanne",inst:"Acoustic Guitar 2",pack:"Spare Pack 2",color:"#c7c2b8",qmix:"8",tx:"Tx 4 R",rows:[
+    {id:"jeanne-acoustic-guitar-2-di",role:"Acoustic Guitar 2",gear:"1x Active DI",loc:"ARK In 22"}
   ]},
-  {id:"Pack5 (Yellow)",name:"Alissa",inst:"",pack:"Pack 5",color:"#F2CB05",qmix:"9",rows:[
-    {id:"alissa-add-l-vox-wireless-mic-f",role:"Add'l Vox",gear:"Wireless Mic F",loc:"(Wls) ARK – 11"}
+  {id:"Pack5 (Yellow)",name:"Hollee",inst:"",pack:"Pack 5",color:"#F2CB05",qmix:"9",tx:"Tx 5 L",rows:[
+    {id:"hollee-add-l-vox-mic-f",role:"Add'l Vox",gear:"Wireless Mic F (untuned)",loc:"Ch 11 · AVB 11 · Ark 11 · Mic F"}
   ]},
-  {id:"Spare Pack1",name:"Hollee",inst:"",pack:"Spare Pack 1",color:"#c7c2b8",qmix:"10",rows:[
-    {id:"hollee-add-l-vox-wireless-mic-e-tuned",role:"Add'l Vox",gear:"Wireless Mic E (Tuned)",loc:"(Wls) ARK – 10"}
+  {id:"Spare Pack3",name:"Cassie",inst:"",pack:"Spare Pack 3",color:"#c7c2b8",qmix:"10",tx:"Tx 5 R",rows:[
+    {id:"cassie-add-l-vox-mic-e",role:"Add'l Vox",gear:"Wireless Mic E (Tuned)",loc:"Ch 5 · AVB 5 · Ark 10 · Mic E"}
   ]},
-  {id:"Pack6 (Gray)",name:"Brett",inst:"Electric Guitar",pack:"Pack 6",color:"#9AA0A6",qmix:"11 / 12",rows:[
-    {id:"brett-electric-guitar-l-stereo-di-modeler-left",role:"Electric Guitar (L)",gear:"Stereo DI / Modeler (Left)",loc:"ARK – 19"},
-    {id:"brett-electric-guitar-r-stereo-di-modeler-right",role:"Electric Guitar (R)",gear:"Stereo DI / Modeler (Right)",loc:"ARK – 20"}
+  {id:"Pack6 (Grey)",name:"Brett",inst:"Electric Guitar",pack:"Pack 6",color:"#9AA0A6",qmix:"11 / 12",tx:"Tx 6",rows:[
+    {id:"brett-electric-guitar-l",role:"Electric Guitar (L)",gear:"Stereo DI / Modeler (Left)",loc:"ARK In 19"},
+    {id:"brett-electric-guitar-r",role:"Electric Guitar (R)",gear:"Stereo DI / Modeler (Right)",loc:"ARK In 20"}
   ]},
-  {id:"Pack7 (Purple)",name:"John",inst:"Keys",pack:"Pack 7",color:"#7B3FF2",qmix:"13 / 14",rows:[
-    {id:"john-stage-talkback-wireless-mic-j",role:"Stage Talkback",gear:"Wireless Mic J",loc:"(Wls) ARK – 15"},
-    {id:"john-keys-l-2x-stereo-di-left",role:"Keys (L)",gear:"2x Stereo DI (Left)",loc:"ARK – 23"},
-    {id:"john-keys-r-2x-stereo-di-right",role:"Keys (R)",gear:"2x Stereo DI (Right)",loc:"ARK – 24"}
+  {id:"Pack7 (Purple)",name:"John",inst:"Keys",pack:"Pack 7",color:"#7B3FF2",qmix:"13 / 14",tx:"Tx 7",rows:[
+    {id:"john-stage-talkback-wired-tb-2",role:"Stage Talkback",gear:"Wired TB 2",loc:"Ch 10 · AVB 15 · Ark 15 · Wired TB 2"},
+    {id:"john-keys-l",role:"Keys (L)",gear:"2x Stereo DI (Left)",loc:"ARK In 23"},
+    {id:"john-keys-r",role:"Keys (R)",gear:"2x Stereo DI (Right)",loc:"ARK In 24"}
   ]},
-  {id:"Pack8 (Blue)",name:"Kyle",inst:"Drums",pack:"Pack 8",color:"#2E7CD6",qmix:"15 / 16",rows:[
-    {id:"kyle-kick-drum-1-kick-mic",role:"Kick Drum",gear:"1. Kick Mic",loc:"ARK – 25"},
-    {id:"kyle-snare-top-2-snare-top-mic",role:"Snare Top",gear:"2. Snare Top Mic",loc:"ARK – 26"},
-    {id:"kyle-snare-bottom-3-snare-bottom-mic",role:"Snare Bottom",gear:"3. Snare Bottom Mic",loc:"ARK – 27"},
-    {id:"kyle-toms-mixdown-4-6-tom-mics",role:"Toms - Mixdown",gear:"4-6. Tom Mics",loc:"NSB.32 - 1-3"},
-    {id:"kyle-overheads-mixdown-7-8-overhead-lr-condenser",role:"Overheads - Mixdown",gear:"7-8. Overhead (LR) Condensers",loc:"NSB.32 - 4-5"}
+  {id:"Pack8 (Blue)",name:"Tyler",inst:"Drums",pack:"Pack 8",color:"#2E7CD6",qmix:"15 / 16",tx:"Tx 8",rows:[
+    {id:"tyler-kick-drum",role:"Kick Drum",gear:"1. Kick Mic",loc:"ARK In 25"},
+    {id:"tyler-snare-top",role:"Snare Top",gear:"2. Snare Top Mic",loc:"ARK In 26"},
+    {id:"tyler-snare-bottom",role:"Snare Bottom",gear:"3. Snare Bottom Mic",loc:"ARK In 27"},
+    {id:"tyler-toms-mixdown",role:"Toms - Mixdown",gear:"4-6. Tom Mics",loc:"NSB.32 In 1-3"},
+    {id:"tyler-overheads-mixdown",role:"Overheads - Mixdown",gear:"7-8. Overhead (LR) Condensers",loc:"NSB.32 In 4-5"}
+  ]},
+  {id:"House",name:"House / Host",inst:"",pack:"",color:"#5c574f",qmix:"",rows:[
+    {id:"host-1-speaking-mic",role:"Host 1",gear:"Wireless Mic G",loc:"Ch 7 · AVB 12 · Ark 12 · Mic G"},
+    {id:"host-2-speaking-mic",role:"Host 2",gear:"Wireless Mic H",loc:"Ch 8 · AVB 13 · Ark 13 · Mic H"},
+    {id:"foh-tech-talkback",role:"FOH Tech Talkback",gear:"Wired TB 4",loc:"Ch 12 · AVB 17 · Ark 17 · Wired TB 4"}
+  ]},
+  {id:"Playback",name:"Playback",inst:"",pack:"",color:"#5c574f",qmix:"",rows:[
+    {id:"playback-tracks-l",role:"Tracks (L)",gear:"Playback Mac · AVB Return",loc:"AVB 33"},
+    {id:"playback-tracks-r",role:"Tracks (R)",gear:"Playback Mac · AVB Return",loc:"AVB 34"},
+    {id:"playback-click",role:"Click",gear:"Aux In 2 (L)",loc:"AVB 35"},
+    {id:"playback-guide",role:"Guide",gear:"Aux In 2 (R)",loc:"AVB 36"}
   ]},
 ];
 var ioEditing=false, ioBuf=null;
@@ -1557,7 +1569,7 @@ function ioCounts(list){var d=0,t=0;list.forEach(function(p){if(p.off)return;p.r
 function ioListClearProgress(list){
   if(!list||!list.length)return list;
   return list.map(function(p){
-    return{id:p.id,name:p.name,inst:p.inst,pack:p.pack,color:p.color,qmix:p.qmix,off:p.off,rows:(p.rows||[]).map(function(r){
+    return{id:p.id,name:p.name,inst:p.inst,pack:p.pack,color:p.color,qmix:p.qmix,tx:p.tx,off:p.off,rows:(p.rows||[]).map(function(r){
       return{id:r.id,role:r.role,gear:r.gear,loc:r.loc};
     })};
   });
@@ -1581,10 +1593,11 @@ function renderIOList(){
         (r.loc?'<span class="loc">'+esc(r.loc)+'</span>':'')+'</div>';
     }).join("");
     var chip='<span class="chip" style="background:'+esc(p.color||'#c7c2b8')+'">'+esc(p.id || "—")+'</span>';
-    var qx=p.qmix?'<span class="qx">Q-Mix '+esc(p.qmix)+'</span>':'';
+    var txLine=p.tx?'<span class="iotx">'+esc(p.tx)+'</span>':'';
+    var qx=p.qmix?'<span class="qx">Aux '+esc(p.qmix)+'</span>':'';
     var tag=p.off?'<span class="iotag">Not used</span>':'';
     return '<div class="ioperf'+(p.off?' off':'')+'"><div class="ph">'+chip+
-      '<span class="pn">'+esc(p.name)+tag+(p.inst?'<small>'+esc(p.inst)+'</small>':'')+'</span>'+qx+'</div>'+rows+'</div>';
+      '<span class="pn">'+esc(p.name)+tag+(p.inst?'<small>'+esc(p.inst)+'</small>':'')+txLine+'</span>'+qx+'</div>'+rows+'</div>';
   }).join("");
   mount.innerHTML=bar+body;
 }
@@ -1623,7 +1636,7 @@ function ioUid(){return "x"+Date.now().toString(36)+Math.random().toString(36).s
 function ioSet(pi,ri,field,val){if(ri<0)ioBuf[pi][field]=val;else ioBuf[pi].rows[ri][field]=val;}
 function ioAddRow(pi){ioBuf[pi].rows.push({id:ioUid(),role:"",gear:"",loc:""});renderIOList();}
 function ioDelRow(pi,ri){ioBuf[pi].rows.splice(ri,1);renderIOList();}
-function ioAddPerf(){ioBuf.push({id:ioUid(),name:"New Performer",inst:"",pack:"",color:"#2E7CD6",qmix:"",rows:[{id:ioUid(),role:"",gear:"",loc:""}]});renderIOList();}
+function ioAddPerf(){ioBuf.push({id:ioUid(),name:"New Performer",inst:"",pack:"",color:"#2E7CD6",qmix:"",tx:"",rows:[{id:ioUid(),role:"",gear:"",loc:""}]});renderIOList();}
 function ioDelPerf(pi){if(confirm("Remove this performer and all their inputs?")){ioBuf.splice(pi,1);renderIOList();}}
 function renderIOEdit(mount){
   var bar='<div class="ioedbar"><button class="cancel" onclick="ioCancelEdit()">Cancel</button><button class="save" onclick="ioSaveEdit()">✓ Save list</button></div>';
@@ -1633,7 +1646,8 @@ function renderIOEdit(mount){
       '<input value="'+esc(p.name)+'" placeholder="Name" oninput="ioSet('+pi+',-1,\'name\',this.value)" style="max-width:118px">'+
       '<input value="'+esc(p.pack)+'" placeholder="Pack" oninput="ioSet('+pi+',-1,\'pack\',this.value)" style="max-width:78px">'+
       '<input type="color" value="'+col+'" oninput="ioSet('+pi+',-1,\'color\',this.value)" style="width:34px;flex:none;padding:2px">'+
-      '<input value="'+esc(p.qmix)+'" placeholder="Q-Mix" oninput="ioSet('+pi+',-1,\'qmix\',this.value)" style="max-width:66px">'+
+      '<input value="'+esc(p.qmix)+'" placeholder="Aux" oninput="ioSet('+pi+',-1,\'qmix\',this.value)" style="max-width:66px">'+
+      '<input value="'+esc(p.tx||"")+'" placeholder="Tx" oninput="ioSet('+pi+',-1,\'tx\',this.value)" style="max-width:72px">'+
       '<button class="iodel" onclick="ioDelPerf('+pi+')" title="Remove performer">✕</button></div>';
     var inst='<div class="iorow"><span class="ioe"><input value="'+esc(p.inst||"")+'" placeholder="Instrument label (optional)" oninput="ioSet('+pi+',-1,\'inst\',this.value)"></span></div>';
     var rows=p.rows.map(function(r,ri){

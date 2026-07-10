@@ -657,6 +657,7 @@ export function formatIoDefaultJs(ioList) {
       `pack:${JSON.stringify(p.pack || "")}`,
       `color:${JSON.stringify(p.color || "#c7c2b8")}`,
       `qmix:${JSON.stringify(p.qmix || "")}`,
+      `tx:${JSON.stringify(p.tx || "")}`,
     ];
     if (p.off) head.push("off:true");
     lines.push(`  {${head.join(",")},rows:[`);
