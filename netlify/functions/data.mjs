@@ -129,15 +129,32 @@ async function sumTally(s){
  let total = 0; const by = {};
  const { blobs } = await s.list({ prefix: "tally-" });
  await Promise.all((blobs || []).map(async b => {
- const arr = await s.get(b.key, { type:"json" });
- if(Array.isArray(arr)) for(const e of arr){
- const d = Number(e && e.delta) || 0;
- const k = ((e && e.by) || "?").toString().toUpperCase().slice(0, 4) || "?";
- total += d; by[k] = (by[k] || 0) + d;
- }
+ const tally = compactTally(await s.get(b.key, { type:"json" }));
+ total += tally.total;
+ for(const k of Object.keys(tally.by)) by[k] = (by[k] || 0) + tally.by[k];
  }));
  for(const k of Object.keys(by)) by[k] = Math.max(0, by[k]);
  return { total: Math.max(0, total), by };
+}
+
+/* Convert the old growing tap log to one compact per-device summary.
+   Each device owns its own key, so 2-3 counters never overwrite each other. */
+function compactTally(value){
+ const out = { total:0, by:{} };
+ if(Array.isArray(value)){
+ for(const e of value){
+ const d = Number(e && e.delta) || 0;
+ const k = ((e && e.by) || "?").toString().toUpperCase().slice(0, 4) || "?";
+ out.total += d; out.by[k] = (out.by[k] || 0) + d;
+ }
+ }else if(value && typeof value === "object"){
+ out.total = Number(value.total) || 0;
+ const src = value.by && typeof value.by === "object" ? value.by : {};
+ for(const k of Object.keys(src)) out.by[k] = Number(src[k]) || 0;
+ }
+ out.total = Math.max(0, out.total);
+ for(const k of Object.keys(out.by)) out.by[k] = Math.max(0, out.by[k]);
+ return out;
 }
 
 async function assemble(s){
@@ -199,7 +216,7 @@ export default async (req) => {
  const key = devKey(payload.dev);
  const cur = (await s.get(key, { type:"json" })) || 0;
  await s.setJSON(key, (typeof cur === "number" ? cur : 0) + (Number(payload.delta) || 0));
- return json(await assemble(s));
+ return json({ ok:true });
  }
 
  /* ---- v1.3.0 tally: append-only per-phone log with initials ----
@@ -208,15 +225,13 @@ export default async (req) => {
  and the leader dashboard can break the total down per initials. */
  if(action === "tallyAdd"){
  const key = tallyKey(payload.dev);
- const cur = await s.get(key, { type:"json" });
- const arr = Array.isArray(cur) ? cur : [];
- arr.push({
- by: (payload.by || "?").toString().toUpperCase().slice(0, 4) || "?",
- delta: Number(payload.delta) || 0,
- t: (payload.t || "").toString().slice(0, 12)
- });
- await s.setJSON(key, arr.slice(-4000));
- return json(await assemble(s));
+ const tally = compactTally(await s.get(key, { type:"json" }));
+ const by = (payload.by || "?").toString().toUpperCase().slice(0, 4) || "?";
+ const delta = Number(payload.delta) || 0;
+ tally.total = Math.max(0, tally.total + delta);
+ tally.by[by] = Math.max(0, (tally.by[by] || 0) + delta);
+ await s.setJSON(key, tally);
+ return json({ ok:true });
  }
 
  /* ---- everything else touches exactly one blob ---- */
@@ -339,7 +354,9 @@ export default async (req) => {
  }
  default: return json({ error:"unknown action" }, 400);
  }
- return json(await assemble(s));
+ /* The browser already applied the change optimistically. Do not rebuild and
+    resend the whole app after every write; the sync loop reconciles. */
+ return json({ ok:true });
  }
 
  return json({ error:"method not allowed" }, 405);
