@@ -1,4 +1,9 @@
 import { getStore } from "@netlify/blobs";
+// Starter teleprompter scripts. Missing ones are merged into the live board
+// automatically on read, so every user sees every county without a leader
+// having to seed anything. Generated from data/scripts.json — regenerate with
+// `node scripts/sync-starter-scripts.mjs` after editing that file.
+import STARTER_SCRIPTS from "./starter-scripts.mjs";
 
 const STORE = "k2c-ambassador";
 const DEFAULT_DAY_PIN = "0711";
@@ -30,7 +35,7 @@ const LEADER_PIN = () => process.env.LEADER_PIN || "2026";
  checkmarks that "only occasionally stuck").
  Old single-blob data migrates automatically on first read. */
 
-const EMPTY_CORE = { checklist:{}, announcements:[], feedback:[], praises:[], event:{name:"",date:""}, dayPin:DEFAULT_DAY_PIN, funding:{pct:64, needed:"$60,000"} };
+const EMPTY_CORE = { checklist:{}, notes:{}, announcements:[], feedback:[], praises:[], event:{name:"",date:""}, dayPin:DEFAULT_DAY_PIN, funding:{pct:64, needed:"$60,000"} };
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const str = (v, n) => (v == null ? "" : v.toString()).slice(0, n);
@@ -66,7 +71,7 @@ function normIssue(x){
   by: str(x.by || "Volunteer", 40),
   t: str(x.t, 12),
   hidden: !!x.hidden,
-  ackBy: str(x.ackBy, 8),
+  ackBy: str(x.ackBy, 40),
   ackT: str(x.ackT, 12),
   comments: normComments(x.comments)
  };
@@ -79,7 +84,7 @@ function normPraiseItem(x){
   body: str(x.body, 2000),
   t: str(x.t, 12),
   hidden: !!x.hidden,
-  ackBy: str(x.ackBy, 8),
+  ackBy: str(x.ackBy, 40),
   ackT: str(x.ackT, 12),
   comments: normComments(x.comments)
  };
@@ -111,6 +116,7 @@ export function normCore(c){
  c = c || {};
  return {
  checklist: c.checklist || {},
+ notes: normNotes(c.notes),
  announcements: Array.isArray(c.announcements) ? c.announcements.map(normAnn).slice(0, 200) : [],
  feedback: Array.isArray(c.feedback) ? c.feedback.map(normIssue).slice(0, 500) : [],
  praises: Array.isArray(c.praises) ? c.praises.map(normPraiseItem).slice(0, 500) : [],
@@ -121,11 +127,26 @@ export function normCore(c){
  };
 }
 function clampPct(n){ n = Number(n); return Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 64; }
+/* Per-checklist-item notes: { [itemId]: "text" }. Keys and values are capped;
+   empty values are dropped so the map only ever holds real notes. */
+function normNotes(n){
+ if(!n || typeof n !== "object") return {};
+ const out = {};
+ for(const k of Object.keys(n).slice(0, 1000)){
+  const key = str(k, 60), val = str(n[k], 500).trim();
+  if(key && val) out[key] = val;
+ }
+ return out;
+}
 
 export function normPrompter(p){
  p = p || {};
  const scripts = Array.isArray(p.scripts) ? p.scripts : [];
- return { scripts: scripts.map(sc => ({
+ return {
+ // Tombstones: starter scripts a leader deleted stay deleted instead of
+ // being re-merged on the next read.
+ removed: Array.isArray(p.removed) ? p.removed.map(x => str(x, 40)).filter(Boolean).slice(0, 400) : [],
+ scripts: scripts.map(sc => ({
  id: (sc.id || "").toString().slice(0, 40),
  event: (sc.event || "").toString().slice(0, 60),
  title: (sc.title || "").toString().slice(0, 80),
@@ -133,14 +154,28 @@ export function normPrompter(p){
  assignee: (sc.assignee || "").toString().slice(0, 30),
  body: (sc.body || "").toString().slice(0, 20000),
  done: sc.done && sc.done.initials
- ? { initials:(sc.done.initials||"").toString().slice(0,4), date:(sc.done.date||"").toString().slice(0,12) }
+ ? { initials:(sc.done.initials||"").toString().slice(0,40), date:(sc.done.date||"").toString().slice(0,12) }
  : null
  })).slice(0, 200) };
 }
 
+/* Merge any starter script whose id is neither on the board nor tombstoned.
+   Returns true when something was added (i.e. a write is warranted). */
+function mergeStarterScripts(p){
+ const have = new Set(p.scripts.map(x => x.id));
+ const gone = new Set(p.removed);
+ let added = false;
+ for(const sc of STARTER_SCRIPTS){
+  if(!sc || !sc.id || have.has(sc.id) || gone.has(sc.id)) continue;
+  p.scripts.push(normPrompter({ scripts: [sc] }).scripts[0]);
+  added = true;
+ }
+ return added;
+}
+
 /* ---- radios ---- */
 function defaultRadios(){ const a = []; for(let i = 1; i <= 10; i++) a.push({ n:i, out:null, in:null }); return a; }
-function normStamp(x){ if(!x || !x.by) return null; return { by:(x.by || "").toString().toUpperCase().slice(0, 4), t:(x.t || "").toString().slice(0, 12) }; }
+function normStamp(x){ if(!x || !x.by) return null; return { by:(x.by || "").toString().slice(0, 40), t:(x.t || "").toString().slice(0, 12) }; }
 function normRadios(r){
  const src = (r && Array.isArray(r.list)) ? r.list : [];
  const out = defaultRadios();
@@ -153,8 +188,36 @@ function normRadios(r){
 const normCheckins = v => Array.isArray(v) ? v.map(normCheckin).slice(-2000) : [];
 const normIO = v => ({ list: (v && Array.isArray(v.list)) ? v.list : [] });
 
+/* ---- PIN brute-force protection ----
+   Per-IP sliding window kept in a blob: 15 wrong PIN entries in 10 minutes
+   blocks further PIN checks from that IP until the window slides past.
+   Forgiving on purpose — event WiFi/CGNAT can put several phones behind one
+   IP and morning-huddle typos are normal, so the threshold is generous,
+   empty PINs are never counted, and a correct leader PIN clears the record. */
+const PIN_MAX_FAILS = 15, PIN_WINDOW_MS = 10 * 60 * 1000;
+function pinFailKey(req, context){
+ let ip = (context && context.ip)
+  || req.headers.get("x-nf-client-connection-ip")
+  || (req.headers.get("x-forwarded-for") || "").split(",")[0].trim()
+  || "unknown";
+ ip = ip.toString().replace(/[^a-zA-Z0-9._:-]/g, "").slice(0, 48) || "unknown";
+ return "pinfail-" + ip;
+}
+async function pinFails(s, key){
+ let rec = null;
+ try { rec = await s.get(key, { type:"json" }); } catch(_) {}
+ const cutoff = Date.now() - PIN_WINDOW_MS;
+ return (rec && Array.isArray(rec.t) ? rec.t : []).filter(t => t > cutoff);
+}
+async function pinNoteFail(s, key){
+ const t = await pinFails(s, key);
+ t.push(Date.now());
+ await s.setJSON(key, { t: t.slice(-PIN_MAX_FAILS * 2) }).catch(() => {});
+}
+const pinBlockedResp = () => json({ error:"too many wrong PIN attempts — wait 10 minutes and try again", rateLimited:true }, 429);
+
 const LEADER_ACTIONS = new Set([
- "toggleCheck","addAnnouncement","ackCard","setEvent","setIOList","setDayPin",
+ "toggleCheck","setChecklistNote","addAnnouncement","ackCard","setEvent","setIOList","setDayPin",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete"
 ]);
 
@@ -256,7 +319,7 @@ function compactTally(value){
  if(Array.isArray(value)){
  for(const e of value){
  const d = Number(e && e.delta) || 0;
- const k = ((e && e.by) || "?").toString().toUpperCase().slice(0, 4) || "?";
+ const k = ((e && e.by) || "?").toString().slice(0, 40) || "?";
  out.total += d; out.by[k] = (out.by[k] || 0) + d;
  }
  }else if(value && typeof value === "object"){
@@ -311,8 +374,13 @@ async function assemble(s){
  parts = await migrateIfNeeded(s, parts);
  const core = normCore(parts.core);
  const agg = await readAgg(s);
+ // Self-seeding script board: fill in any missing starter scripts (no-op
+ // write when nothing is missing, so the usual GET stays read-only).
+ const prompter = await compareAndSwap(s, "prompter", normPrompter,
+  p => mergeStarterScripts(p) ? p : undefined, () => ({ scripts: [] }));
  return {
  checklist: core.checklist,
+ notes: core.notes,
  announcements: core.announcements,
  checkins: normCheckins(parts.checkins),
  feedback: core.feedback,
@@ -324,7 +392,7 @@ async function assemble(s){
  ioList: (parts.io && Array.isArray(parts.io.list)) ? parts.io.list : [],
  dayPinSet: !!core.dayPin, // the PIN itself is never sent to clients
  funding: core.funding,
- prompter: normPrompter(parts.prompter)
+ prompter: prompter
  };
 }
 
@@ -339,7 +407,7 @@ const json = (obj, status=200) => new Response(JSON.stringify(obj), {
  status, headers: { "Content-Type":"application/json", "Cache-Control":"no-store" }
 });
 
-export default async (req) => {
+export default async (req, context) => {
  const s = getStore(STORE, { consistency: "strong" });
 
  if(req.method === "GET"){
@@ -359,19 +427,30 @@ export default async (req) => {
  const payload = body.payload || {};
  const pin = (body.pin || "").toString();
 
+ /* ---- PIN rate limit: any non-empty PIN about to be checked counts ---- */
+ const checksPin = action === "verifyLeaderPin" || action === "verifyDayPin" || LEADER_ACTIONS.has(action);
+ const failKey = pinFailKey(req, context);
+ if(pin && checksPin && (await pinFails(s, failKey)).length >= PIN_MAX_FAILS){
+ return pinBlockedResp();
+ }
+
  /* ---- PIN verification (no state change) ---- */
  if(action === "verifyLeaderPin"){
- return pin === LEADER_PIN() ? json({ ok:true }) : json({ error:"wrong pin" }, 403);
+ if(pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true }); }
+ if(pin) await pinNoteFail(s, failKey);
+ return json({ error:"wrong pin" }, 403);
  }
  if(action === "verifyDayPin"){
- if(pin && pin === LEADER_PIN()) return json({ ok:true, leader:true });
+ if(pin && pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, leader:true }); }
  const core = normCore((await s.get("core", { type:"json" })) || (await s.get("state", { type:"json" })) || {});
  if(core.dayPin && pin === core.dayPin) return json({ ok:true, leader:false });
+ if(pin) await pinNoteFail(s, failKey);
  return json({ error:"wrong pin" }, 403);
  }
 
  /* ---- privileged actions require the leader PIN, verified here ---- */
  if(LEADER_ACTIONS.has(action) && pin !== LEADER_PIN()){
+ if(pin) await pinNoteFail(s, failKey);
  return json({ error:"leader pin required" }, 403);
  }
 
@@ -393,7 +472,7 @@ export default async (req) => {
  if(action === "tallyAdd"){
  const key = tallyKey(payload.dev);
  const tally = compactTally(await s.get(key, { type:"json" }));
- const by = (payload.by || "?").toString().toUpperCase().slice(0, 4) || "?";
+ const by = (payload.by || "?").toString().slice(0, 40) || "?";
  const delta = Number(payload.delta) || 0;
  const beforeTotal = tally.total, beforeBy = tally.by[by] || 0;
  tally.total = Math.max(0, tally.total + delta);
@@ -413,8 +492,18 @@ export default async (req) => {
  const id = payload.id;
  if(id){
  if(core.checklist[id]) delete core.checklist[id];
- else core.checklist[id] = { by: payload.by || "", t: payload.t || "", dm: (payload.dm ?? null) };
+ else core.checklist[id] = { by: str(payload.by, 40), t: str(payload.t, 12), dm: (payload.dm ?? null) };
  }
+ return core;
+ });
+ break;
+ case "setChecklistNote":
+ await casCore(s, core => {
+ const id = str(payload.id, 60);
+ if(!id) return undefined;
+ core.notes = core.notes || {};
+ const t = str(payload.text, 500).trim();
+ if(t) core.notes[id] = t; else delete core.notes[id];
  return core;
  });
  break;
@@ -452,7 +541,7 @@ export default async (req) => {
  const n = Number(payload.n);
  if(!(n >= 1 && n <= 10)) return undefined;
  const r = rad.list[n-1];
- const stamp = { by:(payload.by || "?").toString().toUpperCase().slice(0, 4), t:(payload.t || "").toString().slice(0, 12) };
+ const stamp = { by:(payload.by || "?").toString().slice(0, 40), t:(payload.t || "").toString().slice(0, 12) };
  if(r.out && !r.in){ r.in = stamp; } // returning it
  else { r.out = stamp; r.in = null; } // checking it out
  return rad;
@@ -478,17 +567,19 @@ export default async (req) => {
  if(!it) return undefined;
  const hide = !it.hidden;
  it.hidden = hide;
- it.ackBy = hide ? str(payload.by, 8) : "";
+ it.ackBy = hide ? str(payload.by, 40) : "";
  it.ackT = hide ? str(payload.t, 12) : "";
  return core;
  });
  break;
  case "reset": {
- /* v1.3.0 — ISSUES SURVIVE THE RESET (open + acknowledged), per leadership.
-    Clears checklists, check-ins, counts (legacy + tally), praises,
-    announcements & radios. Keeps event info, Day PIN, funding, I/O roster
-    (progress cleared) and the Recording Studio scripts. */
- await casCore(s, core => ({ ...EMPTY_CORE, event: core.event, dayPin: core.dayPin, funding: core.funding, feedback: core.feedback }));
+ /* ISSUES AND PRAISES SURVIVE THE RESET, per leadership — the praise wall is
+    a lasting testimony record, not a day-scoped list (this also fixes reports
+    of praise "disappearing" / being un-postable after an end-of-day reset).
+    Clears checklists, check-ins, counts (legacy + tally), announcements &
+    radios. Keeps event info, Day PIN, funding, I/O roster (progress cleared),
+    the Recording Studio scripts, issues and praises. */
+ await casCore(s, core => ({ ...EMPTY_CORE, event: core.event, dayPin: core.dayPin, funding: core.funding, feedback: core.feedback, praises: core.praises }));
  await compareAndSwap(s, "io", normIO, io => { io.list = ioListClearProgress(io.list); return io; }, () => ({ list: [] }));
  const [c1, c2] = await Promise.all([ s.list({ prefix: "count-" }), s.list({ prefix: "tally-" }) ]);
  const doomed = [ ...((c1 && c1.blobs) || []), ...((c2 && c2.blobs) || []) ];
@@ -518,13 +609,19 @@ export default async (req) => {
  }, () => ({ scripts: [] }));
  break;
  case "promptDelete":
- await compareAndSwap(s, "prompter", normPrompter, p => { p.scripts = p.scripts.filter(x => x.id !== payload.id); return p; }, () => ({ scripts: [] }));
+ await compareAndSwap(s, "prompter", normPrompter, p => {
+ const id = str(payload.id, 40);
+ if(!id) return undefined;
+ p.scripts = p.scripts.filter(x => x.id !== id);
+ if(!p.removed.includes(id)) p.removed.push(id); // tombstone: don't re-seed it
+ return p;
+ }, () => ({ scripts: [] }));
  break;
  case "promptDone":
  await compareAndSwap(s, "prompter", normPrompter, p => {
  const it = p.scripts.find(x => x.id === payload.id);
  if(!it) return undefined;
- it.done = { initials:(payload.initials||"").toString().toUpperCase().slice(0,4), date:(payload.date||"").toString().slice(0,12) };
+ it.done = { initials:(payload.initials||"").toString().slice(0,40), date:(payload.date||"").toString().slice(0,12) };
  return p;
  }, () => ({ scripts: [] }));
  break;

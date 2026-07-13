@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "import:io": "node scripts/excel-to-io.mjs",
-    "import:io:write": "node scripts/excel-to-io.mjs --write-index"
+    "import:io:write": "node scripts/excel-to-io.mjs --write-index",
+    "sync:scripts": "node scripts/sync-starter-scripts.mjs"
   },
   "dependencies": {
     "@netlify/blobs": "^8.1.0"

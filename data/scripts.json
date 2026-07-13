@@ -163,29 +163,56 @@
   },
   {
     "id": "sullivan-A",
-    "event": "Sullivan County — Date & venue TBD (leaders: edit me!)",
+    "event": "Sullivan County — Jun 13 · Monadnock Park",
     "title": "Script A — Come As You Are",
-    "due": "",
+    "due": "2026-05-30",
     "assignee": "",
-    "body": "Hey — I want to tell you about something happening right here in Sullivan County. On Saturday, [DATE], from 2 to 5 in the afternoon, we're setting up at [VENUE]. No dress code, no expectations, no church background needed. Just come as you are. There's live music, real conversation, and a few hours to breathe. It's completely free. We're not asking you to come to us — we're coming to you. If you've got questions, doubts, or you're just curious, this is for you. [DATE], [VENUE], 2 to 5 PM. Hope. Healing. Salvation. Look up kingdomtothecounties.com for more.",
+    "body": "Hey — I want to tell you about something happening right here in Sullivan County. On Saturday, June 13th, from 2 to 5 in the afternoon, we're setting up at Monadnock Park in Claremont. No dress code, no expectations, no church background needed. Just come as you are. There's live music, real conversation, and a few hours to breathe. It's completely free. We're not asking you to come to us — we're coming to you. If you've got questions, doubts, or you're just curious, this is for you. June 13th, Monadnock Park, 2 to 5 PM. Hope. Healing. Salvation. Look up kingdomtothecounties.com for more.",
     "done": null
   },
   {
     "id": "sullivan-B",
-    "event": "Sullivan County — Date & venue TBD (leaders: edit me!)",
+    "event": "Sullivan County — Jun 13 · Monadnock Park",
     "title": "Script B — Logistics / Urgency",
-    "due": "",
+    "due": "2026-05-30",
     "assignee": "",
-    "body": "Mark your calendar — Saturday, [DATE], 2 to 5 PM, [VENUE]. This is a one-day gathering for Sullivan County. Bring your kids, your neighbors, whoever needs a reason to hope. It's outdoors, it's free, and it's built for anyone — whether you've never set foot in a church or you grew up in one and walked away. Live worship, real conversation, a chance to reset. We only get one shot at this in Sullivan County this year — there isn't a second date. [DATE]. [VENUE]. 2 to 5 PM. Hope. Healing. Salvation. Everything you need is at kingdomtothecounties.com.",
+    "body": "Mark your calendar — Saturday, June 13th, 2 to 5 PM, Monadnock Park in Claremont. This is a one-day gathering for Sullivan County. Bring your kids, your neighbors, whoever needs a reason to hope. It's outdoors, it's free, and it's built for anyone — whether you've never set foot in a church or you grew up in one and walked away. Live worship, real conversation, a chance to reset. We only get one shot at this in Sullivan County this year — there isn't a second date. June 13th. Monadnock Park. 2 to 5 PM. Hope. Healing. Salvation. Everything you need is at kingdomtothecounties.com.",
     "done": null
   },
   {
     "id": "sullivan-C",
-    "event": "Sullivan County — Date & venue TBD (leaders: edit me!)",
+    "event": "Sullivan County — Jun 13 · Monadnock Park",
     "title": "Script C — Pain Point / Hope",
-    "due": "",
+    "due": "2026-05-30",
     "assignee": "",
-    "body": "If you're tired — really tired, the kind sleep doesn't fix — I want you to hear this. On Saturday, [DATE], from 2 to 5 PM at [VENUE], a group of us are gathering for one afternoon to remind Sullivan County you are not forgotten and not too far gone. No judgment, no pressure — just an open field, real worship, and people who care whether you show up. You don't have to have it figured out. You don't have to carry it alone. Come as you are. [DATE], [VENUE], 2 to 5 PM. Hope. Healing. Salvation. Find out more at kingdomtothecounties.com.",
+    "body": "If you're tired — really tired, the kind sleep doesn't fix — I want you to hear this. On Saturday, June 13th, from 2 to 5 PM at Monadnock Park in Claremont, a group of us are gathering for one afternoon to remind Sullivan County you are not forgotten and not too far gone. No judgment, no pressure — just an open field, real worship, and people who care whether you show up. You don't have to have it figured out. You don't have to carry it alone. Come as you are. June 13th, Monadnock Park, 2 to 5 PM. Hope. Healing. Salvation. Find out more at kingdomtothecounties.com.",
+    "done": null
+  },
+  {
+    "id": "grafton-A",
+    "event": "Grafton County — Jun 27 · Loon Mountain Resort",
+    "title": "Script A — Come As You Are",
+    "due": "2026-06-13",
+    "assignee": "",
+    "body": "Hey — something's happening right here in Grafton County. Saturday, June 27th, 2 to 5 in the afternoon, at Loon Mountain Resort in Lincoln. No dress code, no expectations, no church background needed — just come as you are. Live music, real conversation, a few hours to breathe. Completely free. We're not asking you to come to us — we're coming to you. If you've got questions, doubts, or you're just curious, this is for you. June 27th, Loon Mountain, 2 to 5 PM. Hope. Healing. Salvation. Look up kingdomtothecounties.com.",
+    "done": null
+  },
+  {
+    "id": "grafton-B",
+    "event": "Grafton County — Jun 27 · Loon Mountain Resort",
+    "title": "Script B — Logistics / Urgency",
+    "due": "2026-06-13",
+    "assignee": "",
+    "body": "Mark your calendar — Saturday, June 27th, 2 to 5 PM, Loon Mountain Resort in Lincoln. One-day gathering for Grafton County. Bring your kids, your neighbors, whoever needs a reason to hope. Outdoors, free, built for anyone — church background or none at all. Live worship, real conversation, a chance to reset. One shot at this in Grafton County this year — no second date. June 27th. Loon Mountain. 2 to 5 PM. Hope. Healing. Salvation. Everything you need is at kingdomtothecounties.com.",
+    "done": null
+  },
+  {
+    "id": "grafton-C",
+    "event": "Grafton County — Jun 27 · Loon Mountain Resort",
+    "title": "Script C — Pain Point / Hope",
+    "due": "2026-06-13",
+    "assignee": "",
+    "body": "If you're tired — really tired, the kind sleep doesn't fix — hear this. Saturday, June 27th, 2 to 5 PM at Loon Mountain Resort in Lincoln, we're gathering for one afternoon to remind Grafton County you are not forgotten and not too far gone. No judgment, no pressure — an open field, real worship, people who care whether you show up. You don't have to have it figured out or carry it alone. Come as you are. June 27th, Loon Mountain, 2 to 5 PM. Hope. Healing. Salvation. Find out more at kingdomtothecounties.com.",
     "done": null
   }
 ]
