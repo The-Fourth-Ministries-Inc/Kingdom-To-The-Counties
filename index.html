@@ -147,6 +147,23 @@
   .cattabs button.on{background:var(--ink);color:var(--cream);border-color:var(--ink)}
   .toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:var(--ink);color:var(--cream);padding:11px 16px;border-radius:22px;font-size:13.5px;font-weight:600;z-index:400;box-shadow:0 6px 18px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;pointer-events:none;max-width:88vw;text-align:center}
   .toast.show{opacity:1}
+  /* checklist item notes (#9) */
+  .chknotebtn{background:none;border:0;font-size:14px;line-height:1;cursor:pointer;padding:0 2px 0 6px;opacity:.65}
+  .chknotebtn:active{opacity:1}
+  .chknote{margin-top:5px;font-size:12.5px;color:#7a4a12;background:rgba(180,120,20,.10);border-radius:7px;padding:5px 9px;line-height:1.35;white-space:pre-wrap}
+  /* leader dashboard quick links (#5) */
+  .dashjump{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:2px 0 14px}
+  .dashjump button{font:600 12.5px/1.1 inherit;padding:9px 6px;border:1px solid var(--line,#e5ded2);border-radius:11px;background:var(--card,#fff);color:var(--ink);cursor:pointer;text-align:center}
+  .dashjump button:active{background:var(--ink);color:var(--cream)}
+  /* trailer load list demo (#4) */
+  .demoflag{background:rgba(180,120,20,.12);border:1px dashed rgba(180,120,20,.5);color:#7a4a12;border-radius:10px;padding:9px 12px;font-size:13px;line-height:1.4;margin:10px 0}
+  .binrow{background:var(--card,#fff);border:1px solid var(--line,#e5ded2);border-left:6px solid #999;border-radius:12px;padding:11px 13px;margin:9px 0}
+  .binhd{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .binno{color:#fff;font-weight:800;font-size:13px;min-width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center}
+  .binnm{font-weight:700;display:inline-flex;align-items:center;gap:6px}
+  .binnm .dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+  .bindest{color:var(--muted,#8a8172);font-size:12.5px;margin-left:auto}
+  .binitems{margin:8px 0 0;padding-left:20px;font-size:13.5px;line-height:1.5}
   .ackedwrap{margin-top:14px}
   .ackedwrap summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--muted);padding:8px 2px;list-style:none}
   .cmts{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
@@ -473,7 +490,7 @@
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.4.2</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.4.3</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -516,6 +533,7 @@
       <button class="hubcard" onclick="show('setup')"><span class="ic">✅</span><span class="tx"><b>Setup Checklist</b><span>Fri build + Sat production</span></span><span class="arr">›</span></button>
       <button class="hubcard" onclick="show('radios')"><span class="ic">📻</span><span class="tx"><b>Radio Checkout</b><span>10 radios · initials in &amp; out</span></span><span class="pill" id="crewRadioPill">0</span></button>
       <button class="hubcard slate" onclick="show('techio')"><span class="ic">🎛️</span><span class="tx"><b>Tech I/O List</b><span>32-channel patch · tracks, click, guide</span></span><span class="arr">›</span></button>
+      <button class="hubcard" onclick="show('inventory')"><span class="ic">📦</span><span class="tx"><b>Trailer Load List</b><span>Color-coded bins · loading order · demo</span></span><span class="arr">›</span></button>
       <button class="hubcard dark" onclick="show('dashboard')"><span class="ic">📊</span><span class="tx"><b style="color:var(--ink)">Leader Dashboard 🔒</b><span>Live progress · leaders only</span></span><span class="arr">›</span></button>
     </div>
   </section>
@@ -525,6 +543,17 @@
     <span class="syncpill" id="sp-dash"><span class="d"></span>Demo mode</span>
     <div id="dashLocked"><div class="lockbar">🔒 Leader access required.<button onclick="askPin(function(){})">Unlock</button></div></div>
     <div id="dashBody" style="display:none">
+      <div class="dashjump">
+        <button onclick="show('setup')">✅ Setup</button>
+        <button onclick="show('techio')">🎛 Tech I/O</button>
+        <button onclick="show('count')">👥 Attendance</button>
+        <button onclick="show('radios')">📻 Radios</button>
+        <button onclick="show('checkin')">🙋 Check-ins</button>
+        <button onclick="show('inventory')">📦 Load List</button>
+        <button onclick="show('announcements')">📣 Announce</button>
+        <button onclick="show('issue')">🧩 Issues</button>
+        <button onclick="show('praise')">🎉 Praise</button>
+      </div>
       <div class="eventedit"><div class="ttl">📍 This event</div>
         <input id="evName" placeholder="Event name (e.g. Sullivan County)" />
         <input id="evDate" placeholder="Date (e.g. Sat, June 13)" />
@@ -582,6 +611,13 @@
     <p class="sub">10 radios. Put in your initials, tap <b>Check out</b> when you grab one, tap <b>Return</b> when you bring it back. 📻</p>
     <div class="idbar" id="idbar-rad"><label>Your initials</label><input id="initRad" maxlength="4" placeholder="e.g. ZS" /></div>
     <div id="radioMount"></div>
+  </section>
+  <section class="page" id="page-inventory">
+    <button class="back" onclick="show('crew')">‹ Specialists</button>
+    <p class="eyebrow">Logistics</p><h1 class="title">Trailer Load List</h1>
+    <div class="demoflag">🧪 <b>Demo / sample layout.</b> This is a starting point to show the color-coded bin system &amp; loading order — real bin contents will be filled in with the logistics team.</div>
+    <p class="sub">Bins are color-coded and numbered in <b>loading order</b> — <b>load last what you need first</b>, so the first bins off the truck are the first ones you use on site.</p>
+    <div id="invMount"></div>
   </section>
   <section class="page" id="page-setup">
     <button class="back" onclick="show('crew')">‹ Specialists</button>
@@ -1525,7 +1561,8 @@
   <div class="dgsheet">
     <div class="dgbrand">KINGDOM <small>TO THE</small> COUNTIES '26</div>
     <h3>🔒 Today's Day PIN</h3>
-    <p>Enter today's Day PIN to use the Ambassador Companion. Ask your team leader if you don't have it yet.</p>
+    <p>Enter your name and today's Day PIN to use the Ambassador Companion. Ask your team leader if you don't have the PIN yet.</p>
+    <input id="dayNameInput" maxlength="40" placeholder="Your name" />
     <input id="dayPinInput" inputmode="numeric" maxlength="10" placeholder="Day PIN" />
     <div class="err" id="dayPinErr"></div>
     <button class="ok" id="dayPinOk">Unlock app</button>
@@ -1863,7 +1900,7 @@ try{MY.name=(localStorage.getItem("k2c_name")||"").slice(0,40);}catch(_){}
 function nowLabel(){return fmt(nowMinutes());}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function esc(s){return(s||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
-function normalize(s){return{checklist:s.checklist||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],count:s.count||0,event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]}};}
+function normalize(s){return{checklist:s.checklist||{},notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],count:s.count||0,event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]}};}
 function toast(msg){var el=document.getElementById("toastEl");if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}el.textContent=msg;el.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function vibr(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(_){}}
 function hasFullState(s){return !!(s&&("checklist" in s||"announcements" in s||"count" in s));}
@@ -2006,7 +2043,10 @@ function renderChecklist(mountId,data,key,overallId,overallBarId,overdueId){
       var chip;
       if(rec){var st=itemStatus(due,rec,curDay);chip='<span class="duechip '+st.cls+'">'+st.txt+'</span>';}
       else{chip='<span class="duechip good" data-live="1" data-due="'+due+'" data-setup-day="'+curDay+'">due in —</span>';}
-      return '<div class="chk'+(rec?" done":"")+(hide?" hidden":"")+'" data-id="'+id+'"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg></span><span class="lab"><span class="txt">'+label+'</span><span class="sub2">'+chip+'<span class="stamp">'+stamp+'</span></span></span></div>';
+      var note=(STATE.notes&&STATE.notes[id])||"";
+      var noteBtn=LEADER?'<button class="chknotebtn" onclick="event.stopPropagation();chkNote(\''+id+'\')" title="'+(note?"Edit note":"Add note")+'">📝</button>':'';
+      var noteHtml=note?'<div class="chknote" onclick="event.stopPropagation()">📝 '+esc(note)+'</div>':'';
+      return '<div class="chk'+(rec?" done":"")+(hide?" hidden":"")+'" data-id="'+id+'"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg></span><span class="lab"><span class="txt">'+label+'</span><span class="sub2">'+chip+'<span class="stamp">'+stamp+'</span>'+noteBtn+'</span>'+noteHtml+'</span></div>';
     }).join("");
     var secHidden=hideCompleted&&secDone===secTotal;
     html+='<div class="clsec"'+(secHidden?' style="display:none"':'')+'><div class="head"><div><h3>'+sec.team+'</h3></div><div class="cnt">'+secDone+'/'+secTotal+'</div></div>'+rows+'</div>';
@@ -2041,6 +2081,18 @@ function toggleCheck(id){
   var dm=tctx.phase==="live"?Math.round(tctx.now):null;
   var payload={id:id,by:init,t:nowLabel(),dm:dm};
   vibr(10);doActionLight("toggleCheck",payload,function(){if(STATE.checklist[id])delete STATE.checklist[id];else STATE.checklist[id]={by:init,t:nowLabel(),dm:dm};},function(){refreshChecklists();renderDashboard();});
+}
+/* Leader note on a checklist item. prompt() sidesteps the constant re-render
+   (an inline field would get wiped like comments used to); the note lives in
+   STATE.notes so it survives every rebuild. */
+function chkNote(id){
+  if(!LEADER){askPin(function(){chkNote(id);});return;}
+  var cur=(STATE.notes&&STATE.notes[id])||"";
+  var t=prompt("Note for this item (leave blank to remove):",cur);
+  if(t===null)return;
+  t=t.trim().slice(0,500);
+  doActionLight("setChecklistNote",{id:id,text:t},function(){STATE.notes=STATE.notes||{};if(t)STATE.notes[id]=t;else delete STATE.notes[id];},function(){refreshChecklists();});
+  toast(t?"📝 Note saved":"📝 Note removed");
 }
 function renderAnnouncements(){
   var f=document.getElementById("annFeed");
@@ -2246,7 +2298,8 @@ function maybeDayGate(){
   var g=document.getElementById("dayGate");if(!g)return;
   if(LIVE&&STATE.dayPinSet&&!dayUnlocked()){
     g.classList.add("show");
-    setTimeout(function(){var i=document.getElementById("dayPinInput");if(i)i.focus();},60);
+    var nm=document.getElementById("dayNameInput");if(nm&&!nm.value)nm.value=MY.name||"";
+    setTimeout(function(){var focusId=(nm&&!nm.value)?"dayNameInput":"dayPinInput";var i=document.getElementById(focusId);if(i)i.focus();},60);
   }else{g.classList.remove("show");}
 }
 function tryDayPin(){
@@ -2255,6 +2308,7 @@ function tryDayPin(){
   verifyPin("verifyDayPin",v).then(function(res){
     if(!res){document.getElementById("dayPinErr").textContent="Wrong Day PIN — ask your team leader.";return;}
     document.getElementById("dayPinErr").textContent="";
+    var nmEl=document.getElementById("dayNameInput");if(nmEl&&nmEl.value.trim()){rememberName(nmEl.value);prefillNames();}
     setDayOK();
     if(res.leader){LEADER=true;LEADERPIN=v;sessionStorage.setItem("k2c_lpin",v);applyLeaderUI();renderDynamic();}
     maybeDayGate();
@@ -2362,7 +2416,7 @@ document.getElementById("csvBtn").addEventListener("click",function(){
   var csv=rows.map(function(r){return r.map(csvCell).join(",");}).join("\r\n");
   var blob=new Blob(["\ufeff"+csv],{type:"text/csv"});
   var a=document.createElement("a");a.href=URL.createObjectURL(blob);
-  a.download="k2c-day-report-v1.4.2-"+new Date().toISOString().slice(0,10)+".csv";
+  a.download="k2c-day-report-v1.4.3-"+new Date().toISOString().slice(0,10)+".csv";
   document.body.appendChild(a);a.click();a.remove();
 });
 document.getElementById("resetBtn").addEventListener("click",function(){
@@ -2376,7 +2430,7 @@ document.addEventListener("click",function(e){var row=e.target.closest(".chk");i
 document.getElementById("annBarX").addEventListener("click",function(e){e.stopPropagation();barDismissed=true;document.getElementById("annBar").classList.remove("show");});
 var annBarMode="checkin";
 document.getElementById("annBar").addEventListener("click",function(){show(annBarMode==="checkin"?"checkin":"announcements");});
-var PARENT={dashboard:"crew",checkin:"guides",count:"crew",setup:"crew",techio:"crew",announcements:"board",praise:"board",issue:"board",leaders:"guides",graphics:"guides",donate:"guides",playbook:"guides",handbook:"guides",tour:"guides",radios:"crew"};
+var PARENT={dashboard:"crew",checkin:"guides",count:"crew",setup:"crew",techio:"crew",inventory:"crew",announcements:"board",praise:"board",issue:"board",leaders:"guides",graphics:"guides",donate:"guides",playbook:"guides",handbook:"guides",tour:"guides",radios:"crew"};
 function show(id){
   if(id==="dashboard"&&!LEADER){askPin(function(){show("dashboard");});}
   var pages=document.querySelectorAll(".page");for(var i=0;i<pages.length;i++)pages[i].classList.remove("active");
@@ -2388,8 +2442,31 @@ function show(id){
   if(id==="announcements"||id==="issue"){seenAnn=STATE.announcements.length;seenIssue=visCount(STATE.feedback);updateBadges();}
   if(id==="tour")tourSeen();
   if(id==="radios")renderRadios();
+  if(id==="inventory")renderInventory();
 }
 function goSchedule(){show("now");setTimeout(function(){var a=document.getElementById("scheduleAnchor");if(a)a.scrollIntoView({behavior:"smooth"});},80);}
+/* ---- Trailer Load List (demo) ----
+   Sample color-coded bin system + loading order. Static demo data for now; a
+   later PR can make it leader-editable & synced like the checklist. */
+var LOADPLAN=[
+  {ord:1,color:"#dc2626",name:"Red",dest:"FOH tent",items:["FOH console + iPad","AVB / network cables","Cable covers & gaff tape"]},
+  {ord:2,color:"#ea580c",name:"Orange",dest:"Stage",items:["Mics & clips","Mic stands","DI boxes"]},
+  {ord:3,color:"#ca8a04",name:"Yellow",dest:"Stage / power",items:["Power drops & stringers","Extension cords","Power strips"]},
+  {ord:4,color:"#16a34a",name:"Green",dest:"Site-wide",items:["Tents & canopy tops","Weight bags","Stakes & mallets"]},
+  {ord:5,color:"#2563eb",name:"Blue",dest:"Guest Services",items:["Tables & tablecloths","Chairs","Signage & banners"]},
+  {ord:6,color:"#7c3aed",name:"Purple",dest:"Ambassadors",items:["Lanyards & badges","Booklets & handouts","Prayer cards"]},
+  {ord:7,color:"#334155",name:"Black",dest:"Everywhere",items:["Tool kit","Zip ties & tape","First-aid kit"]}
+];
+function renderInventory(){
+  var m=document.getElementById("invMount");if(!m)return;
+  m.innerHTML=LOADPLAN.map(function(b){
+    return '<div class="binrow" style="border-left-color:'+b.color+'">'
+      +'<div class="binhd"><span class="binno" style="background:'+b.color+'">'+b.ord+'</span>'
+      +'<span class="binnm"><span class="dot" style="background:'+b.color+'"></span>'+esc(b.name)+' bin</span>'
+      +'<span class="bindest">→ '+esc(b.dest)+'</span></div>'
+      +'<ul class="binitems">'+b.items.map(function(it){return '<li>'+esc(it)+'</li>';}).join("")+'</ul></div>';
+  }).join("");
+}
 var tabsEls=document.querySelectorAll(".tab");for(var ti=0;ti<tabsEls.length;ti++){(function(btn){btn.addEventListener("click",function(){show(btn.getAttribute("data-tab"));});})(tabsEls[ti]);}
 var simRange=document.getElementById("simRange");
 simRange.addEventListener("input",function(){if(!LEADER){askPin(function(){});return;}simActive=true;simAnchor=parseInt(simRange.value,10);simEpoch=Date.now();document.getElementById("simNow").textContent="Previewing "+fmt(simAnchor)+" (running)";refreshAll();refreshChecklists();renderDashboard();});

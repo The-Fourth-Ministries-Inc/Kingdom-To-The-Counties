@@ -30,7 +30,7 @@ const LEADER_PIN = () => process.env.LEADER_PIN || "2026";
  checkmarks that "only occasionally stuck").
  Old single-blob data migrates automatically on first read. */
 
-const EMPTY_CORE = { checklist:{}, announcements:[], feedback:[], praises:[], event:{name:"",date:""}, dayPin:DEFAULT_DAY_PIN, funding:{pct:64, needed:"$60,000"} };
+const EMPTY_CORE = { checklist:{}, notes:{}, announcements:[], feedback:[], praises:[], event:{name:"",date:""}, dayPin:DEFAULT_DAY_PIN, funding:{pct:64, needed:"$60,000"} };
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const str = (v, n) => (v == null ? "" : v.toString()).slice(0, n);
@@ -111,6 +111,7 @@ export function normCore(c){
  c = c || {};
  return {
  checklist: c.checklist || {},
+ notes: normNotes(c.notes),
  announcements: Array.isArray(c.announcements) ? c.announcements.map(normAnn).slice(0, 200) : [],
  feedback: Array.isArray(c.feedback) ? c.feedback.map(normIssue).slice(0, 500) : [],
  praises: Array.isArray(c.praises) ? c.praises.map(normPraiseItem).slice(0, 500) : [],
@@ -121,6 +122,17 @@ export function normCore(c){
  };
 }
 function clampPct(n){ n = Number(n); return Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 64; }
+/* Per-checklist-item notes: { [itemId]: "text" }. Keys and values are capped;
+   empty values are dropped so the map only ever holds real notes. */
+function normNotes(n){
+ if(!n || typeof n !== "object") return {};
+ const out = {};
+ for(const k of Object.keys(n).slice(0, 1000)){
+  const key = str(k, 60), val = str(n[k], 500).trim();
+  if(key && val) out[key] = val;
+ }
+ return out;
+}
 
 export function normPrompter(p){
  p = p || {};
@@ -154,7 +166,7 @@ const normCheckins = v => Array.isArray(v) ? v.map(normCheckin).slice(-2000) : [
 const normIO = v => ({ list: (v && Array.isArray(v.list)) ? v.list : [] });
 
 const LEADER_ACTIONS = new Set([
- "toggleCheck","addAnnouncement","ackCard","setEvent","setIOList","setDayPin",
+ "toggleCheck","setChecklistNote","addAnnouncement","ackCard","setEvent","setIOList","setDayPin",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete"
 ]);
 
@@ -313,6 +325,7 @@ async function assemble(s){
  const agg = await readAgg(s);
  return {
  checklist: core.checklist,
+ notes: core.notes,
  announcements: core.announcements,
  checkins: normCheckins(parts.checkins),
  feedback: core.feedback,
@@ -415,6 +428,16 @@ export default async (req) => {
  if(core.checklist[id]) delete core.checklist[id];
  else core.checklist[id] = { by: payload.by || "", t: payload.t || "", dm: (payload.dm ?? null) };
  }
+ return core;
+ });
+ break;
+ case "setChecklistNote":
+ await casCore(s, core => {
+ const id = str(payload.id, 60);
+ if(!id) return undefined;
+ core.notes = core.notes || {};
+ const t = str(payload.text, 500).trim();
+ if(t) core.notes[id] = t; else delete core.notes[id];
  return core;
  });
  break;
