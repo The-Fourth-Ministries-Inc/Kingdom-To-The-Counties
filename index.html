@@ -1852,9 +1852,10 @@ var SETUP=[
 ];
 var TEARDOWN=[];
 var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],count:0,event:{name:"",date:""},ioList:[],dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
-var LIVE=false,LEADER=false,seenAnn=0,seenIssue=0,barDismissed=false,inflight=0,pendingCount=0,countFlushT=null;
+var LIVE=false,LEADER=false,seenAnn=0,seenIssue=0,barDismissed=false,inflight=0,pendingCount=0,countFlushT=null,countSending=false;
 var lastSyncAt=0,everSynced=false; /* v1.2.0 — sync freshness */
-function settled(){return inflight===0&&pendingCount===0;}
+var remoteDirty=false;
+function settled(){return inflight===0&&pendingCount===0&&!countSending;}
 var API="/.netlify/functions/data";
 var MY={name:"",initials:""};
 try{MY.initials=(localStorage.getItem("k2c_init")||"").slice(0,4);}catch(_){}
@@ -1864,13 +1865,22 @@ function esc(s){return(s||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;",
 function normalize(s){return{checklist:s.checklist||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],count:s.count||0,event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]}};}
 function toast(msg){var el=document.getElementById("toastEl");if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}el.textContent=msg;el.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function vibr(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(_){}}
+function hasFullState(s){return !!(s&&("checklist" in s||"announcements" in s||"count" in s));}
+function reconcileResponse(s){if(hasFullState(s))STATE=normalize(s);}
+function userEditing(){
+  var e=document.activeElement;
+  return !!(e&&(e.matches("input,textarea,[contenteditable=true]")||e.closest(".cmtform")));
+}
+document.addEventListener("focusout",function(){
+  setTimeout(function(){if(remoteDirty&&!userEditing()){remoteDirty=false;renderDynamic();}},120);
+});
 /* v1.3.0 — like doAction, but re-renders only what the caller asks for.
    Full renderDynamic() on every tap was the #1 source of checklist lag. */
 function doActionLight(action,payload,localApply,rerender){
   localApply();rerender();
   if(!LIVE)return;
   inflight++;
-  apiPost(action,payload).then(function(st){if(--inflight===0&&settled()){STATE=normalize(st);renderDynamic();}})
+  apiPost(action,payload).then(function(st){inflight=Math.max(0,inflight-1);if(settled()){reconcileResponse(st);renderDynamic();}})
   .catch(function(){inflight=Math.max(0,inflight-1);LIVE=false;updateSync();renderDynamic();});
 }
 function apiGet(){return fetch(API,{method:"GET"}).then(function(r){if(!r.ok)throw 0;return r.json();});}
@@ -1885,7 +1895,7 @@ function doAction(action,payload,localApply){
   if(LIVE){
     inflight++;
     apiPost(action,payload).then(function(s){
-      if(--inflight===0&&settled()){STATE=normalize(s);renderDynamic();}
+      inflight=Math.max(0,inflight-1);if(settled()){reconcileResponse(s);renderDynamic();}
     }).catch(function(){
       inflight=Math.max(0,inflight-1);LIVE=false;updateSync();renderDynamic();
     });
@@ -2258,12 +2268,15 @@ function bumpCount(delta){
 var DEV=(function(){try{var v=localStorage.getItem("k2c_dev");if(!v){v=uid();localStorage.setItem("k2c_dev",v);}return v;}catch(_){return uid();}})();
 function flushCount(){
   countFlushT=null;
-  if(!LIVE||pendingCount===0)return;
+  if(!LIVE||pendingCount===0||countSending)return;
   var d=pendingCount;pendingCount=0;
-  inflight++;
+  countSending=true;inflight++;
   apiPost("tallyAdd",{delta:d,dev:DEV,by:pendingBy,t:nowLabel()}).then(function(s){
-    if(--inflight===0&&settled()){STATE=normalize(s);renderDynamic();}
-  }).catch(function(){inflight=Math.max(0,inflight-1);LIVE=false;updateSync();renderDynamic();});
+    countSending=false;inflight=Math.max(0,inflight-1);reconcileResponse(s);
+    if(pendingCount!==0)countFlushT=setTimeout(flushCount,120);
+  }).catch(function(){
+    pendingCount+=d;countSending=false;inflight=Math.max(0,inflight-1);LIVE=false;updateSync();
+  });
 }
 // pointerdown (not click) = fires instantly on touch, immune to the
 // double-tap-zoom delay that was eating rapid taps on iOS.
@@ -2342,7 +2355,26 @@ function finishBoot(){
   setInterval(function(){renderClock();renderNow();renderStrip();updateDueChips();if(simActive)document.getElementById("simNow").textContent="Previewing "+fmt(Math.floor(nowMinutes()))+" (running)";},1000);
   setInterval(function(){refreshChecklists();renderDashboard();renderSpine();},15000);
   var lastSnap="";
-  setInterval(function(){if(settled()&&document.visibilityState==="visible"&&(LIVE||everSynced)){apiGet().then(function(s){if(settled()){lastSyncAt=Date.now();everSynced=true;if(!LIVE){LIVE=true;updateSync();}var snap=JSON.stringify(s);var changed=snap!==lastSnap;lastSnap=snap;STATE=normalize(s);maybeDayGate();if(changed)renderDynamic();}}).catch(function(){if(LIVE){LIVE=false;updateSync();}});}},5000);
+  function activePage(){var p=document.querySelector(".page.active");return p?p.id.replace("page-",""):"";}
+  function syncDelay(){
+    var p=activePage();
+    if(p==="count"||p==="issue"||p==="praise"||p==="announcements"||p==="board")return 1200;
+    return 5000;
+  }
+  function syncLoop(){
+    var delay=syncDelay();
+    if(settled()&&document.visibilityState==="visible"&&(LIVE||everSynced)){
+      apiGet().then(function(s){
+        if(settled()){
+          lastSyncAt=Date.now();everSynced=true;if(!LIVE){LIVE=true;updateSync();}
+          var snap=JSON.stringify(s),changed=snap!==lastSnap;lastSnap=snap;STATE=normalize(s);maybeDayGate();
+          if(changed){if(userEditing())remoteDirty=true;else renderDynamic();}
+        }
+      }).catch(function(){if(LIVE){LIVE=false;updateSync();}})
+      .finally(function(){setTimeout(syncLoop,delay);});
+    }else setTimeout(syncLoop,delay);
+  }
+  syncLoop();
 }
 boot();
 /* Offline shell: network-first SW. When online, behavior is identical to
