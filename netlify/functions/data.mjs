@@ -1,4 +1,9 @@
 import { getStore } from "@netlify/blobs";
+// Starter teleprompter scripts. Missing ones are merged into the live board
+// automatically on read, so every user sees every county without a leader
+// having to seed anything. Generated from data/scripts.json — regenerate with
+// `node scripts/sync-starter-scripts.mjs` after editing that file.
+import STARTER_SCRIPTS from "./starter-scripts.mjs";
 
 const STORE = "k2c-ambassador";
 const DEFAULT_DAY_PIN = "0711";
@@ -137,7 +142,11 @@ function normNotes(n){
 export function normPrompter(p){
  p = p || {};
  const scripts = Array.isArray(p.scripts) ? p.scripts : [];
- return { scripts: scripts.map(sc => ({
+ return {
+ // Tombstones: starter scripts a leader deleted stay deleted instead of
+ // being re-merged on the next read.
+ removed: Array.isArray(p.removed) ? p.removed.map(x => str(x, 40)).filter(Boolean).slice(0, 400) : [],
+ scripts: scripts.map(sc => ({
  id: (sc.id || "").toString().slice(0, 40),
  event: (sc.event || "").toString().slice(0, 60),
  title: (sc.title || "").toString().slice(0, 80),
@@ -148,6 +157,20 @@ export function normPrompter(p){
  ? { initials:(sc.done.initials||"").toString().slice(0,4), date:(sc.done.date||"").toString().slice(0,12) }
  : null
  })).slice(0, 200) };
+}
+
+/* Merge any starter script whose id is neither on the board nor tombstoned.
+   Returns true when something was added (i.e. a write is warranted). */
+function mergeStarterScripts(p){
+ const have = new Set(p.scripts.map(x => x.id));
+ const gone = new Set(p.removed);
+ let added = false;
+ for(const sc of STARTER_SCRIPTS){
+  if(!sc || !sc.id || have.has(sc.id) || gone.has(sc.id)) continue;
+  p.scripts.push(normPrompter({ scripts: [sc] }).scripts[0]);
+  added = true;
+ }
+ return added;
 }
 
 /* ---- radios ---- */
@@ -164,6 +187,34 @@ function normRadios(r){
 }
 const normCheckins = v => Array.isArray(v) ? v.map(normCheckin).slice(-2000) : [];
 const normIO = v => ({ list: (v && Array.isArray(v.list)) ? v.list : [] });
+
+/* ---- PIN brute-force protection ----
+   Per-IP sliding window kept in a blob: 15 wrong PIN entries in 10 minutes
+   blocks further PIN checks from that IP until the window slides past.
+   Forgiving on purpose — event WiFi/CGNAT can put several phones behind one
+   IP and morning-huddle typos are normal, so the threshold is generous,
+   empty PINs are never counted, and a correct leader PIN clears the record. */
+const PIN_MAX_FAILS = 15, PIN_WINDOW_MS = 10 * 60 * 1000;
+function pinFailKey(req, context){
+ let ip = (context && context.ip)
+  || req.headers.get("x-nf-client-connection-ip")
+  || (req.headers.get("x-forwarded-for") || "").split(",")[0].trim()
+  || "unknown";
+ ip = ip.toString().replace(/[^a-zA-Z0-9._:-]/g, "").slice(0, 48) || "unknown";
+ return "pinfail-" + ip;
+}
+async function pinFails(s, key){
+ let rec = null;
+ try { rec = await s.get(key, { type:"json" }); } catch(_) {}
+ const cutoff = Date.now() - PIN_WINDOW_MS;
+ return (rec && Array.isArray(rec.t) ? rec.t : []).filter(t => t > cutoff);
+}
+async function pinNoteFail(s, key){
+ const t = await pinFails(s, key);
+ t.push(Date.now());
+ await s.setJSON(key, { t: t.slice(-PIN_MAX_FAILS * 2) }).catch(() => {});
+}
+const pinBlockedResp = () => json({ error:"too many wrong PIN attempts — wait 10 minutes and try again", rateLimited:true }, 429);
 
 const LEADER_ACTIONS = new Set([
  "toggleCheck","setChecklistNote","addAnnouncement","ackCard","setEvent","setIOList","setDayPin",
@@ -323,6 +374,10 @@ async function assemble(s){
  parts = await migrateIfNeeded(s, parts);
  const core = normCore(parts.core);
  const agg = await readAgg(s);
+ // Self-seeding script board: fill in any missing starter scripts (no-op
+ // write when nothing is missing, so the usual GET stays read-only).
+ const prompter = await compareAndSwap(s, "prompter", normPrompter,
+  p => mergeStarterScripts(p) ? p : undefined, () => ({ scripts: [] }));
  return {
  checklist: core.checklist,
  notes: core.notes,
@@ -337,7 +392,7 @@ async function assemble(s){
  ioList: (parts.io && Array.isArray(parts.io.list)) ? parts.io.list : [],
  dayPinSet: !!core.dayPin, // the PIN itself is never sent to clients
  funding: core.funding,
- prompter: normPrompter(parts.prompter)
+ prompter: prompter
  };
 }
 
@@ -352,7 +407,7 @@ const json = (obj, status=200) => new Response(JSON.stringify(obj), {
  status, headers: { "Content-Type":"application/json", "Cache-Control":"no-store" }
 });
 
-export default async (req) => {
+export default async (req, context) => {
  const s = getStore(STORE, { consistency: "strong" });
 
  if(req.method === "GET"){
@@ -372,19 +427,30 @@ export default async (req) => {
  const payload = body.payload || {};
  const pin = (body.pin || "").toString();
 
+ /* ---- PIN rate limit: any non-empty PIN about to be checked counts ---- */
+ const checksPin = action === "verifyLeaderPin" || action === "verifyDayPin" || LEADER_ACTIONS.has(action);
+ const failKey = pinFailKey(req, context);
+ if(pin && checksPin && (await pinFails(s, failKey)).length >= PIN_MAX_FAILS){
+ return pinBlockedResp();
+ }
+
  /* ---- PIN verification (no state change) ---- */
  if(action === "verifyLeaderPin"){
- return pin === LEADER_PIN() ? json({ ok:true }) : json({ error:"wrong pin" }, 403);
+ if(pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true }); }
+ if(pin) await pinNoteFail(s, failKey);
+ return json({ error:"wrong pin" }, 403);
  }
  if(action === "verifyDayPin"){
- if(pin && pin === LEADER_PIN()) return json({ ok:true, leader:true });
+ if(pin && pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, leader:true }); }
  const core = normCore((await s.get("core", { type:"json" })) || (await s.get("state", { type:"json" })) || {});
  if(core.dayPin && pin === core.dayPin) return json({ ok:true, leader:false });
+ if(pin) await pinNoteFail(s, failKey);
  return json({ error:"wrong pin" }, 403);
  }
 
  /* ---- privileged actions require the leader PIN, verified here ---- */
  if(LEADER_ACTIONS.has(action) && pin !== LEADER_PIN()){
+ if(pin) await pinNoteFail(s, failKey);
  return json({ error:"leader pin required" }, 403);
  }
 
@@ -543,7 +609,13 @@ export default async (req) => {
  }, () => ({ scripts: [] }));
  break;
  case "promptDelete":
- await compareAndSwap(s, "prompter", normPrompter, p => { p.scripts = p.scripts.filter(x => x.id !== payload.id); return p; }, () => ({ scripts: [] }));
+ await compareAndSwap(s, "prompter", normPrompter, p => {
+ const id = str(payload.id, 40);
+ if(!id) return undefined;
+ p.scripts = p.scripts.filter(x => x.id !== id);
+ if(!p.removed.includes(id)) p.removed.push(id); // tombstone: don't re-seed it
+ return p;
+ }, () => ({ scripts: [] }));
  break;
  case "promptDone":
  await compareAndSwap(s, "prompter", normPrompter, p => {

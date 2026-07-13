@@ -516,7 +516,7 @@
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.5.0</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.5.1</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1974,7 +1974,7 @@ function apiGet(){
 }
 var LEADERPIN=sessionStorage.getItem("k2c_lpin")||"";
 function apiPost(a,p){return fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:a,payload:p,pin:LEADERPIN})}).then(function(r){if(r.status===403){LEADER=false;LEADERPIN="";sessionStorage.removeItem("k2c_lpin");applyLeaderUI();renderDynamic();alert("Leader PIN check failed — tap a 🔒 to unlock again.");throw 403;}if(!r.ok)throw 0;return r.json();});}
-function verifyPin(action,pin){return fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:action,pin:pin})}).then(function(r){if(r.status===403)return null;if(!r.ok)throw 0;return r.json();});}
+function verifyPin(action,pin){return fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:action,pin:pin})}).then(function(r){if(r.status===403)return null;if(r.status===429)return {rateLimited:true};if(!r.ok)throw 0;return r.json();});}
 function doAction(action,payload,localApply){
   // Apply optimistically right away so the UI feels instant, then reconcile
   // with the server. While any write is in flight we ignore polls & server
@@ -2330,6 +2330,7 @@ function tryPin(){
   var v=document.getElementById("pinInput").value.trim();if(!v)return;
   document.getElementById("pinErr").textContent="Checking…";
   verifyPin("verifyLeaderPin",v).then(function(res){
+    if(res&&res.rateLimited){document.getElementById("pinErr").textContent="Too many wrong tries — wait 10 minutes, then try again.";return;}
     if(res&&res.ok){LEADER=true;LEADERPIN=v;sessionStorage.setItem("k2c_lpin",v);document.getElementById("pinErr").textContent="";closePin();renderDynamic();applyLeaderUI();if(pinThen)pinThen();}
     else{document.getElementById("pinErr").textContent="Wrong PIN — try again.";}
   }).catch(function(){document.getElementById("pinErr").textContent="No connection — try again.";});
@@ -2354,6 +2355,7 @@ function tryDayPin(){
   var v=document.getElementById("dayPinInput").value.trim();if(!v)return;
   document.getElementById("dayPinErr").textContent="Checking…";
   verifyPin("verifyDayPin",v).then(function(res){
+    if(res&&res.rateLimited){document.getElementById("dayPinErr").textContent="Too many wrong tries from this connection — wait 10 minutes and try again.";return;}
     if(!res){document.getElementById("dayPinErr").textContent="Wrong Day PIN — ask your team leader.";return;}
     document.getElementById("dayPinErr").textContent="";
     var nmEl=document.getElementById("dayNameInput");if(nmEl&&nmEl.value.trim()){rememberName(nmEl.value);prefillNames();}
@@ -2493,7 +2495,7 @@ document.getElementById("csvBtn").addEventListener("click",function(){
   var csv=rows.map(function(r){return r.map(csvCell).join(",");}).join("\r\n");
   var blob=new Blob(["\ufeff"+csv],{type:"text/csv"});
   var a=document.createElement("a");a.href=URL.createObjectURL(blob);
-  a.download="k2c-day-report-v1.5.0-"+new Date().toISOString().slice(0,10)+".csv";
+  a.download="k2c-day-report-v1.5.1-"+new Date().toISOString().slice(0,10)+".csv";
   document.body.appendChild(a);a.click();a.remove();
 });
 document.getElementById("resetBtn").addEventListener("click",function(){

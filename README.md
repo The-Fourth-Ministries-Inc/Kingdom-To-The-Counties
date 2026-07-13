@@ -41,6 +41,14 @@ automatically on deploy.
   the code fallback is only used when the variable is unset.
 - **The Day PIN is never sent to clients.** The API only reports whether one is
   set; entered PINs are verified server-side.
+- **PIN guessing is rate-limited.** 15 wrong PIN entries in 10 minutes from one
+  IP blocks further PIN checks (HTTP 429) until the window slides past. Empty
+  PINs never count and a correct leader PIN clears the record, so shared event
+  WiFi and morning-huddle typos won't lock real volunteers out.
+- **The Recording Studio board self-seeds.** Starter scripts for all 8 counties
+  are merged into the shared board on read, so every user sees every county
+  without a leader having to seed anything; a script a leader deletes is
+  tombstoned and stays deleted.
 - **Storage is split by domain** (`core`, `checkins`, `io`, `prompter`, plus one
   `count-<device>` / `tally-<device>` shard per phone) so concurrent writes can't
   clobber each other. Old single-blob data migrates automatically on first read.
