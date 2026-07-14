@@ -61,6 +61,13 @@ automatically on deploy.
   lost), but a cached `count-agg` blob is kept in sync incrementally, so a `GET`
   reads one blob instead of listing + fetching every device shard. It rebuilds
   itself from the shards whenever it goes missing, so it can't be wrong for long.
+- **Counter taps are pushed as absolute per-phone tallies (v1.6.0).** Each phone
+  keeps its own running tally in `localStorage` and pushes the whole thing
+  (`tallySet` → `tal2-<device>` shard): "my total is N, split by name". A retried
+  request can't double-count and a dropped one can't lose taps — the next push
+  carries them, even across a page reload. A leader reset rotates a `tallyEpoch`
+  so phones holding a pre-reset tally clear it instead of re-pushing old numbers.
+  (Legacy `count-`/`tally-` delta shards from older clients still sum in.)
 - **Polls are cheap.** `GET` returns a weak `ETag`; clients send `If-None-Match`
   and get a bodyless `304` (and skip re-rendering) whenever nothing changed.
 - **User-submitted content is normalized server-side** — feedback, praise,

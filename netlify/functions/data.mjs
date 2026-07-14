@@ -21,8 +21,14 @@ const LEADER_PIN = () => process.env.LEADER_PIN || "2026";
  prompter  — Recording Studio scripts
  radios    — 10-radio checkout board (initials + times)
  count-    — LEGACY numeric counter shard per phone (still summed, still works)
- tally-    — per-phone tally summary {total, by:{initials:n}} — the source of
-             truth for the head count; a phone only ever writes its own shard.
+ tally-    — LEGACY per-phone delta-built tally {total, by} (still summed)
+ tal2-     — v1.6.0 per-phone ABSOLUTE tally {total, by:{name:n}}. The phone
+             owns its shard and pushes its whole tally each time ("my total is
+             N"), so a retried or dropped request can never double-count or
+             lose taps the way lost "+1 deltas" could.
+ tallyEpoch— {e} rotated on every reset; a phone whose stored epoch is stale
+             gets told to clear its local tally instead of re-pushing
+             pre-reset numbers.
  count-agg — CACHED {total, by} aggregate of every count-/tally- shard so a GET
              is one read instead of listing + fetching ~50 shards. Maintained
              incrementally on each tap and rebuilt from the shards whenever it
@@ -229,6 +235,15 @@ function tallyKey(id){
  id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
  return "tally-" + id;
 }
+function tal2Key(id){
+ id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
+ return "tal2-" + id;
+}
+async function readEpoch(s){
+ let e = null;
+ try { e = await s.get("tallyEpoch", { type:"json" }); } catch(_) {}
+ return (e && typeof e.e === "string") ? e.e : "";
+}
 
 /* ---------------- compare-and-swap ----------------
  Read a blob with its etag, let `mutate` produce the next value, then write
@@ -302,8 +317,9 @@ async function sumCounts(s){
 }
 async function sumTally(s){
  let total = 0; const by = {};
- const { blobs } = await s.list({ prefix: "tally-" });
- await Promise.all((blobs || []).map(async b => {
+ const [t1, t2] = await Promise.all([ s.list({ prefix: "tally-" }), s.list({ prefix: "tal2-" }) ]);
+ const blobs = [ ...((t1 && t1.blobs) || []), ...((t2 && t2.blobs) || []) ];
+ await Promise.all(blobs.map(async b => {
  const tally = compactTally(await s.get(b.key, { type:"json" }));
  total += tally.total;
  for(const k of Object.keys(tally.by)) by[k] = (by[k] || 0) + tally.by[k];
@@ -373,7 +389,7 @@ async function assemble(s){
  let parts = await readAll(s);
  parts = await migrateIfNeeded(s, parts);
  const core = normCore(parts.core);
- const agg = await readAgg(s);
+ const [agg, tallyEpoch] = await Promise.all([ readAgg(s), readEpoch(s) ]);
  // Self-seeding script board: fill in any missing starter scripts (no-op
  // write when nothing is missing, so the usual GET stays read-only).
  const prompter = await compareAndSwap(s, "prompter", normPrompter,
@@ -387,6 +403,7 @@ async function assemble(s){
  praises: core.praises,
  count: Math.max(0, agg.total),
  tallyBy: agg.by || {},
+ tallyEpoch,
  radios: normRadios(parts.radios).list,
  event: core.event,
  ioList: (parts.io && Array.isArray(parts.io.list)) ? parts.io.list : [],
@@ -469,6 +486,42 @@ export default async (req, context) => {
     own shard (and the client serializes its own taps), so simultaneous
     counters can never erase each other. We then fold the *effective* delta
     (after clamping at 0) into the cached aggregate so GET stays O(1). ---- */
+ /* ---- v1.6.0 absolute tally: the phone pushes its WHOLE per-device tally
+    ("my total is N, split by name"), and the server stores it as-is in the
+    phone's own tal2- shard. Idempotent by construction — a retry of a request
+    that already landed changes nothing, and a dropped request just means the
+    next push carries the missing taps. The delta vs. the previous shard value
+    is folded into the cached aggregate so GET stays O(1). ---- */
+ if(action === "tallySet"){
+ const epoch = await readEpoch(s);
+ if(((payload.epoch || "") + "") !== epoch){
+  // The event was reset while this phone still held a pre-reset tally.
+  // Tell it to clear instead of resurrecting old numbers.
+  const agg = await readAgg(s);
+  return json({ ok:false, epochMismatch:true, epoch, count: Math.max(0, agg.total), tallyBy: agg.by || {} });
+ }
+ const inc = compactTally({ total: payload.total, by: payload.by });
+ const next = { total: Math.min(inc.total, 100000), by: {} };
+ for(const k of Object.keys(inc.by).slice(0, 30)){
+  const name = str(k, 40) || "?";
+  next.by[name] = Math.min(inc.by[k], 100000);
+ }
+ let prev = { total:0, by:{} };
+ await compareAndSwap(s, tal2Key(payload.dev), compactTally, cur => {
+  prev = cur;
+  return (JSON.stringify(cur) === JSON.stringify(next)) ? undefined : next;
+ }, () => ({ total:0, by:{} }));
+ const effBy = {};
+ for(const k of new Set([ ...Object.keys(prev.by), ...Object.keys(next.by) ])){
+  const d = (next.by[k] || 0) - (prev.by[k] || 0);
+  if(d) effBy[k] = d;
+ }
+ const effTotal = next.total - prev.total;
+ if(effTotal || Object.keys(effBy).length) await bumpAgg(s, effTotal, effBy);
+ const agg = await readAgg(s);
+ return json({ ok:true, count: Math.max(0, agg.total), tallyBy: agg.by || {} });
+ }
+
  if(action === "tallyAdd"){
  const key = tallyKey(payload.dev);
  const tally = compactTally(await s.get(key, { type:"json" }));
@@ -581,12 +634,14 @@ export default async (req, context) => {
     the Recording Studio scripts, issues and praises. */
  await casCore(s, core => ({ ...EMPTY_CORE, event: core.event, dayPin: core.dayPin, funding: core.funding, feedback: core.feedback, praises: core.praises }));
  await compareAndSwap(s, "io", normIO, io => { io.list = ioListClearProgress(io.list); return io; }, () => ({ list: [] }));
- const [c1, c2] = await Promise.all([ s.list({ prefix: "count-" }), s.list({ prefix: "tally-" }) ]);
- const doomed = [ ...((c1 && c1.blobs) || []), ...((c2 && c2.blobs) || []) ];
+ const [c1, c2, c3] = await Promise.all([ s.list({ prefix: "count-" }), s.list({ prefix: "tally-" }), s.list({ prefix: "tal2-" }) ]);
+ const doomed = [ ...((c1 && c1.blobs) || []), ...((c2 && c2.blobs) || []), ...((c3 && c3.blobs) || []) ]
+  .filter(b => b.key !== "count-agg"); // rewritten below, not deleted (racy otherwise)
  await Promise.all([
  s.setJSON("checkins", []),
  s.setJSON("radios", { list: defaultRadios() }),
  s.setJSON("count-agg", { total:0, by:{} }),
+ s.setJSON("tallyEpoch", { e: uid() }), // stale phones clear instead of re-pushing old tallies
  ...doomed.map(b => s.delete(b.key))
  ]);
  break;

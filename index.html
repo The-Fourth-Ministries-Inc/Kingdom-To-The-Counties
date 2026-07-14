@@ -10,8 +10,10 @@
 <meta name="apple-mobile-web-app-title" content="K2C '26" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-<link rel="icon" href="icon-192.png" />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
 <title>Kingdom to the Counties '26 — Ambassador</title>
+<script src="assets/qrcode.min.js" defer></script>
 <style>
 /* Self-hosted Fraunces (variable opsz+wght) — offline-safe, replaces Google Fonts */
 @font-face{font-family:'Fraunces';font-style:normal;font-weight:100 900;font-display:swap;src:url(assets/fonts/fraunces.woff2) format('woff2');}
@@ -149,9 +151,10 @@
   .toast.show{opacity:1}
   /* department chips + Friday plan card (v1.5.0) */
   .deptchip{font-size:10.5px;font-weight:800;letter-spacing:.3px;padding:2px 7px;border-radius:8px;white-space:nowrap}
-  .deptchip.dtech{background:#e3ebf3;color:#2b4a68}
-  .deptchip.dlog{background:#efe4d3;color:#7a4a12}
-  .deptchip.dboth{background:#e6e9df;color:#42552e}
+  /* v1.6.0 — dept colors: Tech/Worship = gold, Logistics/GS/Amb = blue */
+  .deptchip.dtech{background:#F1E0AC;color:#6E5311}
+  .deptchip.dlog{background:#D5E4F0;color:#2b4a68}
+  .deptchip.dboth{background:linear-gradient(105deg,#F1E0AC 0 46%,#D5E4F0 54% 100%);color:#4a4a33}
   .friplan{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-bottom:12px}
   .friplan .ttl{font-weight:800;font-size:13.5px;margin-bottom:7px}
   .friplan .row{display:flex;gap:10px;font-size:13px;line-height:1.6}
@@ -264,22 +267,48 @@
   .give b{flex:none;font-family:var(--serif);color:var(--wine)}
   .give.total{border-bottom:none;border-top:2px solid var(--ink);margin-top:4px;padding-top:9px;font-weight:700;color:var(--ink)}
   .give.total b{color:var(--ink);font-size:16px}
-  .daytabs{display:flex;gap:6px;margin-bottom:14px}
-  .daytab{flex:1;border:1px solid var(--line);background:var(--card);border-radius:11px;padding:10px;text-align:center;font-weight:700;font-size:13px;cursor:pointer;color:var(--muted)}
-  .daytab.on{background:var(--ink);color:var(--cream);border-color:var(--ink)}
+  .daytabs{display:flex;gap:8px;margin-bottom:10px}
+  .daytab{flex:1;border:2px solid var(--line);background:var(--card);border-radius:13px;padding:11px 8px;text-align:center;font-weight:800;font-size:14px;cursor:pointer;color:var(--muted);line-height:1.25}
+  .daytab small{display:block;font-weight:600;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;opacity:.75;margin-top:2px}
+  .daytab.on{color:#fff}
+  #dtFri.on{background:var(--rust);border-color:var(--rust)}
+  #dtSat.on{background:var(--wine);border-color:var(--wine)}
+  .daybanner{display:block;border-radius:12px;padding:10px 13px;margin-bottom:14px;font-size:13px;font-weight:600;color:#fff;line-height:1.5}
+  .daybanner.fri{background:var(--rust)}
+  .daybanner.sat{background:var(--wine)}
+  .daybanner small{font-weight:600;opacity:.85}
   .hidebar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:12.5px}
   .hidebar span{color:var(--muted)}
   .hidebar button{background:none;border:none;color:var(--rust);font-weight:700;font-size:12.5px;cursor:pointer;padding:0}
   .chk.hidden{display:none}
-  .clsec{margin-bottom:18px}
-  .clsec .head{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 8px}
-  .clsec .head h3{font-family:var(--serif);font-weight:600;font-size:16px;margin:0}
-  .clsec .head .lead{font-size:11px;color:var(--muted)}
-  .clsec .head .cnt{font-size:11px;font-weight:700;color:var(--rust);font-variant-numeric:tabular-nums}
-  .chk{display:flex;align-items:flex-start;gap:11px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin-bottom:8px;cursor:pointer}
+  .clsec{margin-bottom:22px}
+  /* v1.6.0 — sticky, dept-colored section headers with their own progress bar.
+     Tech/Worship = gold · Logistics/GS/Ambassadors = blue · All hands = both. */
+  .clsec .head{position:sticky;top:var(--toph,0px);z-index:30;display:block;margin:0 0 9px;padding:9px 12px 9px;border-radius:12px;border:1px solid var(--line);background:var(--card);box-shadow:0 3px 12px rgba(43,42,40,.12)}
+  .clsec .head .hrow{display:flex;align-items:center;gap:8px}
+  .clsec .head h3{font-family:var(--serif);font-weight:700;font-size:15px;margin:0;flex:1;min-width:0;line-height:1.2}
+  .clsec .head .daytag{flex:none;font-size:9.5px;font-weight:800;letter-spacing:1px;color:#fff;border-radius:6px;padding:3px 6px}
+  .daytag.fri{background:var(--rust)}.daytag.sat{background:var(--wine)}
+  .clsec .head .cnt{flex:none;font-size:11.5px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums;background:#fff;border:1px solid var(--line);border-radius:99px;padding:3px 9px}
+  .clsec .head .minibar{height:5px;border-radius:99px;background:rgba(43,42,40,.12);margin-top:8px;overflow:hidden}
+  .clsec .head .minibar i{display:block;height:100%;width:0;border-radius:99px;transition:width .3s}
+  .clsec.sec-tech .head{background:#F7EDD0;border-color:#E0C57A}
+  .clsec.sec-log .head{background:#E2ECF5;border-color:#A6C2D9}
+  .clsec.sec-both .head{background:linear-gradient(105deg,#F7EDD0 0 46%,#E2ECF5 54% 100%);border-color:#C4BFA4}
+  .clsec.sec-tech .minibar i{background:#B98A1F}
+  .clsec.sec-log .minibar i{background:#4A76A8}
+  .clsec.sec-both .minibar i{background:linear-gradient(90deg,#B98A1F,#4A76A8)}
+  .clsec .head.complete{background:#DFEEE0;border-color:#9CC7A4}
+  .clsec .head.complete .minibar i{background:var(--good)}
+  .clsec .head.complete .cnt{color:var(--good);border-color:#9CC7A4;background:#fff}
+  .chk{display:flex;align-items:flex-start;gap:11px;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:12px;padding:12px 13px;margin-bottom:8px;cursor:pointer}
+  .chk.dept-tech{border-left-color:#D9AF4B}
+  .chk.dept-log{border-left-color:#7FA3C0}
+  .chk.dept-both{border-left-color:#97925B}
   .chk .box{flex:none;width:22px;height:22px;border-radius:7px;border:2px solid var(--slate);display:flex;align-items:center;justify-content:center;margin-top:1px;transition:all .15s}
   .chk .box svg{width:13px;height:13px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.6);transition:all .15s}
-  .chk.done .box{background:var(--rust);border-color:var(--rust)}.chk.done .box svg{opacity:1;transform:scale(1)}
+  .chk.done{background:#EDF5EE;border-color:#BFDCC4;border-left-color:var(--good)}
+  .chk.done .box{background:var(--good);border-color:var(--good)}.chk.done .box svg{opacity:1;transform:scale(1)}
   .chk .lab{flex:1;font-size:14px;min-width:0}
   .chk.done .lab .txt{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--slate)}
   .chk .sub2{display:flex;gap:7px;align-items:center;margin-top:4px;flex-wrap:wrap}
@@ -371,6 +400,10 @@
   #tpFmt button{flex:none;min-width:52px;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:9px 0;font-size:15px;cursor:pointer}
   #tpEdDel{background:none;border:none;color:var(--bad);font-size:12.5px;font-weight:700;text-decoration:underline;cursor:pointer;padding:6px 0;margin-bottom:4px}
 
+  /* v1.6.0 — Share-this-app QR card */
+  .qrcard{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px 18px 16px;box-shadow:var(--shadow);text-align:center;margin-bottom:14px}
+  .qrcard svg{width:min(68vw,280px);height:auto;display:inline-block}
+  .qrurl{margin-top:10px;font-size:13px;font-weight:700;color:var(--wine);word-break:break-all}
   .ionote{background:var(--wine);color:#fff;border-radius:12px;padding:11px 14px;font-size:12.5px;margin-bottom:14px;line-height:1.4}
   .seclabel{font-size:11px;letter-spacing:2.4px;text-transform:uppercase;color:var(--wine);font-weight:700;margin:18px 0 9px}
   .io{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:9px 11px;margin-bottom:7px}
@@ -529,7 +562,7 @@
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.5.2</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.6.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -664,9 +697,10 @@
     <p class="eyebrow">Production Build · Fri + Sat</p><h1 class="title">Setup Checklist</h1>
     <span class="syncpill" id="sp-setup"><span class="d"></span>Demo mode</span>
     <div class="daytabs">
-      <button class="daytab on" id="dtFri" onclick="setDay('fri')">🔨 Friday Build</button>
-      <button class="daytab" id="dtSat" onclick="setDay('sat')">🎤 Saturday</button>
+      <button class="daytab on" id="dtFri" onclick="setDay('fri')">🔨 FRIDAY<small>Build day</small></button>
+      <button class="daytab" id="dtSat" onclick="setDay('sat')">🎤 SATURDAY<small>Event day</small></button>
     </div>
+    <div class="daybanner fri" id="dayBanner"></div>
     <div class="cattabs" id="catTabs"><button class="on" data-cat="all" onclick="setCat('all')">All</button><button data-cat="tech" onclick="setCat('tech')">🔧 Tech / Worship</button><button data-cat="log" onclick="setCat('log')">📦 Logistics / GS / Ambassadors</button></div>
     <div class="friplan" id="friPlan">
       <div class="ttl">🗓 Friday — 12:00 PM Arrival Plan</div>
@@ -786,7 +820,17 @@
       <button class="hubcard" onclick="show('leaders')"><span class="ic">📇</span><span class="tx"><b>Leader Contacts</b><span>Tap to call or text a leader</span></span><span class="arr">›</span></button>
       <button class="hubcard wine" onclick="show('donate')"><span class="ic">❤️</span><span class="tx"><b>Give / Donate</b><span>Support the mission · ways to give</span></span><span class="arr">›</span></button>
       <button class="hubcard" onclick="show('graphics')"><span class="ic">🖼️</span><span class="tx"><b>Graphics for Sharing!</b><span>Download & share on socials</span></span><span class="arr">›</span></button>
+      <button class="hubcard slate" onclick="show('shareapp')"><span class="ic">📲</span><span class="tx"><b>Share this App</b><span>QR code — get fellow ambassadors on here</span></span><span class="arr">›</span></button>
     </div>
+  </section>
+  <section class="page" id="page-shareapp">
+    <button class="back" onclick="show('guides')">‹ Ambassador Resources</button>
+    <p class="eyebrow">Spread the Word</p><h1 class="title">Share this App</h1>
+    <p class="sub">Have a fellow ambassador point their phone camera at the code — it opens this app.</p>
+    <div class="qrcard"><div id="qrBox"></div><div class="qrurl" id="qrUrl"></div></div>
+    <button class="btn rust" id="qrShareBtn" style="margin-bottom:9px">📲 Share the link</button>
+    <button class="btn ghost" id="qrCopyBtn">📋 Copy link</button>
+    <p class="hint">Heads-up: on event day they'll still need the <b>Day PIN</b> from morning huddle to get in — the QR only opens the app.</p>
   </section>
   <section class="page" id="page-tour">
     <button class="back" onclick="show('guides')">‹ Ambassador Resources</button>
@@ -1950,10 +1994,10 @@ var SETUP=[
 ];
 var TEARDOWN=[];
 var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],count:0,event:{name:"",date:""},ioList:[],dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
-var LIVE=false,LEADER=false,seenAnn=0,seenIssue=0,barDismissed=false,inflight=0,pendingCount=0,countFlushT=null,countSending=false;
+var LIVE=false,LEADER=false,seenAnn=0,seenIssue=0,barDismissed=false,inflight=0,countFlushT=null,countSending=false;
 var lastSyncAt=0,everSynced=false; /* v1.2.0 — sync freshness */
 var remoteDirty=false;
-function settled(){return inflight===0&&pendingCount===0&&!countSending;}
+function settled(){return inflight===0&&!countSending&&!(typeof TALLY!=="undefined"&&TALLY.dirty);}
 var API="/.netlify/functions/data";
 var MY={name:""};
 try{MY.name=(localStorage.getItem("k2c_name")||"").slice(0,40);}catch(_){}
@@ -2067,7 +2111,15 @@ function curSetup(){
   return out;
 }
 function setCat(c){curCat=c;var btns=document.querySelectorAll("#catTabs button");for(var i=0;i<btns.length;i++)btns[i].classList.toggle("on",btns[i].getAttribute("data-cat")===c);refreshChecklists();}
-function setDay(d){curDay=d;document.getElementById("dtFri").classList.toggle("on",d==="fri");document.getElementById("dtSat").classList.toggle("on",d==="sat");var fp=document.getElementById("friPlan");if(fp)fp.style.display=d==="fri"?"block":"none";refreshChecklists();}
+function setDay(d){curDay=d;document.getElementById("dtFri").classList.toggle("on",d==="fri");document.getElementById("dtSat").classList.toggle("on",d==="sat");var fp=document.getElementById("friPlan");if(fp)fp.style.display=d==="fri"?"block":"none";renderDayBanner();refreshChecklists();}
+function renderDayBanner(){
+  var db=document.getElementById("dayBanner");if(!db)return;
+  db.className="daybanner "+curDay;
+  db.innerHTML=curDay==="fri"
+    ?'🔨 Viewing <b>FRIDAY — Build Day</b> <small>· optional crew · 12:00 PM arrival</small>'
+    :'🎤 Viewing <b>SATURDAY — Event Day</b> <small>· all hands · setup 8 AM · doors 1 PM</small>';
+}
+renderDayBanner();
 function toggleHideCompleted(){hideCompleted=!hideCompleted;document.getElementById("toggleHide").textContent=hideCompleted?"Show completed":"Hide completed";refreshChecklists();}
 function hms(mins){var s=Math.max(0,Math.round(mins*60));var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;if(h>0)return h+"h "+String(m).padStart(2,"0")+"m";if(m>0)return m+"m "+String(ss).padStart(2,"0")+"s";return ss+"s";}
 function updateDueChips(){
@@ -2109,10 +2161,11 @@ function renderChecklist(mountId,data,key,overallId,overallBarId,overdueId){
       var note=(STATE.notes&&STATE.notes[id])||"";
       var noteBtn=LEADER?'<button class="chknotebtn" onclick="event.stopPropagation();chkNote(\''+id+'\')" title="'+(note?"Edit note":"Add note")+'">📝</button>':'';
       var noteHtml=note?'<div class="chknote" onclick="event.stopPropagation()">📝 '+esc(note)+'</div>':'';
-      return '<div class="chk'+(rec?" done":"")+(hide?" hidden":"")+'" data-id="'+id+'"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg></span><span class="lab"><span class="txt">'+label+'</span><span class="sub2">'+dept+chip+'<span class="stamp">'+stamp+'</span>'+noteBtn+'</span>'+noteHtml+'</span></div>';
+      return '<div class="chk dept-'+(sec.cat||"log")+(rec?" done":"")+(hide?" hidden":"")+'" data-id="'+id+'"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg></span><span class="lab"><span class="txt">'+label+'</span><span class="sub2">'+dept+chip+'<span class="stamp">'+stamp+'</span>'+noteBtn+'</span>'+noteHtml+'</span></div>';
     }).join("");
     var secHidden=hideCompleted&&secDone===secTotal;
-    html+='<div class="clsec"'+(secHidden?' style="display:none"':'')+'><div class="head"><div><h3>'+sec.team+'</h3>'+dept+'</div><div class="cnt">'+secDone+'/'+secTotal+'</div></div>'+rows+'</div>';
+    var secPct=secTotal?Math.round(secDone/secTotal*100):0;
+    html+='<div class="clsec sec-'+(sec.cat||"log")+'"'+(secHidden?' style="display:none"':'')+'><div class="head'+(secDone===secTotal&&secTotal?' complete':'')+'"><div class="hrow"><span class="daytag '+curDay+'">'+(curDay==="fri"?"FRI":"SAT")+'</span><h3>'+sec.team+'</h3><span class="cnt">'+(secDone===secTotal&&secTotal?'✓ ':'')+secDone+'/'+secTotal+'</span></div><div class="minibar"><i style="width:'+secPct+'%"></i></div></div>'+rows+'</div>';
   });
   document.getElementById(mountId).innerHTML=html;
   document.getElementById(overallId).textContent=done+" / "+total;
@@ -2430,10 +2483,29 @@ document.getElementById("aBtn").addEventListener("click",function(){if(!LEADER){
 document.getElementById("pBtn").addEventListener("click",function(){var name=document.getElementById("pName").value.trim()||"Anonymous",body=document.getElementById("pBody").value.trim();if(!body){flash("pBody");return;}rememberName(name);var rec={id:uid(),name:name,body:body,t:nowLabel()};doAction("addPraise",rec,function(){STATE.praises.unshift(rec);});document.getElementById("pBody").value="";prefillNames();toast("🎉 Praise posted!");});
 document.getElementById("fBtn").addEventListener("click",function(){var by=document.getElementById("fName").value.trim()||"Volunteer",title=document.getElementById("fTitle").value.trim(),body=document.getElementById("fBody").value.trim(),priority=document.getElementById("fPri").value;if(!title){flash("fTitle");return;}rememberName(by);var rec={id:uid(),priority:priority,title:title,body:body,by:by,t:nowLabel()};doAction("addFeedback",rec,function(){STATE.feedback.unshift(rec);});document.getElementById("fTitle").value="";document.getElementById("fBody").value="";prefillNames();toast("✅ Sent to leadership");});
 function flash(id){var e=document.getElementById(id);if(e){e.style.borderColor="#B86239";e.focus();setTimeout(function(){e.style.borderColor="";},1200);}}
-// Attendance counter: apply each tap instantly, then batch a burst of taps into
-// ONE server write. Fewer concurrent read-modify-writes = no lost counts when
-// several phones are counting at once.
-var pendingBy="";
+/* Attendance counter (v1.6.0): every tap lands in a per-phone ABSOLUTE tally
+   that survives reloads (localStorage) and is pushed to the server whole —
+   "this phone's total is N, split by name" — instead of as fragile +1 deltas.
+   A retried request can't double-count and a dropped one can't lose taps: the
+   next push simply carries them. This replaces the old delta batching, which
+   could silently drop taps when a flush failed mid-burst (the "+3 became +1"
+   bug) and then deadlock the sync loop until reload. */
+var TALLY=(function(){
+  try{var v=JSON.parse(localStorage.getItem("k2c_tally")||"null");
+    if(v&&typeof v.total==="number"&&v.by&&typeof v.by==="object")return{total:Math.max(0,v.total),by:v.by,epoch:(v.epoch||"")+"",dirty:!!v.dirty};
+  }catch(_){}
+  return{total:0,by:{},epoch:"",dirty:false};
+})();
+var tallySerial=0; // bumps on every tap so a flush knows if taps landed while it was in flight
+function saveTally(){try{localStorage.setItem("k2c_tally",JSON.stringify(TALLY));}catch(_){}}
+/* A leader reset rotates the server's tally epoch; when we see a new epoch our
+   local tally belongs to the previous event and must be cleared, not re-sent. */
+function adoptTallyEpoch(s){
+  if(!s||s.tallyEpoch==null)return;
+  var e=s.tallyEpoch+"";
+  if(e===TALLY.epoch)return;
+  TALLY={total:0,by:{},epoch:e,dirty:false};tallySerial++;saveTally();
+}
 function renderTallyBreak(){
   var by=STATE.tallyBy||{};var ks=Object.keys(by).filter(function(k){return by[k]>0;}).sort(function(a,b){return by[b]-by[a];});
   var html=ks.map(function(k){return '<div class="tallyrow"><span>'+esc(k)+'</span><b>'+by[k]+'</b></div>';}).join("");
@@ -2457,24 +2529,39 @@ function bumpCount(delta){
   vibr(12);
   STATE.count=Math.max(0,(STATE.count||0)+delta);
   STATE.tallyBy=STATE.tallyBy||{};STATE.tallyBy[init]=Math.max(0,(STATE.tallyBy[init]||0)+delta);
+  TALLY.total=Math.max(0,TALLY.total+delta);
+  TALLY.by[init]=Math.max(0,(TALLY.by[init]||0)+delta);
+  TALLY.dirty=true;tallySerial++;saveTally();
   renderCountFast();
-  if(!LIVE)return;
-  pendingBy=init;
-  pendingCount+=delta;
-  if(countFlushT)clearTimeout(countFlushT);
-  countFlushT=setTimeout(flushCount,350);
+  scheduleFlush(300);
 }
+function scheduleFlush(ms){if(countFlushT)clearTimeout(countFlushT);countFlushT=setTimeout(flushCount,ms);}
 var DEV=(function(){try{var v=localStorage.getItem("k2c_dev");if(!v){v=uid();localStorage.setItem("k2c_dev",v);}return v;}catch(_){return uid();}})();
 function flushCount(){
   countFlushT=null;
-  if(!LIVE||pendingCount===0||countSending)return;
-  var d=pendingCount;pendingCount=0;
+  if(!TALLY.dirty||countSending)return;
+  var sentSerial=tallySerial;
+  var snap={dev:DEV,total:TALLY.total,by:{},epoch:TALLY.epoch};
+  for(var k in TALLY.by)if(TALLY.by[k]>0)snap.by[k]=TALLY.by[k];
   countSending=true;inflight++;
-  apiPost("tallyAdd",{delta:d,dev:DEV,by:pendingBy,t:nowLabel()}).then(function(s){
-    countSending=false;inflight=Math.max(0,inflight-1);reconcileResponse(s);
-    if(pendingCount!==0)countFlushT=setTimeout(flushCount,120);
+  apiPost("tallySet",snap).then(function(s){
+    countSending=false;inflight=Math.max(0,inflight-1);
+    if(!LIVE){LIVE=true;updateSync();}
+    if(s&&s.epochMismatch){ // a leader reset the event while we were counting — start fresh
+      TALLY={total:0,by:{},epoch:(s.epoch||"")+"",dirty:false};tallySerial++;saveTally();
+      if(typeof s.count==="number"){STATE.count=s.count;STATE.tallyBy=s.tallyBy||{};}
+      renderCountFast();return;
+    }
+    if(tallySerial===sentSerial){
+      TALLY.dirty=false;saveTally();
+      if(typeof s.count==="number"){STATE.count=s.count;STATE.tallyBy=s.tallyBy||{};renderCountFast();}
+    }else{scheduleFlush(120);} // taps landed while this push was in flight — push again
   }).catch(function(){
-    pendingCount+=d;countSending=false;inflight=Math.max(0,inflight-1);LIVE=false;updateSync();
+    countSending=false;inflight=Math.max(0,inflight-1);
+    if(LIVE){LIVE=false;updateSync();}
+    // Taps are safe in TALLY (and localStorage). Keep retrying while we've
+    // ever had a server — never strand a dirty tally like the delta code did.
+    if(everSynced)scheduleFlush(2500);
   });
 }
 // pointerdown (not click) = fires instantly on touch, immune to the
@@ -2508,7 +2595,7 @@ document.getElementById("csvBtn").addEventListener("click",function(){
   var csv=rows.map(function(r){return r.map(csvCell).join(",");}).join("\r\n");
   var blob=new Blob(["\ufeff"+csv],{type:"text/csv"});
   var a=document.createElement("a");a.href=URL.createObjectURL(blob);
-  a.download="k2c-day-report-v1.5.2-"+new Date().toISOString().slice(0,10)+".csv";
+  a.download="k2c-day-report-v1.6.0-"+new Date().toISOString().slice(0,10)+".csv";
   document.body.appendChild(a);a.click();a.remove();
 });
 document.getElementById("resetBtn").addEventListener("click",function(){
@@ -2522,7 +2609,7 @@ document.addEventListener("click",function(e){var row=e.target.closest(".chk");i
 document.getElementById("annBarX").addEventListener("click",function(e){e.stopPropagation();barDismissed=true;document.getElementById("annBar").classList.remove("show");});
 var annBarMode="checkin";
 document.getElementById("annBar").addEventListener("click",function(){show(annBarMode==="checkin"?"checkin":"announcements");});
-var PARENT={dashboard:"crew",checkin:"guides",count:"crew",setup:"crew",techio:"crew",inventory:"crew",announcements:"board",praise:"board",issue:"board",leaders:"guides",graphics:"guides",donate:"guides",playbook:"guides",handbook:"guides",tour:"guides",radios:"crew"};
+var PARENT={dashboard:"crew",checkin:"guides",count:"crew",setup:"crew",techio:"crew",inventory:"crew",announcements:"board",praise:"board",issue:"board",leaders:"guides",graphics:"guides",donate:"guides",playbook:"guides",handbook:"guides",tour:"guides",radios:"crew",shareapp:"guides"};
 function show(id){
   if(id==="dashboard"&&!LEADER){askPin(function(){show("dashboard");});}
   var pages=document.querySelectorAll(".page");for(var i=0;i<pages.length;i++)pages[i].classList.remove("active");
@@ -2535,7 +2622,32 @@ function show(id){
   if(id==="tour")tourSeen();
   if(id==="radios")renderRadios();
   if(id==="inventory")renderInventory();
+  if(id==="shareapp")renderShareQR();
 }
+/* v1.6.0 — Share-this-app QR (drawn locally from the current URL, works offline) */
+function appShareUrl(){return location.origin+location.pathname.replace(/index\.html$/,"");}
+function renderShareQR(){
+  var box=document.getElementById("qrBox");if(!box)return;
+  var url=appShareUrl();
+  var u=document.getElementById("qrUrl");if(u)u.textContent=url.replace(/^https?:\/\//,"");
+  if(box.getAttribute("data-done"))return;
+  try{
+    var qr=qrcode(0,"M");qr.addData(url);qr.make();
+    box.innerHTML=qr.createSvgTag({cellSize:8,margin:2,scalable:true});
+    box.setAttribute("data-done","1");
+  }catch(e){box.innerHTML='<p class="hint">Couldn’t draw the QR code on this phone — use the share button below instead.</p>';}
+}
+document.getElementById("qrShareBtn").addEventListener("click",function(){
+  var url=appShareUrl();
+  if(navigator.share){navigator.share({title:"K2C '26 Ambassador App",text:"Kingdom to the Counties '26 — ambassador companion app:",url:url}).catch(function(){});}
+  else{copyShareUrl();}
+});
+function copyShareUrl(){
+  var url=appShareUrl();
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(url).then(function(){toast("📋 Link copied — paste it anywhere");}).catch(function(){prompt("Copy the app link:",url);});}
+  else{prompt("Copy the app link:",url);}
+}
+document.getElementById("qrCopyBtn").addEventListener("click",copyShareUrl);
 function goSchedule(){show("now");setTimeout(function(){var a=document.getElementById("scheduleAnchor");if(a)a.scrollIntoView({behavior:"smooth"});},80);}
 /* ---- Trailer Load List (demo) ----
    Sample color-coded bin system + loading order. Static demo data for now; a
@@ -2707,11 +2819,13 @@ window.addEventListener("resize",function(){if(guideIdx>=0)guideShow();});
 function boot(){
   renderIOList();renderLeaders();
   if(LEADERPIN){verifyPin("verifyLeaderPin",LEADERPIN).then(function(res){if(res&&res.ok){LEADER=true;setDayOK();applyLeaderUI();renderDynamic();}else{LEADERPIN="";sessionStorage.removeItem("k2c_lpin");}}).catch(function(){});}
-  apiGet().then(function(s){STATE=normalize(s);LIVE=true;finishBoot();}).catch(function(){LIVE=false;STATE=seedDemo();finishBoot();});
+  apiGet().then(function(s){STATE=normalize(s);LIVE=true;adoptTallyEpoch(s);finishBoot();if(TALLY.dirty)scheduleFlush(500);}).catch(function(){LIVE=false;STATE=seedDemo();finishBoot();});
 }
+function setStickyTop(){var tw=document.querySelector(".topwrap");document.documentElement.style.setProperty("--toph",((tw?tw.offsetHeight:0)+6)+"px");}
+window.addEventListener("resize",setStickyTop);
 function finishBoot(){
-  updateSync();applyLeaderUI();maybeDayGate();renderDynamic();refreshAll();updateTourPrompts();renderNameBars();
-  setInterval(function(){renderClock();renderNow();renderStrip();updateDueChips();if(simActive)document.getElementById("simNow").textContent="Previewing "+fmt(Math.floor(nowMinutes()))+" (running)";},1000);
+  updateSync();applyLeaderUI();maybeDayGate();renderDynamic();refreshAll();updateTourPrompts();renderNameBars();setStickyTop();
+  setInterval(function(){renderClock();renderNow();renderStrip();updateDueChips();setStickyTop();if(simActive)document.getElementById("simNow").textContent="Previewing "+fmt(Math.floor(nowMinutes()))+" (running)";},1000);
   setInterval(function(){refreshChecklists();renderDashboard();renderSpine();},15000);
   var lastSnap="";
   function activePage(){var p=document.querySelector(".page.active");return p?p.id.replace("page-",""):"";}
@@ -2727,7 +2841,7 @@ function finishBoot(){
         if(settled()){
           lastSyncAt=Date.now();everSynced=true;if(!LIVE){LIVE=true;updateSync();}
           if(s&&s.__nomod)return;   // 304 — skip re-serialize and re-render entirely
-          var snap=JSON.stringify(s),changed=snap!==lastSnap;lastSnap=snap;STATE=normalize(s);maybeDayGate();
+          var snap=JSON.stringify(s),changed=snap!==lastSnap;lastSnap=snap;STATE=normalize(s);adoptTallyEpoch(s);maybeDayGate();
           if(changed){if(userEditing())remoteDirty=true;else renderDynamic();}
         }
       }).catch(function(){if(LIVE){LIVE=false;updateSync();}})
