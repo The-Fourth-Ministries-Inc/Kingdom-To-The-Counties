@@ -51,6 +51,47 @@ CRM push is a later build). Privacy & resilience:
   — permanently deletes every capture record and media blob once leadership
   confirms it has all been entered into Planning Center Online.
 
+## Pre-Crusade Mobilization (v1.8.0)
+
+Its own bottom tab: the **season-long church CRM** — a master list of NH (and
+interested out-of-state) churches and ministries, built for collaborative
+outreach from ambassadors' phones. Ships pre-seeded with the Carroll County
+(King Pine) contact list — 22 churches + 3 ministries, tiers, verified emails,
+and each church's **personalized outreach email** (intro + specific referral
+ask) from the research doc.
+
+- **Per church:** address, town, county, state, phone, email, website, primary
+  contact, pastor/leader, alignment badge (✅ strong / 🟡 verify), pop-up
+  notes, a 1–5 ⭐ **interest score**, and the list of team **connections**
+  ("my aunt is a member") so everyone can see who knows whom.
+- **Tap-to-reach, auto-logged:** 📞 Call / 💬 Text / ✉️ Email buttons log to
+  that church's history the moment they're tapped. The Email button opens the
+  phone's mail app **pre-filled with the personalized email** for that church
+  (subject, intro, core message, their referral ask, promo video, sign-off).
+- **Share toolkit:** a 20-second "What is K2C?" script (Great-Commission
+  elevator pitch — copying it logs to the church's history), copy-the-email
+  for Facebook/website forms, promo-video link, and one-tap jumps to Graphics,
+  the Playbook, the Counselor Booklet and the Give page.
+- **Dashboard:** stat tiles (on the list / engaged / connected / still cold)
+  plus a "🚨 Need a connection ASAP" queue — strong-fit churches nobody knows
+  and nobody has touched.
+- **Vision flags:** any ambassador can flag a church as not aligned
+  (non-traditional-marriage promotion, heavy politics, heresy…). The flag
+  warns the whole team to hold outreach; clearing it is leader-only.
+- **Change log:** every add, edit, call, text, email, share, score and flag —
+  newest first, with names — doubles as each church's history.
+- **Permissions:** everything sits behind the **Day PIN** (whole-app gate).
+  Ambassadors can add churches, log outreach, claim connections, score
+  interest and flag; **editing/deleting master-list entries is leader-PIN
+  only** (enforced server-side).
+- **Fast on mobile:** the roster is *not* in the 5-second polling payload — it
+  lives in its own blob with a `rev` counter and its own ETag endpoint
+  (`GET ?part=churches`), is re-downloaded only when the rev changes, and the
+  last good copy is cached in localStorage so the tab opens instantly even
+  offline. Starter churches self-seed on first read and deleted ones are
+  tombstoned (same pattern as starter scripts). The CRM **survives the
+  end-of-day reset** — it's season-long relationship data.
+
 ## Recording Studio (Teleprompter)
 
 Under **Ambassador Resources → 🎬 Recording Studio**: invite-video scripts for

@@ -4,6 +4,9 @@ import { getStore } from "@netlify/blobs";
 // having to seed anything. Generated from data/scripts.json — regenerate with
 // `node scripts/sync-starter-scripts.mjs` after editing that file.
 import STARTER_SCRIPTS from "./starter-scripts.mjs";
+// Pre-Crusade Mobilization: starter church roster (merged on read, tombstoned
+// on delete — same pattern as the starter scripts).
+import STARTER_CHURCHES from "./starter-churches.mjs";
 
 const STORE = "k2c-ambassador";
 const DEFAULT_DAY_PIN = "0711";
@@ -21,6 +24,12 @@ const LEADER_PIN = () => process.env.LEADER_PIN || "2026";
  prompter  — Recording Studio scripts
  radios    — 10-radio checkout board (initials + times)
  captures  — Ambassador Quick Capture contact records (text fields only)
+ churches  — Pre-Crusade Mobilization church CRM: {rev, removed, list, log}.
+             rev bumps on every write so phones only re-download the roster
+             when it actually changed; the roster itself is NOT in the main
+             GET payload (fetched separately via GET ?part=churches with its
+             own ETag) so the 5-second poll stays light. Survives reset —
+             it's a season-long relationship record, not day-scoped data.
  capmedia- — one blob per capture holding its photo/audio as a data URL,
              fetched on demand by leaders (never included in the GET payload,
              so polling stays light and contact PII isn't broadcast to every
@@ -152,6 +161,112 @@ function normCapture(x){
 const normCaptures = v => Array.isArray(v) ? v.map(normCapture).slice(-1000) : [];
 const capMediaKey = id => "capmedia-" + (id || "").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 40);
 
+/* ---- Pre-Crusade Mobilization: church CRM ----
+   One blob ("churches") holds the roster + a global activity log. Every entry
+   is normalized server-side (whitelisted fields, capped lengths) exactly like
+   issues/praises. The log doubles as BOTH the per-church engagement history
+   (filter by ch) and the app-wide change log. */
+const CH_ALIGNS = new Set(["strong","partial","unverified","flagged"]);
+const CH_KINDS = new Set(["church","ministry"]);
+// Log types ambassadors may write without the leader PIN. Everything an
+// ambassador does on a church is meant to be logged — that IS the feature.
+// "convo" is the MANUAL "we actually talked with them" record — the only type
+// that marks a church as engaged (tapping Call/Email never does).
+const CH_OPEN_LOG = new Set(["call","text","email","convo","visit","script","share","note"]);
+const CH_LOG_TYPES = new Set([...CH_OPEN_LOG, "connect","flag","unflag","edit","add","interest","delete"]);
+const CH_EDIT_FIELDS = ["name","kind","town","county","state","address","phone","email","website",
+ "contact","contactRole","leader","notes","intro","ask","align","interest"];
+
+function normChConn(x){
+ x = x || {};
+ return { amb: str(x.amb, 40), note: str(x.note, 160), t: str(x.t, 12), d: str(x.d, 10) };
+}
+function normChurch(x){
+ x = x || {};
+ return {
+  id: str(x.id, 40) || uid(),
+  name: str(x.name, 120),
+  kind: CH_KINDS.has(x.kind) ? x.kind : "church",
+  town: str(x.town, 60),
+  county: str(x.county, 40),
+  state: (str(x.state, 20) || "NH").toUpperCase().slice(0, 20),
+  address: str(x.address, 160),
+  phone: str(x.phone, 40),
+  email: str(x.email, 120),
+  website: str(x.website, 200),
+  contact: str(x.contact, 80),
+  contactRole: str(x.contactRole, 60),
+  leader: str(x.leader, 80),
+  interest: Math.max(0, Math.min(5, Math.round(Number(x.interest) || 0))),
+  align: CH_ALIGNS.has(x.align) ? x.align : "unverified",
+  flag: (x.flag && x.flag.reason)
+   ? { reason: str(x.flag.reason, 80), note: str(x.flag.note, 300), by: str(x.flag.by, 40), t: str(x.flag.t, 12), d: str(x.flag.d, 10) }
+   : null,
+  notes: str(x.notes, 2000),
+  intro: str(x.intro, 900),
+  ask: str(x.ask, 400),
+  connections: Array.isArray(x.connections) ? x.connections.map(normChConn).filter(c => c.amb).slice(0, 40) : [],
+  addedBy: str(x.addedBy, 40),
+  t: str(x.t, 12), d: str(x.d, 10)
+ };
+}
+function normChLog(x){
+ x = x || {};
+ return {
+  id: str(x.id, 40) || uid(),
+  ch: str(x.ch, 40),
+  type: CH_LOG_TYPES.has(x.type) ? x.type : "note",
+  by: str(x.by || "Ambassador", 40),
+  note: str(x.note, 300),
+  t: str(x.t, 12), d: str(x.d, 10)
+ };
+}
+export function normChurches(c){
+ c = c || {};
+ return {
+  rev: Math.max(0, Math.round(Number(c.rev) || 0)),
+  removed: Array.isArray(c.removed) ? c.removed.map(x => str(x, 40)).filter(Boolean).slice(0, 500) : [],
+  list: Array.isArray(c.list) ? c.list.map(normChurch).slice(0, 800) : [],
+  log: Array.isArray(c.log) ? c.log.map(normChLog).slice(-1200) : []
+ };
+}
+const emptyChurches = () => ({ rev: 0, removed: [], list: [], log: [] });
+// Writes seed the starter roster too, so a POST that lands before the first
+// roster read (fresh deploy) can't no-op against an empty list.
+const seededChurches = () => { const c = emptyChurches(); mergeStarterChurches(c); return c; };
+const casChurches = (s, mutate) => compareAndSwap(s, "churches", normChurches, mutate, seededChurches);
+function chLogPush(c, entry){ c.log.push(normChLog(entry)); c.log = c.log.slice(-1200); }
+/* Belt + braces against the retry-duplication bug: a mutate that already ran
+   (its log-entry id is present) must be a no-op. Every church action passes a
+   client-generated id for its log entry. */
+const chLogged = (c, id) => !!id && c.log.some(e => e.id === id);
+/* One-time cleanup of logs that were duplicated before the fix: identical
+   ch+type+by+note+date+time tuples collapse to the first occurrence. */
+function chCompactLog(c){
+ const seen = new Set(); const out = [];
+ for(const e of c.log){
+  const k = e.ch + "|" + e.type + "|" + e.by + "|" + e.note + "|" + e.d + "|" + e.t;
+  if(seen.has(k)) continue;
+  seen.add(k); out.push(e);
+ }
+ const changed = out.length !== c.log.length;
+ c.log = out;
+ return changed;
+}
+/* Merge any starter church whose id is neither on the board nor tombstoned. */
+function mergeStarterChurches(c){
+ const have = new Set(c.list.map(x => x.id));
+ const gone = new Set(c.removed);
+ let added = false;
+ for(const sc of STARTER_CHURCHES){
+  if(!sc || !sc.id || have.has(sc.id) || gone.has(sc.id)) continue;
+  c.list.push(normChurch(sc));
+  added = true;
+ }
+ if(added) c.rev++;
+ return added;
+}
+
 function normCheckin(x){
  x = x || {};
  return {
@@ -270,7 +385,8 @@ const pinBlockedResp = () => json({ error:"too many wrong PIN attempts — wait 
 const LEADER_ACTIONS = new Set([
  "toggleCheck","setChecklistNote","addAnnouncement","ackCard","setEvent","setIOList","setDayPin",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
- "capturesList","captureMedia","captureDelete","capturePurge"
+ "capturesList","captureMedia","captureDelete","capturePurge",
+ "churchEdit","churchDelete","churchFlagClear"
 ]);
 
 function devKey(id){
@@ -316,6 +432,16 @@ async function compareAndSwap(s, key, normalize, mutate, fallback){
   let w;
   try { w = await s.setJSON(key, next, opts); } catch(_) { w = { modified:false }; }
   if(w && w.modified) return next;
+  /* The write may have LANDED even though we couldn't confirm it (an error
+     thrown after the commit, or a client that doesn't report `modified`).
+     Blindly retrying then re-applies `mutate` on a base that already contains
+     the change — for append-style mutates (log entries, announcements) that
+     stamps the same record out once per retry (the "26 duplicate log entries
+     from one tap" bug). Verify by re-reading before looping. */
+  try {
+   const chk = await s.getWithMetadata(key, { type:"json" });
+   if(chk && JSON.stringify(chk.data) === JSON.stringify(next)) return next;
+  } catch(_) {}
  }
  throw new Error("write conflict: " + key);
 }
@@ -435,8 +561,12 @@ async function assemble(s){
  let parts = await readAll(s);
  parts = await migrateIfNeeded(s, parts);
  const core = normCore(parts.core);
- const [agg, tallyEpoch, capturesRaw] = await Promise.all([ readAgg(s), readEpoch(s), s.get("captures", { type:"json" }) ]);
+ const [agg, tallyEpoch, capturesRaw, churchesRaw] = await Promise.all([ readAgg(s), readEpoch(s), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }) ]);
  const captures = normCaptures(capturesRaw);
+ // Only the rev + count ride in the main payload; the roster itself is
+ // fetched on demand (GET ?part=churches) so polling stays light.
+ const churchesRev = Math.max(0, Math.round(Number(churchesRaw && churchesRaw.rev) || 0));
+ const churchCount = (churchesRaw && Array.isArray(churchesRaw.list)) ? churchesRaw.list.length : 0;
  // Self-seeding script board: fill in any missing starter scripts (no-op
  // write when nothing is missing, so the usual GET stays read-only).
  const prompter = await compareAndSwap(s, "prompter", normPrompter,
@@ -462,7 +592,9 @@ async function assemble(s){
  // with the capturesList action.
  captureCount: captures.length,
  captureBytes: captureUsage(captures),
- captureBudget: CAPTURE_BUDGET()
+ captureBudget: CAPTURE_BUDGET(),
+ churchesRev,
+ churchCount
  };
 }
 
@@ -481,6 +613,26 @@ export default async (req, context) => {
  const s = getStore(STORE, { consistency: "strong" });
 
  if(req.method === "GET"){
+  /* Church roster is its own endpoint (+ETag) so phones download it only when
+     it changed and only when someone is actually on the Mobilization tab.
+     The read is also where missing starter churches self-seed (no-op write
+     when nothing is missing). */
+  let part = "";
+  try { part = new URL(req.url).searchParams.get("part") || ""; } catch(_) {}
+  if(part === "churches"){
+   const ch = await compareAndSwap(s, "churches", normChurches, c => {
+    const merged = mergeStarterChurches(c);
+    const compacted = chCompactLog(c);
+    if(compacted) c.rev++;
+    return (merged || compacted) ? c : undefined;
+   }, emptyChurches);
+   const body = JSON.stringify(ch);
+   const etag = 'W/"' + hash(body) + '"';
+   if(req.headers.get("if-none-match") === etag){
+    return new Response(null, { status:304, headers:{ "ETag":etag, "Cache-Control":"no-store" } });
+   }
+   return new Response(body, { status:200, headers:{ "Content-Type":"application/json", "Cache-Control":"no-store", "ETag":etag } });
+  }
   const body = JSON.stringify(await assemble(s));
   const etag = 'W/"' + hash(body) + '"';
   // Unchanged since the client last saw it? Skip the payload AND the re-render.
@@ -687,7 +839,8 @@ export default async (req, context) => {
     the Recording Studio scripts, issues and praises. Quick Captures also
     SURVIVE the reset — they are seekers' contact info headed for the CRM,
     never day-scoped throwaway data (leaders delete them individually once
-    they're in Planning Center). */
+    they're in Planning Center). The Mobilization church CRM ("churches" blob)
+    also survives — it's a season-long relationship record. */
  await casCore(s, core => ({ ...EMPTY_CORE, event: core.event, dayPin: core.dayPin, funding: core.funding, feedback: core.feedback, praises: core.praises }));
  await compareAndSwap(s, "io", normIO, io => { io.list = ioListClearProgress(io.list); return io; }, () => ({ list: [] }));
  const [c1, c2, c3] = await Promise.all([ s.list({ prefix: "count-" }), s.list({ prefix: "tally-" }), s.list({ prefix: "tal2-" }) ]);
@@ -787,6 +940,126 @@ export default async (req, context) => {
  }, () => []);
  await s.delete(capMediaKey(payload.id)).catch(() => {});
  break;
+ /* ---- Pre-Crusade Mobilization (church CRM) ----
+    Open to everyone behind the Day PIN: adding a church, logging outreach,
+    claiming a connection, scoring interest, flagging misalignment — the whole
+    point is frictionless collaboration from ambassadors' phones. Editing and
+    deleting the master list is leader-PIN-gated (see LEADER_ACTIONS). Every
+    write bumps rev and lands in the activity log. */
+ case "churchAdd": {
+ const rec = normChurch(payload.church || {});
+ if(!rec.name) break;
+ await casChurches(s, c => {
+ if(c.list.some(x => x.id === rec.id)) return undefined; // idempotent retry
+ if(c.list.some(x => x.name.toLowerCase() === rec.name.toLowerCase() && x.town.toLowerCase() === rec.town.toLowerCase())) return undefined; // duplicate guard
+ c.list.push(rec); c.list = c.list.slice(0, 800);
+ chLogPush(c, { ch: rec.id, type:"add", by: rec.addedBy || "Ambassador", note: rec.name, t: rec.t, d: rec.d });
+ c.rev++; return c;
+ });
+ break;
+ }
+ case "churchLog": {
+ if(!CH_OPEN_LOG.has(payload.type)) break; // ambassadors: outreach + notes only
+ const rec = normChLog(payload);
+ /* Collapse rapid-fire repeats: opening the dialer/mail app, backing out and
+    tapping again should NOT stack duplicate history entries. Same church +
+    type + person + note within ~10 minutes (or a retried request with the
+    same id) is a no-op. */
+ const tMins = tstr => {
+ const m = /(\d+):(\d+)\s*(AM|PM)/i.exec(tstr || "");
+ if(!m) return null;
+ let h = Number(m[1]) % 12;
+ if(/pm/i.test(m[3])) h += 12;
+ return h * 60 + Number(m[2]);
+ };
+ await casChurches(s, c => {
+ if(!c.list.some(x => x.id === rec.ch)) return undefined;
+ if(c.log.some(e => e.id === rec.id)) return undefined; // idempotent retry
+ const dup = c.log.slice(-30).some(e => {
+ if(e.ch !== rec.ch || e.type !== rec.type || e.by !== rec.by || e.d !== rec.d || e.note !== rec.note) return false;
+ const a = tMins(e.t), b = tMins(rec.t);
+ return (a == null || b == null) ? e.t === rec.t : Math.abs(b - a) <= 10;
+ });
+ if(dup) return undefined;
+ chLogPush(c, rec);
+ c.rev++; return c;
+ });
+ break;
+ }
+ case "churchConnect": {
+ const conn = normChConn(payload);
+ if(!conn.amb) break;
+ await casChurches(s, c => {
+ const it = c.list.find(x => x.id === payload.ch);
+ if(!it) return undefined;
+ if(it.connections.some(x => x.amb.toLowerCase() === conn.amb.toLowerCase())) return undefined;
+ it.connections.push(conn); it.connections = it.connections.slice(0, 40);
+ chLogPush(c, { ch: it.id, type:"connect", by: conn.amb, note: conn.note, t: conn.t, d: conn.d });
+ c.rev++; return c;
+ });
+ break;
+ }
+ case "churchInterest": {
+ const n = Math.max(0, Math.min(5, Math.round(Number(payload.interest) || 0)));
+ await casChurches(s, c => {
+ const it = c.list.find(x => x.id === payload.ch);
+ if(!it || it.interest === n) return undefined;
+ it.interest = n;
+ chLogPush(c, { ch: it.id, type:"interest", by: payload.by, note: "Interest set to " + n + "/5", t: payload.t, d: payload.d });
+ c.rev++; return c;
+ });
+ break;
+ }
+ case "churchFlag": {
+ if(!payload.reason) break;
+ await casChurches(s, c => {
+ if(chLogged(c, payload.id)) return undefined; // retry of an applied write
+ const it = c.list.find(x => x.id === payload.ch);
+ if(!it) return undefined;
+ it.flag = normChurch({ flag:{ reason: payload.reason, note: payload.note, by: payload.by, t: payload.t, d: payload.d } }).flag;
+ it.align = "flagged";
+ chLogPush(c, { id: payload.id, ch: it.id, type:"flag", by: payload.by, note: str(payload.reason, 80) + (payload.note ? " — " + str(payload.note, 200) : ""), t: payload.t, d: payload.d });
+ c.rev++; return c;
+ });
+ break;
+ }
+ case "churchFlagClear": {
+ await casChurches(s, c => {
+ if(chLogged(c, payload.id)) return undefined;
+ const it = c.list.find(x => x.id === payload.ch);
+ if(!it || !it.flag) return undefined;
+ it.flag = null;
+ it.align = CH_ALIGNS.has(payload.align) && payload.align !== "flagged" ? payload.align : "unverified";
+ chLogPush(c, { id: payload.id, ch: it.id, type:"unflag", by: payload.by, note: "Flag cleared", t: payload.t, d: payload.d });
+ c.rev++; return c;
+ });
+ break;
+ }
+ case "churchEdit": {
+ const patch = payload.patch || {};
+ await casChurches(s, c => {
+ if(chLogged(c, payload.id)) return undefined;
+ const i = c.list.findIndex(x => x.id === payload.ch);
+ if(i < 0) return undefined;
+ const cur = c.list[i], merged = { ...cur };
+ for(const k of CH_EDIT_FIELDS) if(k in patch) merged[k] = patch[k];
+ c.list[i] = normChurch({ ...merged, id: cur.id, connections: cur.connections, flag: cur.flag, addedBy: cur.addedBy });
+ chLogPush(c, { id: payload.id, ch: cur.id, type:"edit", by: payload.by, note: "Details updated", t: payload.t, d: payload.d });
+ c.rev++; return c;
+ });
+ break;
+ }
+ case "churchDelete": {
+ await casChurches(s, c => {
+ const it = c.list.find(x => x.id === payload.ch);
+ if(!it) return undefined;
+ c.list = c.list.filter(x => x.id !== it.id);
+ if(!c.removed.includes(it.id)) c.removed.push(it.id); // tombstone: don't re-seed
+ chLogPush(c, { ch: it.id, type:"delete", by: payload.by, note: it.name, t: payload.t, d: payload.d });
+ c.rev++; return c;
+ });
+ break;
+ }
  case "capturePurge": {
  /* Wholesale cleanup once everything is in Planning Center Online: clears
     the capture list AND every capmedia- blob (listing by prefix also sweeps
