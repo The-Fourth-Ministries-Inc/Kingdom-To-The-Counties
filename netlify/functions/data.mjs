@@ -229,7 +229,10 @@ export function normChurches(c){
  };
 }
 const emptyChurches = () => ({ rev: 0, removed: [], list: [], log: [] });
-const casChurches = (s, mutate) => compareAndSwap(s, "churches", normChurches, mutate, emptyChurches);
+// Writes seed the starter roster too, so a POST that lands before the first
+// roster read (fresh deploy) can't no-op against an empty list.
+const seededChurches = () => { const c = emptyChurches(); mergeStarterChurches(c); return c; };
+const casChurches = (s, mutate) => compareAndSwap(s, "churches", normChurches, mutate, seededChurches);
 function chLogPush(c, entry){ c.log.push(normChLog(entry)); c.log = c.log.slice(-1200); }
 /* Merge any starter church whose id is neither on the board nor tombstoned. */
 function mergeStarterChurches(c){
@@ -924,9 +927,28 @@ export default async (req, context) => {
  }
  case "churchLog": {
  if(!CH_OPEN_LOG.has(payload.type)) break; // ambassadors: outreach + notes only
+ const rec = normChLog(payload);
+ /* Collapse rapid-fire repeats: opening the dialer/mail app, backing out and
+    tapping again should NOT stack duplicate history entries. Same church +
+    type + person + note within ~10 minutes (or a retried request with the
+    same id) is a no-op. */
+ const tMins = tstr => {
+ const m = /(\d+):(\d+)\s*(AM|PM)/i.exec(tstr || "");
+ if(!m) return null;
+ let h = Number(m[1]) % 12;
+ if(/pm/i.test(m[3])) h += 12;
+ return h * 60 + Number(m[2]);
+ };
  await casChurches(s, c => {
- if(!c.list.some(x => x.id === payload.ch)) return undefined;
- chLogPush(c, payload);
+ if(!c.list.some(x => x.id === rec.ch)) return undefined;
+ if(c.log.some(e => e.id === rec.id)) return undefined; // idempotent retry
+ const dup = c.log.slice(-30).some(e => {
+ if(e.ch !== rec.ch || e.type !== rec.type || e.by !== rec.by || e.d !== rec.d || e.note !== rec.note) return false;
+ const a = tMins(e.t), b = tMins(rec.t);
+ return (a == null || b == null) ? e.t === rec.t : Math.abs(b - a) <= 10;
+ });
+ if(dup) return undefined;
+ chLogPush(c, rec);
  c.rev++; return c;
  });
  break;

@@ -3996,11 +3996,19 @@ function chRenderList(){
   m.innerHTML=rows.length?rows.map(chRowHtml).join(""):'<p class="hint" style="text-align:center;padding:14px 0">'+(CH.list.length?"No matches — clear the search or filters.":"Loading the church list…")+'</p>';
 }
 function chOpen(id){chCurId=id;chEditOpen=false;chFlagOpen=false;show("church");}
-/* ---- outreach logging (call / text / email buttons, script & shares) ---- */
+/* ---- outreach logging (call / text / email buttons, script & shares) ----
+   Deduped: tapping Call opens the dialer, backing out and tapping again used
+   to log a fresh entry every time (same for Email while the mail app opened).
+   One entry per church+type per 10 minutes; repeats just re-toast. The server
+   applies the same collapse, so two phones can't double-log either. */
+var chQuickLast={};
 function chQuick(id,type,note){
+  var k=id+"|"+type,nowMs=Date.now();
+  if(chQuickLast[k]&&nowMs-chQuickLast[k]<600000){toast((CH_ICON[type]||"📝")+" Already logged a few minutes ago");return;}
+  chQuickLast[k]=nowMs;
   var by=myTag()||"Ambassador",st=chStamp();
   var rec={id:uid(),ch:id,type:type,by:by,note:note||"",t:st.t,d:st.d};
-  if(LIVE){apiPost("churchLog",rec).then(function(){chFetch(true);}).catch(function(){});CH.log.push(rec);chSave();setTimeout(chRenderAll,400);}
+  if(LIVE){apiPost("churchLog",rec).then(function(){chFetch(true);}).catch(function(){});CH.log.push(rec);chSave();setTimeout(chRenderAll,400);toast((CH_ICON[type]||"📝")+" Logged to the church's history");}
 }
 /* ---- the 20-second "what is K2C" script ---- */
 function chScriptText(c){
