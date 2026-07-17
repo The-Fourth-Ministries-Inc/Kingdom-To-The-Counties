@@ -653,6 +653,18 @@
     body[data-print] .page{display:none !important}
     body[data-print="playbook"] #page-playbook{display:block !important}
     body[data-print="handbook"] #page-handbook{display:block !important}
+    /* v1.9.0 — printable church one-pager */
+    body[data-print="church"] #page-church{display:block !important}
+    body[data-print="church"] #page-church .chacts,
+    body[data-print="church"] #page-church button,
+    body[data-print="church"] #page-church input,
+    body[data-print="church"] #page-church textarea,
+    body[data-print="church"] #page-church select,
+    body[data-print="church"] #page-church .lockbar,
+    body[data-print="church"] #page-church .namebar{display:none !important}
+    body[data-print="church"] #page-church .card{border:none;border-top:1.5px solid #000;border-radius:0;background:#fff}
+    body[data-print="church"] #page-church .chip2,
+    body[data-print="church"] #page-church .stpill{border:1px solid #999;background:#fff;color:#000;-webkit-print-color-adjust:exact}
     body[data-print] .back,body[data-print] .printbtn,body[data-print] .draft{display:none !important}
     body[data-print] *{box-shadow:none !important;animation:none !important;transition:none !important}
     /* ---- compact playbook ---- */
@@ -700,7 +712,7 @@
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.8.0</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.9.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -989,24 +1001,24 @@
   </section>
   <section class="page" id="page-mobilize">
     <p class="eyebrow">Pre-Crusade</p><h1 class="title">Mobilization</h1>
+    <p class="eventtag" style="font-family:var(--serif);font-style:italic;font-size:15px;margin-top:2px">“Repair the Net”</p>
     <span class="syncpill" id="sp-mob"><span class="d"></span>Demo mode</span>
-    <p class="sub">The master church list for the whole season — who we know, who's engaged, who still needs a connection. Every call, text, email &amp; share you make is logged for the team automatically.</p>
+    <p class="sub">The master church list for the whole season. Find who we know, log who we've talked with, and knit every willing church into the follow-up net.</p>
     <div class="namebar" id="namebar-ch"></div>
     <div id="mobStats"></div>
-    <div id="mobNeeds"></div>
+    <div id="mobSummary"></div>
     <div class="chsearch">
       <input id="chSearch" placeholder="🔍 Church, town, pastor…" oninput="chSetQ(this.value)" autocomplete="off" />
       <select id="chCountySel" onchange="chSetCounty(this.value)"></select>
     </div>
     <div class="cattabs" id="chViews">
       <button class="on" data-v="all" onclick="chSetView('all')">All</button>
-      <button data-v="need" onclick="chSetView('need')">🚨 Needs connection</button>
-      <button data-v="conn" onclick="chSetView('conn')">🙋 Connected</button>
-      <button data-v="eng" onclick="chSetView('eng')">✅ Engaged</button>
+      <button data-v="need" onclick="chSetView('need')">🙅 Don't know anyone</button>
+      <button data-v="conn" onclick="chSetView('conn')">🙋 We know someone</button>
+      <button data-v="eng" onclick="chSetView('eng')">🗣️ We've talked</button>
       <button data-v="flag" onclick="chSetView('flag')">🚩 Flagged</button>
     </div>
-    <div id="chList"></div>
-    <details class="preview" style="margin-top:14px"><summary>➕ Add a church or ministry — any ambassador can</summary>
+    <details class="preview" id="chAddWrap" style="margin:0 0 12px"><summary>➕ Add a church or ministry — any ambassador can</summary>
       <div class="body">
         <div class="form" style="margin-bottom:0">
           <input id="chaName" maxlength="120" placeholder="Church / ministry name *" autocomplete="off" />
@@ -1022,11 +1034,29 @@
         </div>
       </div>
     </details>
+    <div id="chList"></div>
+    <button class="btn ghost" style="margin-top:12px" onclick="chExportCSV()">📊 Export master list (CSV)</button>
     <details class="preview" style="margin-top:10px"><summary>📜 Change log — every touch &amp; edit, newest first</summary><div class="body" id="chGlobalLog"></div></details>
+    <p class="hint" style="margin:12px 2px 26px">✅ / 🟡 Alignment = fit with our <a onclick="event.preventDefault();show('faith')" style="color:var(--wine);font-weight:700;cursor:pointer;text-decoration:underline">Statement of Faith</a>. When in doubt, read it before you reach out.</p>
   </section>
   <section class="page" id="page-church">
     <button class="back" onclick="show('mobilize')">‹ Mobilization</button>
     <div id="churchMount"></div>
+  </section>
+  <section class="page" id="page-faith">
+    <button class="back" onclick="show('guides')">‹ Ambassador Resources</button>
+    <p class="eyebrow">What we believe</p><h1 class="title">Statement of Faith</h1>
+    <p class="sub">The measuring line for every partnership on the Mobilization list. A church's ✅ / 🟡 alignment badge means “fit with this.”</p>
+    <a class="dl" href="https://kingdomtothecounties.com/statement-of-faith" target="_blank" rel="noopener" style="display:block;text-align:center;background:var(--wine);color:#fff;text-decoration:none;font-weight:700;font-size:15px;padding:14px;border-radius:14px;margin-bottom:14px">📖 Read the full Statement of Faith →</a>
+    <div class="card"><h3>How ambassadors use it</h3>
+      <ul>
+        <li><b>Before reaching out</b> to a 🟡 “verify fit” church, skim the Statement so you can speak to it confidently.</li>
+        <li><b>If a church asks what we believe,</b> send them the link above — it's the official answer, word for word.</li>
+        <li><b>If what you see conflicts with it</b> (unbiblical teaching, non-traditional-marriage promotion, heavy politics either way), use the 🚩 flag on that church's page and leadership will review.</li>
+      </ul>
+    </div>
+    <div class="card"><div class="verse">“…contend earnestly for the faith which was once for all handed down to the saints.”<small>Jude 1:3 · NASB 2020</small></div></div>
+    <p class="hint">The full text lives on kingdomtothecounties.com so it's always the current official version — you'll need signal to open it.</p>
   </section>
   <section class="page" id="page-guides">
     <p class="eyebrow">Reference</p><h1 class="title">Ambassador Resources</h1><p class="sub">Guides, check-in, contacts & graphics.</p>
@@ -1038,6 +1068,7 @@
       <button class="hubcard wine" onclick="show('handbook')"><span class="ic">📗</span><span class="tx"><b>Counselor Booklet</b><span>Praying with people, the Gospel simply</span></span><span class="arr">›</span></button>
       <button class="hubcard slate" onclick="show('prompter')"><span class="ic">🎬</span><span class="tx"><b>Recording Studio</b><span>Invite video scripts · teleprompter · send to Laura</span></span><span class="pill" id="tpPill">0</span></button>
       <button class="hubcard" onclick="show('leaders')"><span class="ic">📇</span><span class="tx"><b>Leader Contacts</b><span>Tap to call or text a leader</span></span><span class="arr">›</span></button>
+      <button class="hubcard" onclick="show('faith')"><span class="ic">📖</span><span class="tx"><b>Statement of Faith</b><span>What we believe · the alignment measuring line</span></span><span class="arr">›</span></button>
       <button class="hubcard wine" onclick="show('donate')"><span class="ic">❤️</span><span class="tx"><b>Give / Donate</b><span>Support the mission · ways to give</span></span><span class="arr">›</span></button>
       <button class="hubcard" onclick="show('graphics')"><span class="ic">🖼️</span><span class="tx"><b>Graphics for Sharing!</b><span>Download & share on socials</span></span><span class="arr">›</span></button>
       <button class="hubcard slate" onclick="show('shareapp')"><span class="ic">📲</span><span class="tx"><b>Share this App</b><span>QR code — get fellow ambassadors on here</span></span><span class="arr">›</span></button>
@@ -1926,10 +1957,10 @@
   </div>
 </div>
 <nav class="tabbar">
+  <button class="tab" data-tab="mobilize"><svg viewBox="0 0 24 24"><path d="M12 2v5"/><path d="M9.5 4.5h5"/><path d="M4 21v-8l8-5 8 5v8"/><path d="M9 21v-4a3 3 0 0 1 6 0v4"/></svg><span class="tl">Pre-Crusade Mobilization</span></button>
   <button class="tab active" data-tab="now"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="tl">Now</span></button>
   <button class="tab" data-tab="crew"><svg viewBox="0 0 24 24"><rect x="5" y="6" width="14" height="14" rx="2"/><path d="M9 6V4h6v2"/><path d="M9 13l2 2 3-3"/></svg><span class="tl">Specialists</span></button>
   <button class="tab" data-tab="board"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H7l-3 3z"/></svg><span class="tl">Post</span><span class="nbadge" id="boardBadge" style="display:none">0</span></button>
-  <button class="tab" data-tab="mobilize"><svg viewBox="0 0 24 24"><path d="M12 2v5"/><path d="M9.5 4.5h5"/><path d="M4 21v-8l8-5 8 5v8"/><path d="M9 21v-4a3 3 0 0 1 6 0v4"/></svg><span class="tl">Pre-Crusade Mobilization</span></button>
   <button class="tab" data-tab="guides"><svg viewBox="0 0 24 24"><path d="M12 6c-2-2-5-2-7-1v13c2-1 5-1 7 1 2-2 5-2 7-1V5c-2-1-5-1-7 1z"/><path d="M12 6v13"/></svg><span class="tl">Ambassador Resources</span></button>
 </nav>
 <script>
@@ -2923,7 +2954,7 @@ document.addEventListener("click",function(e){var row=e.target.closest(".chk");i
 document.getElementById("annBarX").addEventListener("click",function(e){e.stopPropagation();barDismissed=true;document.getElementById("annBar").classList.remove("show");});
 var annBarMode="checkin";
 document.getElementById("annBar").addEventListener("click",function(){show(annBarMode==="checkin"?"checkin":"announcements");});
-var PARENT={dashboard:"crew",checkin:"guides",count:"crew",setup:"crew",techio:"crew",inventory:"crew",announcements:"board",praise:"board",issue:"board",leaders:"guides",graphics:"guides",donate:"guides",playbook:"guides",handbook:"guides",tour:"guides",radios:"crew",shareapp:"guides",capture:"guides",church:"mobilize"};
+var PARENT={dashboard:"crew",checkin:"guides",count:"crew",setup:"crew",techio:"crew",inventory:"crew",announcements:"board",praise:"board",issue:"board",leaders:"guides",graphics:"guides",donate:"guides",playbook:"guides",handbook:"guides",tour:"guides",radios:"crew",shareapp:"guides",capture:"guides",church:"mobilize",faith:"guides"};
 function show(id){
   if(id==="dashboard"&&!LEADER){askPin(function(){show("dashboard");});}
   var pages=document.querySelectorAll(".page");for(var i=0;i<pages.length;i++)pages[i].classList.remove("active");
@@ -3125,7 +3156,7 @@ function updateTourPrompts(){var d=tourDone()?"none":"flex";var a=document.getEl
    from Resources → App Tour. ===== */
 var GUIDE_STEPS=[
  {page:"now",sel:".brand",title:"🏠 Event Day",text:"This is home. It follows the clock all day — what's happening Now, what's Next, and the full order of events. No refreshing needed."},
- {page:"now",sel:".tabbar",title:"🧭 Getting around",text:"Five tabs: Now (home), Specialists (work tools), Post (praise, issues & announcements), Pre-Crusade Mobilization (the church list), and Ambassador Resources (guides & contacts)."},
+ {page:"now",sel:".tabbar",title:"🧭 Getting around",text:"Five tabs: Pre-Crusade Mobilization (the church list — “Repair the Net”), Now (home), Specialists (work tools), Post (praise, issues & announcements), and Ambassador Resources (guides & contacts)."},
  {page:"checkin",sel:"#ciBtn",title:"🙋 Check in first",text:"When you arrive, check yourself in here. It tells leadership you're on the field and puts you on the day's roster."},
  {page:"board",sel:"#page-board .hub",title:"📣 Post",text:"Three boards: the Praise Wall (celebrate God moments), Report an Issue (flag problems to leadership fast), and Announcements from leaders. You can comment on any post."},
  {page:"crew",sel:"#page-crew .hub",title:"🧰 Specialists",text:"Work tools live here: the Attendance Counter, Setup Checklist, Radio Checkout, Trailer Load List and the Tech I/O list."},
@@ -3880,8 +3911,11 @@ var CH={rev:-1,list:[],log:[]};
 function chFix(o){if(o){if(!Array.isArray(o.list))o.list=[];if(!Array.isArray(o.log))o.log=[];o.list.forEach(function(c){if(!Array.isArray(c.connections))c.connections=[];});}return o;}
 try{var _chc=JSON.parse(localStorage.getItem("k2c_churches")||"null");if(_chc&&Array.isArray(_chc.list))CH=chFix(_chc);}catch(_){}
 var chEtag="",chFetching=false,chView="all",chQ="",chCounty="",chCurId=null,chEditOpen=false,chFlagOpen=false;
-var CH_ICON={call:"📞",text:"💬",email:"✉️",visit:"🤝",script:"📣",share:"📲",note:"📝",connect:"🙋",flag:"🚩",unflag:"✅",edit:"✏️",add:"➕",interest:"⭐","delete":"🗑"};
-var CH_ENGAGE={call:1,text:1,email:1,visit:1,script:1,share:1};
+var CH_ICON={call:"📞",text:"💬",email:"✉️",convo:"🗣️",visit:"🤝",script:"📣",share:"📲",note:"📝",connect:"🙋",flag:"🚩",unflag:"✅",edit:"✏️",add:"➕",interest:"⭐","delete":"🗑"};
+/* "Engaged" (we've actually talked with them) is MANUAL ONLY — a 🗣️
+   conversation record an ambassador types in. Tapping Call/Text/Email logs
+   history but never flips a church to engaged on its own. */
+var CH_ENGAGE={convo:1};
 function chSave(){try{localStorage.setItem("k2c_churches",JSON.stringify(CH));}catch(_){}}
 function chId(id){return (id||"").toString().replace(/[^a-zA-Z0-9_-]/g,"").slice(0,40);}
 function chStamp(){return{t:nowLabel(),d:dateKey(new Date())};}
@@ -3944,36 +3978,40 @@ function chRowHtml(c){
   else if(c.align==="strong")chips+='<span class="chip2 strong">✅ Strong fit</span>';
   else if(c.align==="partial")chips+='<span class="chip2 partial">🟡 Verify fit</span>';
   if(c.interest>0)chips+='<span class="chip2 stars">'+chStarsTxt(c.interest)+'</span>';
-  if(c.connections.length)chips+='<span class="chip2 conn">🙋 '+c.connections.length+' connection'+(c.connections.length>1?"s":"")+'</span>';
-  if(eng)chips+='<span class="chip2 eng">✅ Engaged '+esc(chFmtD(eng.d)||eng.t||"")+'</span>';
-  if(!c.connections.length&&!eng&&!c.flag)chips+='<span class="chip2">🚨 Needs connection</span>';
+  if(eng)chips+='<span class="chip2 eng">🗣️ We’ve talked · '+esc(chFmtD(eng.d)||eng.t||"")+'</span>';
+  else if(c.connections.length)chips+='<span class="chip2 conn">🙋 We know someone</span>';
+  else if(!c.flag)chips+='<span class="chip2">🙅 Don’t know anyone yet</span>';
   var sub=[c.town,(c.county&&c.county!=="Out of state")?c.county+" Co.":(c.state!=="NH"?c.state:""),c.leader||c.contact].filter(Boolean).join(" · ");
   return '<button class="chrow'+(c.kind==="ministry"?" min":"")+'" onclick="chOpen(\''+chId(c.id)+'\')"><span class="ic">'+(c.kind==="ministry"?"🕊️":"⛪")+'</span><span class="tx"><b>'+esc(c.name)+'</b><span class="sub2">'+esc(sub)+'</span><span class="chips2">'+chips+'</span></span><span class="arr">›</span></button>';
 }
 function renderMobilize(){
   var stats=document.getElementById("mobStats");if(!stats)return;
-  var total=CH.list.length,conn=0,eng=0,flag=0,need=[];
+  var total=CH.list.length,conn=0,eng=0,flag=0,need=0,hot=null;
   CH.list.forEach(function(c){
     var e=!!chLastEngage(c.id);
-    if(c.connections.length)conn++;
+    if(c.flag){flag++;return;}
     if(e)eng++;
-    if(c.flag)flag++;
-    else if(!c.connections.length&&!e)need.push(c);
+    else if(c.connections.length)conn++;
+    else need++;
+    if(c.interest>0&&(!hot||c.interest>hot.interest))hot=c;
   });
   stats.innerHTML='<div class="stat">'
     +'<div class="box"><div class="n">'+total+'</div><div class="l">On the list</div></div>'
-    +'<div class="box alt"><div class="n" style="color:var(--good)">'+eng+'</div><div class="l">Engaged</div></div>'
-    +'<div class="box alt"><div class="n" style="color:#2b4a68">'+conn+'</div><div class="l">Connected</div></div>'
-    +'<div class="box alt"><div class="n" style="color:var(--bad)">'+need.length+'</div><div class="l">Still cold</div></div></div>';
-  // Priority queue: strong-fit churches nobody knows & nobody has touched.
-  need.sort(function(a,b){
-    var r={strong:0,partial:1,unverified:2};
-    return (r[a.align]-r[b.align])||(b.interest-a.interest)||a.name.localeCompare(b.name);
-  });
-  var nd=document.getElementById("mobNeeds");
-  nd.innerHTML=need.length?'<div class="card" style="border-left:4px solid var(--rust)"><h3>🚨 Need a connection ASAP</h3><p class="hint" style="margin:0 0 6px">No one on the team knows anyone here yet and no one has reached out. Know someone? Tap in and claim it.</p>'
-    +need.slice(0,6).map(function(c){return '<div class="needrow"><span class="nm"><b>'+esc(c.name)+'</b><span>'+esc([c.town,c.leader||c.contact].filter(Boolean).join(" · "))+'</span></span><button onclick="chOpen(\''+chId(c.id)+'\')">Open ›</button></div>';}).join("")
-    +(need.length>6?'<p class="hint" style="margin-top:8px">+ '+(need.length-6)+' more — tap “🚨 Needs connection” below.</p>':'')+'</div>':"";
+    +'<div class="box alt"><div class="n" style="color:var(--good)">'+eng+'</div><div class="l">We’ve talked</div></div>'
+    +'<div class="box alt"><div class="n" style="color:#2b4a68">'+conn+'</div><div class="l">Know someone</div></div>'
+    +'<div class="box alt"><div class="n" style="color:var(--bad)">'+need+'</div><div class="l">Don’t know anyone</div></div></div>';
+  /* Plain-English executive summary instead of a queue widget. */
+  var sm=document.getElementById("mobSummary");
+  if(sm){
+    var bits='<b>'+total+' churches &amp; ministries</b> are on the master list. ';
+    if(eng)bits+='We’ve had a real conversation with <b>'+eng+'</b>'+(conn?', we know someone at <b>'+conn+'</b> more':'')+', and <b>'+need+'</b> we don’t know anyone yet.';
+    else if(conn)bits+='We know someone at <b>'+conn+'</b> of them, but <b>no conversations have been logged yet</b> — and <b>'+need+'</b> we don’t know anyone at all.';
+    else bits+='<b>No connections or conversations logged yet</b> — the net is wide open.';
+    if(hot)bits+=' Warmest door right now: <b>'+esc(hot.name)+'</b> ('+hot.interest+'/5 ⭐).';
+    if(flag)bits+=' <b style="color:var(--bad)">'+flag+' flagged</b> for leadership review.';
+    bits+='<br><span style="color:var(--muted)">The job: find your town below, tell us who you know, and log the conversation after you’ve had it.</span>';
+    sm.innerHTML='<div class="card" style="border-left:4px solid var(--rust)"><h3>🪢 Where the net stands</h3><p style="font-size:13.5px;line-height:1.55;margin:0">'+bits+'</p></div>';
+  }
   // county filter select (master list + add form)
   var sel=document.getElementById("chCountySel");
   if(sel&&!sel.options.length)sel.innerHTML='<option value="">All counties</option>'+NHC.map(function(x){return '<option>'+x+'</option>';}).join("")+'<option>Out of state</option>';
@@ -3993,7 +4031,38 @@ function renderMobilize(){
 function chRenderList(){
   var m=document.getElementById("chList");if(!m)return;
   var rows=CH.list.filter(chMatches).sort(function(a,b){return (!!a.flag-!!b.flag)||a.name.localeCompare(b.name);});
-  m.innerHTML=rows.length?rows.map(chRowHtml).join(""):'<p class="hint" style="text-align:center;padding:14px 0">'+(CH.list.length?"No matches — clear the search or filters.":"Loading the church list…")+'</p>';
+  m.innerHTML=rows.length?rows.map(chRowHtml).join("")
+    :'<div class="card" style="text-align:center"><p style="margin:0 0 8px;font-size:13.5px">'+(CH.list.length
+      ?(chQ?'Nothing matches “<b>'+esc(chQ)+'</b>”.':'Nothing matches these filters.')+' Not on the list yet?'
+      :'Loading the church list…')+'</p>'
+    +(CH.list.length?'<button class="btn wine" style="width:auto;padding:10px 18px" onclick="chAddOpen()">➕ Add it to the master list</button>':'')+'</div>';
+}
+function chAddOpen(){
+  var d=document.getElementById("chAddWrap");if(!d)return;
+  d.open=true;
+  var n=document.getElementById("chaName");
+  if(n){if(chQ&&!n.value)n.value=chQ.replace(/\b\w/g,function(ch){return ch.toUpperCase();});n.focus();}
+  d.scrollIntoView({block:"center",behavior:"smooth"});
+}
+/* CSV export — open to every ambassador (the list is shared team data). */
+function chExportCSV(){
+  var cols=["Name","Type","Alignment","Status","Interest (0-5)","Town","County","State","Address","Phone","Email","Website","Primary contact","Contact role","Pastor / leader","Team connections","Last conversation","Flagged","Notes"];
+  var q=function(v){v=(v==null?"":""+v);return '"'+v.replace(/"/g,'""')+'"';};
+  var rows=CH.list.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(c){
+    var eng=chLastEngage(c.id);
+    var status=c.flag?"Flagged":(eng?"We've talked":(c.connections.length?"We know someone":"Don't know anyone yet"));
+    return [c.name,c.kind,c.align,status,c.interest,c.town,c.county,c.state,c.address,c.phone,c.email,c.website,c.contact,c.contactRole,c.leader,
+      c.connections.map(function(x){return x.amb+(x.note?" ("+x.note+")":"");}).join("; "),
+      eng?((chFmtD(eng.d)||eng.t)+" — "+eng.by+(eng.note?": "+eng.note:"")):"",
+      c.flag?(c.flag.reason+(c.flag.note?" — "+c.flag.note:"")):"",c.notes].map(q).join(",");
+  });
+  var csv="﻿"+cols.map(q).join(",")+"\r\n"+rows.join("\r\n");
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  a.download="K2C-church-master-list-"+dateKey(new Date())+".csv";
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},400);
+  toast("📊 CSV downloaded — "+CH.list.length+" entries");
 }
 function chOpen(id){chCurId=id;chEditOpen=false;chFlagOpen=false;show("church");}
 /* ---- outreach logging (call / text / email buttons, script & shares) ----
@@ -4036,9 +4105,22 @@ function chCopy(txt,ok){
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){toast(ok);}).catch(function(){prompt("Copy this:",txt);});
   else prompt("Copy this:",txt);
 }
-function chCopyScript(id){var c=chById(id);chCopy(chScriptText(c),"📣 Script copied — logged to "+(c?c.name:"the church"));chQuick(id,"script","Used the K2C intro script");}
-function chCopyEmail(id){var c=chById(id);if(!c)return;chCopy("Subject: "+chEmailSubject(c)+"\n\n"+chEmailBody(c),"✉️ Email copied — logged");chQuick(id,"email","Copied the outreach email");}
+/* Script & email always carry the ambassador's real name — if it isn't set
+   yet we ask for it first, THEN build the text. */
+function chCopyScript(id){chMe(function(){var c=chById(id);chCopy(chScriptText(c),"📣 Script copied — logged to "+(c?c.name:"the church"));chQuick(id,"script","Used the K2C intro script");});}
+function chCopyEmail(id){chMe(function(){var c=chById(id);if(!c)return;chCopy("Subject: "+chEmailSubject(c)+"\n\n"+chEmailBody(c),"✉️ Email copied — logged");chQuick(id,"email","Copied the outreach email");});}
 function chShareVideo(id){chCopy("https://youtu.be/QejmMM2O_8w","📹 Promo video link copied — logged");chQuick(id,"share","Shared the promo video link");}
+/* Email button: make sure the name is set, log once, then open the mail app
+   with the freshly personalized draft (so the sign-off is never "[your name]"). */
+function chEmailGo(ev,id){
+  if(ev)ev.preventDefault();
+  var c=chById(id);if(!c||!c.email)return false;
+  chMe(function(){
+    chQuick(id,"email","Opened the outreach email");
+    location.href="mailto:"+encodeURIComponent(c.email)+"?subject="+encodeURIComponent(chEmailSubject(c))+"&body="+encodeURIComponent(chEmailBody(c));
+  });
+  return false;
+}
 /* ---- interest, connections, notes ---- */
 function chSetInterest(id,n){
   chMe(function(){
@@ -4070,12 +4152,21 @@ function chNoteSubmit(id){
     if(chAction("churchLog",rec,function(){CH.log.push(rec);}))inp.value="";
   });
 }
-function chLogVisit(id){
+/* ---- "We talked with them" — the ONLY thing that marks a church engaged.
+   A quick-capture mini form: who you spoke with + how it went. ---- */
+var chConvoOpen=false;
+function chConvoToggle(){chConvoOpen=!chConvoOpen;renderChurchPage();if(chConvoOpen)setTimeout(function(){var e=document.getElementById("chConvoWho");if(e){e.scrollIntoView({block:"center",behavior:"smooth"});e.focus();}},80);}
+function chConvoSubmit(id){
+  var who=(document.getElementById("chConvoWho")||{value:""}).value.trim();
+  var how=(document.getElementById("chConvoHow")||{value:""}).value.trim();
+  if(!who&&!how){flash("chConvoWho");return;}
   chMe(function(){
-    var note=(prompt("Quick note on the visit / conversation? (optional)")||"").trim();
     var st=chStamp(),by=myTag();
-    var rec={id:uid(),ch:id,type:"visit",by:by,note:note,t:st.t,d:st.d};
-    chAction("churchLog",rec,function(){CH.log.push(rec);});
+    var note=(who?"Spoke with "+who:"Had a conversation")+(how?" — "+how:"");
+    var rec={id:uid(),ch:id,type:"convo",by:by,note:note,t:st.t,d:st.d};
+    if(!chAction("churchLog",rec,function(){CH.log.push(rec);}))return;
+    chConvoOpen=false;renderChurchPage();
+    toast("🗣️ Logged — this church now shows as “We’ve talked”");
   });
 }
 /* ---- vision flag ---- */
@@ -4083,10 +4174,10 @@ function chFlagSubmit(id){
   var sel=document.getElementById("chFlagReason"),note=document.getElementById("chFlagNote");
   if(!sel||!sel.value){toast("Pick a reason first");return;}
   chMe(function(){
-    var st=chStamp(),by=myTag(),reason=sel.value,n=(note?note.value:"").trim();
-    chAction("churchFlag",{ch:id,reason:reason,note:n,by:by,t:st.t,d:st.d},function(){
+    var st=chStamp(),by=myTag(),reason=sel.value,n=(note?note.value:"").trim(),lid=uid();
+    chAction("churchFlag",{id:lid,ch:id,reason:reason,note:n,by:by,t:st.t,d:st.d},function(){
       var c=chById(id);if(c){c.flag={reason:reason,note:n,by:by,t:st.t,d:st.d};c.align="flagged";}
-      CH.log.push({id:uid(),ch:id,type:"flag",by:by,note:reason+(n?" — "+n:""),t:st.t,d:st.d});
+      CH.log.push({id:lid,ch:id,type:"flag",by:by,note:reason+(n?" — "+n:""),t:st.t,d:st.d});
     });
     chFlagOpen=false;renderChurchPage();
     toast("🚩 Flagged — leadership will review");
@@ -4094,10 +4185,10 @@ function chFlagSubmit(id){
 }
 function chFlagClear(id){
   if(!LEADER){askPin(function(){chFlagClear(id);});return;}
-  var st=chStamp(),by=myTag()||"Leadership";
-  chAction("churchFlagClear",{ch:id,align:"unverified",by:by,t:st.t,d:st.d},function(){
+  var st=chStamp(),by=myTag()||"Leadership",lid=uid();
+  chAction("churchFlagClear",{id:lid,ch:id,align:"unverified",by:by,t:st.t,d:st.d},function(){
     var c=chById(id);if(c){c.flag=null;c.align="unverified";}
-    CH.log.push({id:uid(),ch:id,type:"unflag",by:by,note:"Flag cleared",t:st.t,d:st.d});
+    CH.log.push({id:lid,ch:id,type:"unflag",by:by,note:"Flag cleared",t:st.t,d:st.d});
   });
 }
 /* ---- add (any ambassador) ---- */
@@ -4125,14 +4216,14 @@ function chEditToggle(id){
 }
 function chEditSubmit(id){
   var g=function(i){var e=document.getElementById(i);return e?e.value.trim():"";};
-  var st=chStamp(),by=myTag()||"Leadership";
+  var st=chStamp(),by=myTag()||"Leadership",lid=uid();
   var patch={name:g("cheName"),town:g("cheTown"),county:g("cheCounty"),state:g("cheState"),address:g("cheAddress"),
     phone:g("chePhone"),email:g("cheEmail"),website:g("cheWebsite"),contact:g("cheContact"),contactRole:g("cheContactRole"),
     leader:g("cheLeader"),notes:g("cheNotes"),align:g("cheAlign"),kind:g("cheKind")};
   if(!patch.name){flash("cheName");return;}
-  chAction("churchEdit",{ch:id,patch:patch,by:by,t:st.t,d:st.d},function(){
+  chAction("churchEdit",{id:lid,ch:id,patch:patch,by:by,t:st.t,d:st.d},function(){
     var c=chById(id);if(c)for(var k in patch)if(patch[k]!==undefined)c[k]=patch[k];
-    CH.log.push({id:uid(),ch:id,type:"edit",by:by,note:"Details updated",t:st.t,d:st.d});
+    CH.log.push({id:lid,ch:id,type:"edit",by:by,note:"Details updated",t:st.t,d:st.d});
   });
   chEditOpen=false;renderChurchPage();
   toast("✏️ Saved");
@@ -4154,7 +4245,7 @@ function renderChurchPage(){
   var m=document.getElementById("churchMount");if(!m)return;
   var c=chById(chCurId);
   if(!c){m.innerHTML='<p class="hint" style="padding:20px 0">That church isn’t on the list anymore. <a onclick="show(\'mobilize\')" style="color:var(--rust);font-weight:700;cursor:pointer">Back to the list ›</a></p>';return;}
-  var id=chId(c.id),tel=chDigits(c.phone),h="";
+  var id=chId(c.id),tel=chDigits(c.phone),eng=chLastEngage(c.id),h="";
   h+='<p class="eyebrow">'+(c.kind==="ministry"?"Ministry":"Church")+(c.county?' · '+esc(c.county)+(c.county!=="Out of state"?" County":""):"")+'</p>';
   h+='<h1 class="title" style="font-size:25px">'+esc(c.name)+'</h1>';
   var subBits=[c.town,(c.state&&c.state!=="NH")?c.state:"",c.website?'<a href="'+esc(c.website)+'" target="_blank" rel="noopener" style="color:var(--rust)">website ↗</a>':""].filter(Boolean);
@@ -4162,42 +4253,68 @@ function renderChurchPage(){
   if(c.flag){
     h+='<div class="chflagbar">🚩 <b>Flagged — not aligned with our vision.</b><br>'+esc(c.flag.reason)+(c.flag.note?' — '+esc(c.flag.note):"")+'<br><span style="font-weight:600;opacity:.8">by '+esc(c.flag.by)+' · '+esc(chWhen(c.flag))+'</span>'
       +(LEADER?'<button onclick="chFlagClear(\''+id+'\')">✅ Clear flag (leader)</button>':'<span style="display:block;margin-top:5px;font-weight:600;opacity:.8">Hold outreach until leadership reviews.</span>')+'</div>';
-  }else if(c.align==="strong"){h+='<span class="chip2 strong" style="font-size:11px">✅ Strong alignment</span> ';}
-  else if(c.align==="partial"){h+='<span class="chip2 partial" style="font-size:11px">🟡 Partial — verify beliefs when you connect</span> ';}
-  // tap-to-reach — every tap is logged to this church's history
+  }else{
+    var chips="";
+    if(c.align==="strong")chips+='<span class="chip2 strong" style="font-size:11px">✅ Strong alignment</span> ';
+    else if(c.align==="partial")chips+='<span class="chip2 partial" style="font-size:11px">🟡 Verify beliefs</span> ';
+    chips+=eng?'<span class="chip2 eng" style="font-size:11px">🗣️ We’ve talked · '+esc(chFmtD(eng.d)||eng.t||"")+'</span>'
+      :(c.connections.length?'<span class="chip2 conn" style="font-size:11px">🙋 We know someone here</span>'
+      :'<span class="chip2" style="font-size:11px">🙅 We don’t know anyone yet</span>');
+    h+='<p style="margin:0 0 10px">'+chips+'</p>';
+  }
+  // tap-to-reach — logged once per tap-burst; Email personalizes with YOUR name
   h+='<div class="chacts">'
     +'<a class="call'+(tel?"":" dis")+'" href="tel:+1'+tel+'" onclick="chQuick(\''+id+'\',\'call\',\'Tapped Call\')"><span>📞</span>Call</a>'
     +'<a class="sms'+(tel?"":" dis")+'" href="sms:+1'+tel+'" onclick="chQuick(\''+id+'\',\'text\',\'Tapped Text\')"><span>💬</span>Text</a>'
-    +'<a class="mailb'+(c.email?"":" dis")+'" href="mailto:'+encodeURIComponent(c.email)+'?subject='+encodeURIComponent(chEmailSubject(c))+'&body='+encodeURIComponent(chEmailBody(c))+'" onclick="chQuick(\''+id+'\',\'email\',\'Opened the outreach email\')"><span>✉️</span>Email</a>'
+    +'<a class="mailb'+(c.email?"":" dis")+'" href="#" onclick="return chEmailGo(event,\''+id+'\')"><span>✉️</span>Email</a>'
     +'<a class="web'+(c.website?"":" dis")+'" href="'+esc(c.website||"#")+'" target="_blank" rel="noopener"><span>🌐</span>Site</a>'
     +'</div>';
-  h+='<p class="hint" style="margin:-6px 2px 12px">📱 Call, Text and Email are logged to this church’s history automatically — the whole team sees who reached out and when. The email opens <b>pre-written and personalized</b> for '+esc(c.name)+'.</p>';
-  // interest
-  var stars="";for(var i=1;i<=5;i++)stars+='<button class="'+(i<=c.interest?"on":"")+'" onclick="chSetInterest(\''+id+'\','+i+')" aria-label="'+i+' of 5">⭐</button>';
-  h+='<div class="card"><h3>🌡️ Interest in partnering</h3><div class="chstars">'+stars+'</div><p class="hint" style="margin:2px 0 0">'+(c.interest?c.interest+"/5":"Not scored yet")+' — tap a star after you talk to them. 1 = cold, 5 = all in. Changes are logged with your name.</p></div>';
-  // connections
-  h+='<div class="card"><h3>🙋 Who on our team knows them?</h3>';
+  h+='<p class="hint" style="margin:-6px 2px 12px">Taps are noted in the history so the team sees who reached out. The email opens <b>pre-written &amp; personalized</b>, signed with your name. Actually talked with someone? Log it under 🗣️ below — that’s what marks them “We’ve talked.”</p>';
+  // contact info — up top, and EXPLICIT about what we don't have yet
+  var miss='<b style="font-family:var(--sans);font-size:12px;color:var(--bad);opacity:.75">✗ none on file</b>';
+  var infoRows=[
+    ["👤 Primary contact",c.contact?esc(c.contact)+(c.contactRole?' · '+esc(c.contactRole):""):null],
+    ["⛪ Pastor / leader",c.leader?esc(c.leader):null],
+    ["📞 Phone",c.phone?'<a href="tel:+1'+tel+'" style="color:var(--wine);font-weight:700;text-decoration:none">'+esc(c.phone)+'</a>':null],
+    ["✉️ Email",c.email?'<a href="#" onclick="return chEmailGo(event,\''+id+'\')" style="color:var(--wine);font-weight:700;text-decoration:none;word-break:break-all">'+esc(c.email)+'</a>':null],
+    ["🌐 Website",c.website?'<a href="'+esc(c.website)+'" target="_blank" rel="noopener" style="color:var(--wine);font-weight:700;text-decoration:none;word-break:break-all">'+esc(c.website.replace(/^https?:\/\/(www\.)?/,"").replace(/\/$/,""))+'</a>':null],
+    ["📍 Address",c.address?esc(c.address):null],
+    ["🗺️ Town",c.town?esc(c.town)+(c.county?' · '+esc(c.county)+(c.county!=="Out of state"?" County":""):"")+(c.state!=="NH"?' · '+esc(c.state):""):null]
+  ];
+  var missing=infoRows.filter(function(r){return !r[1];}).length;
+  h+='<div class="card"><h3>📇 Contact info'+(missing?' <span class="chip2" style="background:#f6e2e0;color:var(--bad);font-size:10px">'+missing+' missing</span>':' <span class="chip2 strong" style="font-size:10px">complete</span>')+'</h3>'
+    +infoRows.map(function(r){return '<div class="give"><span'+(r[1]?"":' style="opacity:.55"')+'>'+r[0]+'</span><b style="font-family:var(--sans);font-size:13px;text-align:right;max-width:60%">'+(r[1]||miss)+'</b></div>';}).join("")
+    +(c.notes?'<div class="chknote" style="margin-top:10px">📝 '+esc(c.notes)+'</div>':"")
+    +(missing?'<p class="hint" style="margin-top:8px">Know any of the missing info? Post it as a note below and a leader will fill it in.</p>':"")+'</div>';
+  // 🗣️ conversation record — the manual "engaged" switch
+  var convos=chLogFor(c.id).filter(function(e){return e.type==="convo";}).slice(-5).reverse();
+  h+='<div class="card" style="border-left:4px solid var(--good)"><h3>🗣️ Have we talked with them?</h3>';
+  h+=convos.length
+    ?convos.map(function(e){return '<div class="chlogrow"><span class="ic2">🗣️</span><div><b>'+esc(e.by)+'</b> — '+esc(e.note)+'<div class="m">'+esc(chWhen(e))+'</div></div></div>';}).join("")
+    :'<p class="hint" style="margin:0 0 4px">No conversations logged yet. A tap on Call doesn’t count — only a real conversation does. Had one? Log it:</p>';
+  h+=chConvoOpen
+    ?'<div style="margin-top:9px"><input id="chConvoWho" maxlength="80" placeholder="Who did you speak with? (e.g. Pastor Dan)" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:var(--sans);margin-bottom:8px" />'
+      +'<textarea id="chConvoHow" rows="2" maxlength="200" placeholder="How did it go? Are they interested? Next step?" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:var(--sans);margin-bottom:8px"></textarea>'
+      +'<button class="btn wine" onclick="chConvoSubmit(\''+id+'\')">🗣️ Log the conversation</button>'
+      +'<button class="btn ghost" style="margin-top:7px" onclick="chConvoToggle()">Cancel</button></div>'
+    :'<button class="btn wine" style="margin-top:9px" onclick="chConvoToggle()">🗣️ I talked with them — log it</button>';
+  h+='</div>';
+  // connections — "we know someone here"
+  h+='<div class="card"><h3>🙋 We know someone here</h3>';
   h+=c.connections.length
     ?c.connections.map(function(x){return '<div class="chlogrow"><span class="ic2">🤝</span><div><b>'+esc(x.amb)+'</b>'+(x.note?' — '+esc(x.note):"")+'<div class="m">'+esc(chWhen(x))+'</div></div></div>';}).join("")
-    :'<p class="hint" style="margin:0 0 4px">No one yet — this church needs a connection. Know somebody here, even loosely? Claim it.</p>';
+    :'<p class="hint" style="margin:0 0 4px">Nobody on the team knows anyone here yet. Even a loose tie counts — a cousin, a coworker, an old smallgroup friend.</p>';
   h+='<button class="btn ghost" style="margin-top:10px" onclick="chConnectAsk(\''+id+'\')">🙋 I know someone here</button></div>';
-  // contact info
-  var infoRows=[];
-  if(c.contact)infoRows.push(["👤 Primary contact",esc(c.contact)+(c.contactRole?' · '+esc(c.contactRole):"")]);
-  if(c.leader)infoRows.push(["⛪ Pastor / leader",esc(c.leader)]);
-  if(c.phone)infoRows.push(["📞 Phone",'<a href="tel:+1'+tel+'" style="color:var(--wine);font-weight:700;text-decoration:none">'+esc(c.phone)+'</a>']);
-  if(c.email)infoRows.push(["✉️ Email",'<a href="mailto:'+encodeURIComponent(c.email)+'" style="color:var(--wine);font-weight:700;text-decoration:none;word-break:break-all">'+esc(c.email)+'</a>']);
-  if(c.address)infoRows.push(["📍 Address",esc(c.address)]);
-  if(c.town)infoRows.push(["🗺️ Town",esc(c.town)+(c.county?' · '+esc(c.county)+(c.county!=="Out of state"?" County":""):"")+(c.state!=="NH"?' · '+esc(c.state):"")]);
-  h+='<div class="card"><h3>📇 Contact info</h3>'+(infoRows.length?infoRows.map(function(r){return '<div class="give"><span>'+r[0]+'</span><b style="font-family:var(--sans);font-size:13px;text-align:right;max-width:60%">'+r[1]+'</b></div>';}).join(""):'<p class="hint">Nothing on file yet — a leader can add details with Edit below.</p>')
-    +(c.notes?'<div class="chknote" style="margin-top:10px">📝 '+esc(c.notes)+'</div>':"")+'</div>';
+  // interest
+  var stars="";for(var i=1;i<=5;i++)stars+='<button class="'+(i<=c.interest?"on":"")+'" onclick="chSetInterest(\''+id+'\','+i+')" aria-label="'+i+' of 5">⭐</button>';
+  h+='<div class="card"><h3>🌡️ Interest in partnering</h3><div class="chstars">'+stars+'</div><p class="hint" style="margin:2px 0 0">'+(c.interest?c.interest+"/5":"Not scored yet")+' — score it after a real conversation. 1 = cold, 5 = all in. Changes are logged with your name.</p></div>';
   // share toolkit
   h+='<div class="card"><h3>🧰 Share K2C with them</h3>'
     +'<details class="setdrop"><summary style="font-weight:700;font-size:13.5px;color:var(--wine);padding:4px 0">📣 The 20-second “What is K2C?” script <span class="setchev">▶</span></summary>'
     +'<div class="verse" style="font-size:13.5px;font-style:normal;font-family:var(--sans)">'+esc(chScriptText(c))+'</div>'
-    +'<button class="btn ghost" style="margin-top:8px" onclick="chCopyScript(\''+id+'\')">📋 Copy script — logs that you used it</button></details>'
+    +'<button class="btn ghost" style="margin-top:8px" onclick="chCopyScript(\''+id+'\')">📋 Copy script (with your name) — logs it</button></details>'
     +'<div class="seclabel" style="margin-top:14px">✉️ Ready-to-send email</div>'
-    +'<p class="hint" style="margin:0 0 8px">Personalized for '+esc(c.name)+' with their own referral ask. The ✉️ Email button up top opens it in your mail app pre-filled; or copy it for Facebook / a website form:</p>'
+    +'<p class="hint" style="margin:0 0 8px">Personalized for '+esc(c.name)+', signed with your name. The ✉️ Email button up top opens it in your mail app; or copy it for Facebook / a website form:</p>'
     +'<button class="btn ghost" onclick="chCopyEmail(\''+id+'\')">📋 Copy the full email text</button>'
     +'<div class="seclabel" style="margin-top:14px">📲 Tools from Ambassador Resources</div>'
     +'<div class="dashjump" style="margin:0">'
@@ -4206,13 +4323,17 @@ function renderChurchPage(){
     +'<button onclick="show(\'playbook\')">📘 Playbook</button>'
     +'<button onclick="show(\'donate\')">❤️ Give page</button>'
     +'<button onclick="show(\'handbook\')">📗 Counselor</button>'
-    +'<button onclick="chLogVisit(\''+id+'\')">🤝 Log a visit</button>'
+    +'<button onclick="show(\'faith\')">📖 Our beliefs</button>'
     +'</div></div>';
-  // history + notes
+  // history + notes — collapsed by default
   var hist=chLogFor(c.id).slice(-30).reverse();
-  h+='<div class="card"><h3>🕐 History — every touch, by everyone</h3>'
-    +(hist.length?hist.map(function(e){return '<div class="chlogrow"><span class="ic2">'+(CH_ICON[e.type]||"📝")+'</span><div><b>'+esc(e.by)+'</b>'+(e.note?' — '+esc(e.note):' · '+e.type)+'<div class="m">'+esc(chWhen(e))+'</div></div></div>';}).join(""):'<p class="hint">No touches yet — be the first. Call them, use the script, or send the email above.</p>')
+  h+='<div class="card"><details class="setdrop"><summary style="font-weight:700;font-size:14.5px;font-family:var(--serif);padding:2px 0">🕐 History — every touch, by everyone ('+hist.length+') <span class="setchev">▶</span></summary>'
+    +'<div style="margin-top:8px">'
+    +(hist.length?hist.map(function(e){return '<div class="chlogrow"><span class="ic2">'+(CH_ICON[e.type]||"📝")+'</span><div><b>'+esc(e.by)+'</b>'+(e.note?' — '+esc(e.note):' · '+e.type)+'<div class="m">'+esc(chWhen(e))+'</div></div></div>';}).join(""):'<p class="hint">No touches yet — be the first.</p>')
+    +'</div></details>'
     +'<div class="twocol" style="display:flex;gap:8px;margin-top:10px"><input id="chNoteInput" maxlength="300" placeholder="Add a note for the team…" style="flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:var(--sans)" /><button class="btn ink" style="width:auto;padding:10px 16px;flex:none" onclick="chNoteSubmit(\''+id+'\')">Post</button></div></div>';
+  // print / save as PDF
+  h+='<button class="printbtn" onclick="printDoc(\'church\')">🖨️ Print / Save this church as PDF</button>';
   // vision flag
   if(!c.flag){
     h+='<div class="card">'+(chFlagOpen
@@ -4225,16 +4346,21 @@ function renderChurchPage(){
   // leader zone
   if(chEditOpen&&LEADER){
     var opt=function(v,cur,lbl){return '<option value="'+v+'"'+(cur===v?" selected":"")+'>'+lbl+'</option>';};
+    var flbl=function(t){return '<p class="lbl" style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--wine);font-weight:800;margin:2px 2px 5px">'+t+'</p>';};
     h+='<div class="card"><h3>✏️ Edit (leaders)</h3>'
       +'<div class="form" style="margin:0;box-shadow:none;border:none;padding:0">'
       +'<input id="cheName" maxlength="120" value="'+esc(c.name)+'" placeholder="Name *" />'
+      +flbl("Type · Alignment (fit with our <a onclick=\'event.preventDefault();show(&quot;faith&quot;)\' style=\'color:var(--rust);cursor:pointer\'>Statement of Faith</a>)")
       +'<div class="twocol"><select id="cheKind">'+opt("church",c.kind,"⛪ Church")+opt("ministry",c.kind,"🕊️ Ministry")+'</select>'
       +'<select id="cheAlign">'+opt("strong",c.align,"✅ Strong fit")+opt("partial",c.align,"🟡 Verify fit")+opt("unverified",c.align,"❔ Unverified")+'</select></div>'
+      +flbl("Location")
       +'<div class="twocol"><input id="cheTown" maxlength="60" value="'+esc(c.town)+'" placeholder="Town" /><select id="cheCounty">'+'<option value="">County…</option>'+NHC.map(function(x){return '<option'+(c.county===x?" selected":"")+'>'+x+'</option>';}).join("")+'<option'+(c.county==="Out of state"?" selected":"")+'>Out of state</option></select></div>'
       +'<input id="cheState" maxlength="20" value="'+esc(c.state)+'" placeholder="State" />'
       +'<input id="cheAddress" maxlength="160" value="'+esc(c.address)+'" placeholder="Street address" />'
+      +flbl("Reach them")
       +'<div class="twocol"><input id="chePhone" maxlength="40" value="'+esc(c.phone)+'" placeholder="Phone" /><input id="cheEmail" maxlength="120" value="'+esc(c.email)+'" placeholder="Email" /></div>'
       +'<input id="cheWebsite" maxlength="200" value="'+esc(c.website)+'" placeholder="Website" />'
+      +flbl("People")
       +'<div class="twocol"><input id="cheContact" maxlength="80" value="'+esc(c.contact)+'" placeholder="Primary contact" /><input id="cheContactRole" maxlength="60" value="'+esc(c.contactRole)+'" placeholder="Their role" /></div>'
       +'<input id="cheLeader" maxlength="80" value="'+esc(c.leader)+'" placeholder="Pastor / leader" />'
       +'<textarea id="cheNotes" rows="3" maxlength="2000" placeholder="Notes…">'+esc(c.notes)+'</textarea>'

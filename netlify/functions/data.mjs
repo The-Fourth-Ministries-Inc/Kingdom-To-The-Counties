@@ -170,7 +170,9 @@ const CH_ALIGNS = new Set(["strong","partial","unverified","flagged"]);
 const CH_KINDS = new Set(["church","ministry"]);
 // Log types ambassadors may write without the leader PIN. Everything an
 // ambassador does on a church is meant to be logged — that IS the feature.
-const CH_OPEN_LOG = new Set(["call","text","email","visit","script","share","note"]);
+// "convo" is the MANUAL "we actually talked with them" record — the only type
+// that marks a church as engaged (tapping Call/Email never does).
+const CH_OPEN_LOG = new Set(["call","text","email","convo","visit","script","share","note"]);
 const CH_LOG_TYPES = new Set([...CH_OPEN_LOG, "connect","flag","unflag","edit","add","interest","delete"]);
 const CH_EDIT_FIELDS = ["name","kind","town","county","state","address","phone","email","website",
  "contact","contactRole","leader","notes","intro","ask","align","interest"];
@@ -234,6 +236,23 @@ const emptyChurches = () => ({ rev: 0, removed: [], list: [], log: [] });
 const seededChurches = () => { const c = emptyChurches(); mergeStarterChurches(c); return c; };
 const casChurches = (s, mutate) => compareAndSwap(s, "churches", normChurches, mutate, seededChurches);
 function chLogPush(c, entry){ c.log.push(normChLog(entry)); c.log = c.log.slice(-1200); }
+/* Belt + braces against the retry-duplication bug: a mutate that already ran
+   (its log-entry id is present) must be a no-op. Every church action passes a
+   client-generated id for its log entry. */
+const chLogged = (c, id) => !!id && c.log.some(e => e.id === id);
+/* One-time cleanup of logs that were duplicated before the fix: identical
+   ch+type+by+note+date+time tuples collapse to the first occurrence. */
+function chCompactLog(c){
+ const seen = new Set(); const out = [];
+ for(const e of c.log){
+  const k = e.ch + "|" + e.type + "|" + e.by + "|" + e.note + "|" + e.d + "|" + e.t;
+  if(seen.has(k)) continue;
+  seen.add(k); out.push(e);
+ }
+ const changed = out.length !== c.log.length;
+ c.log = out;
+ return changed;
+}
 /* Merge any starter church whose id is neither on the board nor tombstoned. */
 function mergeStarterChurches(c){
  const have = new Set(c.list.map(x => x.id));
@@ -413,6 +432,16 @@ async function compareAndSwap(s, key, normalize, mutate, fallback){
   let w;
   try { w = await s.setJSON(key, next, opts); } catch(_) { w = { modified:false }; }
   if(w && w.modified) return next;
+  /* The write may have LANDED even though we couldn't confirm it (an error
+     thrown after the commit, or a client that doesn't report `modified`).
+     Blindly retrying then re-applies `mutate` on a base that already contains
+     the change — for append-style mutates (log entries, announcements) that
+     stamps the same record out once per retry (the "26 duplicate log entries
+     from one tap" bug). Verify by re-reading before looping. */
+  try {
+   const chk = await s.getWithMetadata(key, { type:"json" });
+   if(chk && JSON.stringify(chk.data) === JSON.stringify(next)) return next;
+  } catch(_) {}
  }
  throw new Error("write conflict: " + key);
 }
@@ -591,8 +620,12 @@ export default async (req, context) => {
   let part = "";
   try { part = new URL(req.url).searchParams.get("part") || ""; } catch(_) {}
   if(part === "churches"){
-   const ch = await compareAndSwap(s, "churches", normChurches,
-    c => mergeStarterChurches(c) ? c : undefined, emptyChurches);
+   const ch = await compareAndSwap(s, "churches", normChurches, c => {
+    const merged = mergeStarterChurches(c);
+    const compacted = chCompactLog(c);
+    if(compacted) c.rev++;
+    return (merged || compacted) ? c : undefined;
+   }, emptyChurches);
    const body = JSON.stringify(ch);
    const etag = 'W/"' + hash(body) + '"';
    if(req.headers.get("if-none-match") === etag){
@@ -980,22 +1013,24 @@ export default async (req, context) => {
  case "churchFlag": {
  if(!payload.reason) break;
  await casChurches(s, c => {
+ if(chLogged(c, payload.id)) return undefined; // retry of an applied write
  const it = c.list.find(x => x.id === payload.ch);
  if(!it) return undefined;
  it.flag = normChurch({ flag:{ reason: payload.reason, note: payload.note, by: payload.by, t: payload.t, d: payload.d } }).flag;
  it.align = "flagged";
- chLogPush(c, { ch: it.id, type:"flag", by: payload.by, note: str(payload.reason, 80) + (payload.note ? " — " + str(payload.note, 200) : ""), t: payload.t, d: payload.d });
+ chLogPush(c, { id: payload.id, ch: it.id, type:"flag", by: payload.by, note: str(payload.reason, 80) + (payload.note ? " — " + str(payload.note, 200) : ""), t: payload.t, d: payload.d });
  c.rev++; return c;
  });
  break;
  }
  case "churchFlagClear": {
  await casChurches(s, c => {
+ if(chLogged(c, payload.id)) return undefined;
  const it = c.list.find(x => x.id === payload.ch);
  if(!it || !it.flag) return undefined;
  it.flag = null;
  it.align = CH_ALIGNS.has(payload.align) && payload.align !== "flagged" ? payload.align : "unverified";
- chLogPush(c, { ch: it.id, type:"unflag", by: payload.by, note: "Flag cleared", t: payload.t, d: payload.d });
+ chLogPush(c, { id: payload.id, ch: it.id, type:"unflag", by: payload.by, note: "Flag cleared", t: payload.t, d: payload.d });
  c.rev++; return c;
  });
  break;
@@ -1003,12 +1038,13 @@ export default async (req, context) => {
  case "churchEdit": {
  const patch = payload.patch || {};
  await casChurches(s, c => {
+ if(chLogged(c, payload.id)) return undefined;
  const i = c.list.findIndex(x => x.id === payload.ch);
  if(i < 0) return undefined;
  const cur = c.list[i], merged = { ...cur };
  for(const k of CH_EDIT_FIELDS) if(k in patch) merged[k] = patch[k];
  c.list[i] = normChurch({ ...merged, id: cur.id, connections: cur.connections, flag: cur.flag, addedBy: cur.addedBy });
- chLogPush(c, { ch: cur.id, type:"edit", by: payload.by, note: "Details updated", t: payload.t, d: payload.d });
+ chLogPush(c, { id: payload.id, ch: cur.id, type:"edit", by: payload.by, note: "Details updated", t: payload.t, d: payload.d });
  c.rev++; return c;
  });
  break;
