@@ -389,7 +389,7 @@ async function pinNoteFail(s, key){
 const pinBlockedResp = () => json({ error:"too many wrong PIN attempts — wait 10 minutes and try again", rateLimited:true }, 429);
 
 const LEADER_ACTIONS = new Set([
- "toggleCheck","setCheck","setChecklistNote","addAnnouncement","ackCard","setEvent","setIOList","setDayPin",
+ "toggleCheck","setCheck","setChecklistNote","addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
  "capturesList","captureMedia","captureDelete","capturePurge",
  "churchEdit","churchDelete","churchFlagClear","churchTemplate"
@@ -843,6 +843,24 @@ export default async (req, context) => {
  break;
  case "setFunding":
  await casCore(s, core => { core.funding = { pct: clampPct(payload.pct), needed: (payload.needed || "").toString().slice(0, 30) || core.funding.needed }; return core; });
+ break;
+ /* v1.10.0 — idempotent acknowledge/hide, same treatment as setCheck. The
+    payload states the FINAL hidden value instead of toggling, so a retried
+    request or two leaders acking the same card at once can't flip it back to
+    visible (the "acknowledge & hide didn't actually hide it" bug). ackCard
+    stays below for phones still on the old client. */
+ case "setAck":
+ await casCore(s, core => {
+ const arr = payload.kind === "praise" ? core.praises : core.feedback;
+ const it = arr.find(x => x.id === payload.id);
+ if(!it) return undefined;
+ const hide = !!payload.hidden;
+ if(it.hidden === hide) return undefined; // already in the desired state — no-op
+ it.hidden = hide;
+ it.ackBy = hide ? str(payload.by, 40) : "";
+ it.ackT = hide ? str(payload.t, 12) : "";
+ return core;
+ });
  break;
  case "ackCard":
  await casCore(s, core => {

@@ -2358,14 +2358,16 @@ function doAction(action,payload,localApply){
    LIVE off, every later tap was applied locally but NEVER sent, and the next
    successful background poll replaced STATE with the server copy — silently
    undoing everything tapped while LIVE was off, even on a working connection.
-   Now checklist writes go through a persistent OUTBOX (localStorage):
-   1. every checkmark/note is queued and retried with backoff until the server
-      confirms it — a network blip delays a write, it never discards it;
+   Now checklist writes — and acknowledge/hide on issues & praises, which had
+   the same failure mode — go through a persistent OUTBOX (localStorage):
+   1. every checkmark/note/ack is queued and retried with backoff until the
+      server confirms it — a network blip delays a write, it never discards it;
    2. queued writes are re-applied on top of every server payload, so a poll
       can never visually revert work that hasn't flushed yet;
-   3. the wire action is setCheck (explicit on/off, idempotent server-side),
-      so a retry of a request that already landed is a no-op — unlike the old
-      toggleCheck, where a retry would flip the mark back off;
+   3. the wire actions are setCheck / setAck (explicit final state, idempotent
+      server-side), so a retry of a request that already landed — or two
+      leaders doing the same thing at once — is a no-op, unlike the old
+      toggleCheck/ackCard, where a second application flipped the state back;
    4. the outbox survives reload/tab-close and flushes on next open. */
 var OUTBOX=[];
 try{OUTBOX=JSON.parse(localStorage.getItem("k2c_outbox")||"[]");}catch(_){OUTBOX=[];}
@@ -2418,6 +2420,11 @@ function applyPending(st){
     }else if(op.a==="setChecklistNote"){
       st.notes=st.notes||{};
       if(p.text)st.notes[p.id]=p.text;else delete st.notes[p.id];
+    }else if(op.a==="setAck"){
+      var arr=(p.kind==="praise"?st.praises:st.feedback)||[];
+      for(var j=0;j<arr.length;j++){
+        if(arr[j].id===p.id){arr[j].hidden=!!p.hidden;arr[j].ackBy=p.hidden?p.by:"";arr[j].ackT=p.hidden?p.t:"";break;}
+      }
     }
   }
   return st;
@@ -2425,8 +2432,8 @@ function applyPending(st){
 window.addEventListener("online",function(){obFails=0;obFlush();});
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")obFlush();});
 /* Last-gasp flush if the tab closes with writes still queued: fire them as
-   beacons. They stay queued (a beacon can't confirm delivery), but both queued
-   actions are idempotent, so the re-send on next open is harmless. */
+   beacons. They stay queued (a beacon can't confirm delivery), but every
+   queued action is idempotent, so the re-send on next open is harmless. */
 window.addEventListener("pagehide",function(){
   if(!OUTBOX.length||!navigator.sendBeacon||!LEADERPIN)return;
   for(var i=0;i<OUTBOX.length;i++){
@@ -2670,10 +2677,16 @@ function ackCard(kind,id){
   if(!LEADER){askPin(function(){ackCard(kind,id);});return;}
   var by=myTag();
   if(!by){askName(function(){ackCard(kind,id);});return;}
-  doAction("ackCard",{kind:kind,id:id,by:by,t:nowLabel()},function(){
-    var arr=kind==="praise"?STATE.praises:STATE.feedback,it=arr.filter(function(x){return x.id===id;})[0];
-    if(it){var hide=!it.hidden;it.hidden=hide;it.ackBy=hide?by:"";it.ackT=hide?nowLabel():"";}
-  });
+  /* Explicit final state through the outbox (like checkmarks) — the old
+     ackCard toggle was fire-and-forget, so a dropped request lost the ack
+     (the card hid, then reappeared on the next poll) and two leaders acking
+     the same card at once toggled it right back to visible. */
+  var arr=kind==="praise"?STATE.praises:STATE.feedback,it=arr.filter(function(x){return x.id===id;})[0];
+  if(!it)return;
+  var hide=!it.hidden,t=nowLabel();
+  queueWrite("setAck",{kind:kind,id:id,hidden:hide,by:by,t:t},function(){
+    it.hidden=hide;it.ackBy=hide?by:"";it.ackT=hide?t:"";
+  },function(){renderDynamic();});
 }
 function renderRoster(){
   var list=STATE.checkins;document.getElementById("ciTotal").textContent=list.length;
