@@ -389,7 +389,7 @@ async function pinNoteFail(s, key){
 const pinBlockedResp = () => json({ error:"too many wrong PIN attempts — wait 10 minutes and try again", rateLimited:true }, 429);
 
 const LEADER_ACTIONS = new Set([
- "toggleCheck","setChecklistNote","addAnnouncement","ackCard","setEvent","setIOList","setDayPin",
+ "toggleCheck","setCheck","setChecklistNote","addAnnouncement","ackCard","setEvent","setIOList","setDayPin",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
  "capturesList","captureMedia","captureDelete","capturePurge",
  "churchEdit","churchDelete","churchFlagClear","churchTemplate"
@@ -751,6 +751,26 @@ export default async (req, context) => {
  await migrateIfNeeded(s, await readAll(s));
 
  switch(action){
+ /* v1.10.0 — idempotent checkmark write for the client's persistent outbox.
+    The payload states the FINAL value ({id, on}) instead of "flip whatever is
+    there", so a retried request that already landed is a no-op — with the old
+    toggleCheck, a retry after a landed-but-unconfirmed write would flip the
+    mark back off. toggleCheck stays below for phones still on the old client. */
+ case "setCheck":
+ await casCore(s, core => {
+ const id = str(payload.id, 60);
+ if(!id) return undefined;
+ const cur = core.checklist[id];
+ if(payload.on){
+ if(cur) return undefined; // already checked — keep the first author's stamp
+ core.checklist[id] = { by: str(payload.by, 40), t: str(payload.t, 12), dm: (payload.dm ?? null) };
+ }else{
+ if(!cur) return undefined;
+ delete core.checklist[id];
+ }
+ return core;
+ });
+ break;
  case "toggleCheck":
  await casCore(s, core => {
  const id = payload.id;

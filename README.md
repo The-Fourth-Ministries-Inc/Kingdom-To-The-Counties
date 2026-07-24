@@ -144,6 +144,16 @@ automatically on deploy.
   retrying on a conflict. Two leaders toggling different checkmarks at the same
   instant both stick (the pre-v20 last-write-wins was the cause of checkmarks
   that "only occasionally" saved).
+- **Checklist writes go through a persistent outbox (v1.10.0).** Every checkmark
+  and item note is queued in `localStorage` and retried with backoff until the
+  server confirms it — a failed request delays the write instead of silently
+  dropping it, and the queue survives a reload or closed tab. Queued writes are
+  re-applied on top of every incoming poll, so the background sync can never
+  visually "undo" work that hasn't flushed yet (the bug behind volunteers'
+  checkmarks disappearing even on a working connection). On the wire the client
+  sends `setCheck` — an idempotent "this item is on/off" — so a retried request
+  that already landed is a no-op rather than a re-toggle. The sync pill shows
+  how many changes are still waiting to send.
 - **The head count is O(1) to read.** Taps still land in per-phone shards (never
   lost), but a cached `count-agg` blob is kept in sync incrementally, so a `GET`
   reads one blob instead of listing + fetching every device shard. It rebuilds

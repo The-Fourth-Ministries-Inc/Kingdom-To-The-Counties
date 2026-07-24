@@ -2263,15 +2263,22 @@ function renderLeaders(){
     return '<div class="leader"><span class="av">'+init+'</span><span class="who"><b>'+esc(l.name)+'</b><span>'+esc(l.role)+'</span><a class="tel" href="tel:+1'+l.tel+'">'+fmtTel(l.tel)+'</a>'+emailLine+'</span><span class="acts"><a class="call" href="tel:+1'+l.tel+'" rel="noopener" aria-label="Call '+esc(l.name)+'">'+PHONE+'</a><a class="text" href="sms:+1'+l.tel+'" rel="noopener" aria-label="Text '+esc(l.name)+'">'+CHAT+'</a>'+emailBtn+'</span></div>';
   }).join("");
 }
+/* Checklist item IDs are POSITIONAL (su-<day>-<sectionIndex>-<itemIndex>), so
+   saved checkmarks are keyed to array positions. Two rules keep old state safe:
+   1. NEVER reorder or delete array entries to change display order — set `ord`
+      instead (sections sort by ord, falling back to their array position).
+   2. NEVER remove an item from the middle of a section without pinning the
+      indexes of the items after it — an item may carry an explicit index as a
+      third element ([label, due, index]) so its ID survives the removal. */
 var SETUP=[
   {day:"fri",cat:"tech",team:"2 Wks Prior · Pre-Event Prep",lead:"M. Nelson",items:[["Confirm dBL maximums (if required)",m(12,0)],["Reach out to event POC — confirm details & changes",m(12,0)],["Musicians confirmed",m(12,0)],["Materials PRINTED — 12 copies of each",m(12,0)],["Stage Plot confirmed, posted to Teams, sent via PCO",m(12,0)],["Input List confirmed, posted, sent via PCO",m(12,0)],["Site Layout Confirmed, posted to Teams, sent via PCO",m(12,0)],["Companion App order of events double checked. Leadership PIN given to Leadership. App Link and Volunteer day PIN sent to leadership to forward to their volunteers.",m(12,0)],["Print copies of IP list & Set List.",m(12,0)],["Computer set up (tracks, routing)",m(12,0)],["ARK console set up & fully prepped",m(12,0)],["Multitracks setlist built in PCO + tracks downloaded offline",m(12,0)],["iPad backup prepped (tracks + ARK adapter)",m(12,0)]]},
-  {day:"fri",cat:"tech",team:"Phase 2 · Power Up — Fri 12:30–2:30",lead:"M. Nelson",items:[["Generator power on",m(14,30)],["Plug T4 trailer into power (120v ext into side)",m(14,30)],["Power drops from Papa V trailer",m(14,30)],["Stage power drops (2 front / 2 back)",m(14,30)],["Set up Starlink",m(14,30)],["FOH tables set",m(14,30)],["Assemble Drum Kit Riser, Drum Kit Shells & All Hardware.",m(14,30)],["Set up ARK (power, table, wifi, antennas, computer)",m(14,30)],["Extend antenna combiner cables",m(14,30)],["Confirm computer routing (tracks, video, click, guide)",m(14,30)],["FOH wiring — cable covers + 2x ethernet band→FOH (1 AVB / 1 internet)",m(14,30)],["FOH console + Papa V stage box — connect all AVB cables",m(14,30)],["FOH speakers — mount mains, set subs, run power + XLRs, power on",m(14,30)],["Power cycle ARK & FOH (AVB sync)",m(14,30)],["Mic stands & mics per stage plot (→ moved to Sat)",m(14,30)],["Configure wireless freqs (500/900 MHz scan, 15 min max — packs + handhelds)",m(14,30)],["XLR drops to musician stations per stage plot",m(14,30)],["Connect all drum mics per stage plot",m(14,30)],["Call local PD — request overnight patrol",m(14,30)]]},
-  {day:"fri",cat:"log",team:"Phase 1 · Unloading — Fri 12:30–2:30",lead:"M. Nelson",items:[["Check radios",m(14,30)],["Plot all tent locations with cones according to Site Layout",m(14,30)],["Confirm & plot crane location",m(14,30)],["Unload trusses from Papa V trailer (bring 'Little Giant' ladder)",m(14,30)],["Set up trusses (THE Tower) — do NOT set up mains or subs",m(14,30)],["Unload all tents, kits, and weight bags at each cone",m(14,30)],["Split into teams of 6 and build tents. Order of priority: 1. Band Tents 2. FOH 3. Guest Services 4. Ambassadors. Note: Do not set up logistics tents or green room tent. Leave items staged on the ground.",m(14,30)],["Tech team begins Tech setup after Band & FOH tents are constructed. Everyone else finish Guest Services & Ambassador tents.",m(14,30)]]},
-  {day:"fri",cat:"log",team:"Phase 4 · Build Jesus Rig — Fri 12:30–2:30",lead:"Kyle DeTrude",items:[["Assemble square truss rig. Leave on the ground.",m(14,30)],["Assemble threaded pipe square. Leave on the ground next to truss rig.",m(14,30)]]},
-  {day:"fri",cat:"tech",team:"Phase 3 · System Tuning — Fri 2:30–4:15",lead:"M. Nelson",items:[["Connect Papa V computer for system tuning",m(16,15)],["Line check all I/Os — test with wired mic",m(16,15)],["Blast & balance (refer to NLC FOH guide)",m(16,15)],["Board + iPad roaming; move speakers as needed",m(16,15)],["dBL readings at property boundary per municipal req; adjust",m(16,15)],["Ring out all mics (check feedback)",m(16,15)],["Gate MD mics appropriately",m(16,15)],["Gate Host mics appropriately",m(16,15)],["Balance drum kit",m(16,15)],["Confirm recording SD destinations (onboard SD + Logic)",m(16,15)]]},
-  {day:"fri",cat:"log",team:"Phase 3 · Tuning Support — Fri 2:30–4:15 (shifted to help)",lead:"Kat Roedell",items:[["Run cable covers",m(16,15)],["Move / hold speakers during blast & balance",m(16,15)],["Stage remaining gear as directed",m(16,15)]]},
-  {day:"fri",cat:"both",team:"Phase 6 · Shut Down — Fri 4:15–5:00 (all hands)",lead:"M. Nelson",items:[["Save scenes on all PreSonus consoles",m(17,0)],["Label, disconnect & store speakers",m(17,0)],["Disconnect & store ARK (if needed)",m(17,0)],["Fasten tent walls",m(17,0)],["Cover rig",m(17,0)],["Rainproof everything",m(17,0)],["Lock trailers (doors, padlocks, tongue lock)",m(17,0)],["Turn off generators",m(17,0)],["Return radios",m(17,0)],["Plug T4 trailer into mains for overnight charging",m(17,0)],["Implement security protocol",m(17,0)]]},
-  {day:"sat",cat:"tech",team:"Phase 7 · Open Up — Sat 8:00–8:30",lead:"M. Nelson",items:[["Check out radios",m(8,30)],["Turn on generators",m(8,30)],["Reconnect speakers (and ARK)",m(8,30)],["Turn on FOH and host mic — host mic ON and UNMUTED (ready for all-team huddle)",m(8,30)]]},
+  {day:"fri",ord:2,cat:"tech",team:"Phase 2 · Power Up — Fri 12:30–2:30",lead:"M. Nelson",items:[["Generator power on",m(14,30)],["Plug T4 trailer into power (120v ext into side)",m(14,30)],["Power drops from Papa V trailer",m(14,30)],["Stage power drops (2 front / 2 back)",m(14,30)],["Set up Starlink",m(14,30)],["FOH tables set",m(14,30)],["Assemble Drum Kit Riser, Drum Kit Shells & All Hardware.",m(14,30)],["Set up ARK (power, table, wifi, antennas, computer)",m(14,30)],["Extend antenna combiner cables",m(14,30)],["Confirm computer routing (tracks, video, click, guide)",m(14,30)],["FOH wiring — cable covers + 2x ethernet band→FOH (1 AVB / 1 internet)",m(14,30)],["FOH console + Papa V stage box — connect all AVB cables",m(14,30)],["FOH speakers — mount mains, set subs, run power + XLRs, power on",m(14,30)],["Power cycle ARK & FOH (AVB sync)",m(14,30)],["Configure wireless freqs (500/900 MHz scan, 15 min max — packs + handhelds)",m(14,30),15],["XLR drops to musician stations per stage plot",m(14,30),16],["Connect all drum mics per stage plot",m(14,30),17],["Call local PD — request overnight patrol",m(14,30),18]]},
+  {day:"fri",ord:1,cat:"log",team:"Phase 1 · Unloading — Fri 12:30–2:30",lead:"M. Nelson",items:[["Check radios",m(14,30)],["Plot all tent locations with cones according to Site Layout",m(14,30)],["Confirm & plot crane location",m(14,30)],["Unload trusses from Papa V trailer (bring 'Little Giant' ladder)",m(14,30)],["Set up trusses (THE Tower) — do NOT set up mains or subs",m(14,30)],["Unload all tents, kits, and weight bags at each cone",m(14,30)],["Split into teams of 6 and build tents. Order of priority: 1. Band Tents 2. FOH 3. Guest Services 4. Ambassadors. Note: Do not set up logistics tents or green room tent. Leave items staged on the ground.",m(14,30)],["Tech team begins Tech setup after Band & FOH tents are constructed. Everyone else finish Guest Services & Ambassador tents.",m(14,30)]]},
+  {day:"fri",ord:4,cat:"log",team:"Phase 4 · Build Jesus Rig — Fri 12:30–2:30",lead:"Kyle DeTrude",items:[["Assemble square truss rig. Leave on the ground.",m(14,30)],["Assemble threaded pipe square. Leave on the ground next to truss rig.",m(14,30)]]},
+  {day:"fri",ord:3,cat:"tech",team:"Phase 3 · System Tuning — Fri 2:30–4:15",lead:"M. Nelson",items:[["Connect Papa V computer for system tuning",m(16,15)],["Line check all I/Os — test with wired mic",m(16,15)],["Blast & balance (refer to NLC FOH guide)",m(16,15)],["Board + iPad roaming; move speakers as needed",m(16,15)],["dBL readings at property boundary per municipal req; adjust",m(16,15)],["Ring out all mics (check feedback)",m(16,15)],["Gate MD mics appropriately",m(16,15)],["Gate Host mics appropriately",m(16,15)],["Balance drum kit",m(16,15)],["Confirm recording SD destinations (onboard SD + Logic)",m(16,15)]]},
+  {day:"fri",ord:3.1,cat:"log",team:"Phase 3 · Tuning Support — Fri 2:30–4:15 (shifted to help)",lead:"Kat Roedell",items:[["Run cable covers",m(16,15)],["Move / hold speakers during blast & balance",m(16,15)],["Stage remaining gear as directed",m(16,15)]]},
+  {day:"fri",ord:6,cat:"both",team:"Phase 6 · Shut Down — Fri 4:15–5:00 (all hands)",lead:"M. Nelson",items:[["Save scenes on all PreSonus consoles",m(17,0)],["Label, disconnect & store speakers",m(17,0)],["Disconnect & store ARK (if needed)",m(17,0)],["Fasten tent walls",m(17,0)],["Cover rig",m(17,0)],["Rainproof everything",m(17,0)],["Lock trailers (doors, padlocks, tongue lock)",m(17,0)],["Turn off generators",m(17,0)],["Return radios",m(17,0)],["Plug T4 trailer into mains for overnight charging",m(17,0)],["Implement security protocol",m(17,0)]]},
+  {day:"sat",cat:"tech",team:"Phase 7 · Open Up — Sat 8:00–8:30",lead:"M. Nelson",items:[["Check out radios",m(8,30)],["Turn on generators",m(8,30)],["Reconnect speakers (and ARK)",m(8,30)],["Turn on FOH and host mic — host mic ON and UNMUTED (ready for all-team huddle)",m(8,30)],["Mic stands & mics per stage plot (moved from Fri)",m(8,30)]]},
   {day:"sat",cat:"tech",team:"Phase 8a · Worship Set Up — Sat 10:00–12:00",lead:"Karielle Silk",items:[["Set up personal gear (power, XLR)",m(12,0)],["Worship Team - Retrieve wireless pack from red Packout drawer.",m(12,0)],["Playback sync enabled",m(12,0)],["Worship app — connect to 'T4 Sound' wifi",m(12,0)],["Chart builder open, setlist downloaded & synced",m(12,0)],["Q-Mix downloaded, connected to ARC (grant permissions)",m(12,0)],["GAIN STAGE — line check all (peaks ≤ -6.0 dB); DO NOT TOUCH GAIN AFTER",m(12,0)],["All FX, EQ, compression OFF",m(12,0)],["Mix IEMs — pink noise; musicians set pack master; loop one chorus",m(12,0)],["Mix FOH — do NOT touch gains/preamp; EQ; compress; FX",m(12,0)],["Run through transitions",m(12,0)]]},
   {day:"sat",cat:"log",team:"Phase 8b · Crane Rigging — Sat 11:00–12:00",lead:"Kyle DeTrude",items:[["Guide crane to spot",m(12,0)],["Attach prebuilt square truss rig, then hoist the rig to a workable height with the crane.",m(12,0)],["Attach (4) JESUS banners to the trussing with zip ties. Attach the threaded pipe square to the bottom of the (4) banners with zip ties.",m(12,0)],["Attach guy lines to rig",m(12,0)],["Notify Zach and Marketing team when rig is 100% ready to be raised. Do NOT raise the rig yet.",m(12,0)],["When given the order by Zach/Marketing Team, raise the rig to its final height.",m(12,0)],["Secure guy lines to ground",m(12,0)],["Rig wind-tied & flown by 12:00 PM latest",m(12,0)]]},
   {day:"sat",cat:"tech",team:"Phase 9 · Fit & Finish — Sat 12:00–12:10",lead:"M. Nelson",items:[["Clean up stage (bags/cases/totes → green room)",m(12,10)],["Cable management (perpendicular & parallel)",m(12,10)],["Change all mic and pack batteries. Only use Black Fujitsu batteries for mics and packs. Do NOT use green batteries for mics and packs.",m(12,10)],["Prayer over venue",m(12,10)],["Arm multitrack recording to SD / standalone on ARK",m(12,10)],["Rest",m(12,10)]]},
@@ -2295,7 +2302,7 @@ function normalize(s){return{checklist:s.checklist||{},notes:s.notes||{},announc
 function toast(msg){var el=document.getElementById("toastEl");if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}el.textContent=msg;el.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function vibr(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(_){}}
 function hasFullState(s){return !!(s&&("checklist" in s||"announcements" in s||"count" in s));}
-function reconcileResponse(s){if(hasFullState(s))STATE=normalize(s);}
+function reconcileResponse(s){if(hasFullState(s))STATE=applyPending(normalize(s));}
 function userEditing(){
   var e=document.activeElement;
   return !!(e&&(e.matches("input,textarea,[contenteditable=true]")||e.closest(".cmtform")));
@@ -2307,10 +2314,17 @@ document.addEventListener("focusout",function(){
    Full renderDynamic() on every tap was the #1 source of checklist lag. */
 function doActionLight(action,payload,localApply,rerender){
   localApply();rerender();
-  if(!LIVE)return;
+  if(!LIVE&&!everSynced)return; // demo mode (no backend at all) — local only
   inflight++;
-  apiPost(action,payload).then(function(st){inflight=Math.max(0,inflight-1);if(settled()){reconcileResponse(st);renderDynamic();}})
-  .catch(function(){inflight=Math.max(0,inflight-1);LIVE=false;updateSync();renderDynamic();});
+  apiPost(action,payload).then(function(st){inflight=Math.max(0,inflight-1);if(!LIVE){LIVE=true;updateSync();}if(settled()){reconcileResponse(st);renderDynamic();}})
+  .catch(function(err){inflight=Math.max(0,inflight-1);LIVE=false;updateSync();renderDynamic();if(err!==403)warnUnsaved();});
+}
+/* A write that never reached the server used to fail in silence — the user saw
+   their (local, optimistic) change and had no idea nobody else did. Say so. */
+var lastUnsavedWarn=0;
+function warnUnsaved(){
+  var n=Date.now();if(n-lastUnsavedWarn<8000)return;lastUnsavedWarn=n;
+  toast("⚠️ Couldn't reach the server — that change is only on this phone. Retry when you're back online.");
 }
 var lastEtag="";
 function apiGet(){
@@ -2323,22 +2337,103 @@ function apiGet(){
   });
 }
 var LEADERPIN=sessionStorage.getItem("k2c_lpin")||"";
-function apiPost(a,p){return fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:a,payload:p,pin:LEADERPIN})}).then(function(r){if(r.status===403){LEADER=false;LEADERPIN="";sessionStorage.removeItem("k2c_lpin");applyLeaderUI();renderDynamic();alert("Leader PIN check failed — tap a 🔒 to unlock again.");throw 403;}if(!r.ok)throw 0;return r.json();});}
+function apiPost(a,p){return fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:a,payload:p,pin:LEADERPIN})}).then(function(r){if(r.status===403){LEADER=false;LEADERPIN="";sessionStorage.removeItem("k2c_lpin");applyLeaderUI();renderDynamic();alert("Leader PIN check failed — tap a 🔒 to unlock again.");throw 403;}if(!r.ok)throw(r.status||0);return r.json();});}
 function verifyPin(action,pin){return fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:action,pin:pin})}).then(function(r){if(r.status===403)return null;if(r.status===429)return {rateLimited:true};if(!r.ok)throw 0;return r.json();});}
 function doAction(action,payload,localApply){
   // Apply optimistically right away so the UI feels instant, then reconcile
   // with the server. While any write is in flight we ignore polls & server
   // echoes so a slow round-trip can't clobber a fresh local change.
   localApply();renderDynamic();
-  if(LIVE){
+  if(LIVE||everSynced){
     inflight++;
     apiPost(action,payload).then(function(s){
-      inflight=Math.max(0,inflight-1);if(settled()){reconcileResponse(s);renderDynamic();}
-    }).catch(function(){
-      inflight=Math.max(0,inflight-1);LIVE=false;updateSync();renderDynamic();
+      inflight=Math.max(0,inflight-1);if(!LIVE){LIVE=true;updateSync();}if(settled()){reconcileResponse(s);renderDynamic();}
+    }).catch(function(err){
+      inflight=Math.max(0,inflight-1);LIVE=false;updateSync();renderDynamic();if(err!==403)warnUnsaved();
     });
   }
 }
+/* ===== v1.10.0 — hardened checklist sync (the "my checkmarks got undone" fix) =====
+   Before this, checklist writes were fire-and-forget: one failed POST flipped
+   LIVE off, every later tap was applied locally but NEVER sent, and the next
+   successful background poll replaced STATE with the server copy — silently
+   undoing everything tapped while LIVE was off, even on a working connection.
+   Now checklist writes go through a persistent OUTBOX (localStorage):
+   1. every checkmark/note is queued and retried with backoff until the server
+      confirms it — a network blip delays a write, it never discards it;
+   2. queued writes are re-applied on top of every server payload, so a poll
+      can never visually revert work that hasn't flushed yet;
+   3. the wire action is setCheck (explicit on/off, idempotent server-side),
+      so a retry of a request that already landed is a no-op — unlike the old
+      toggleCheck, where a retry would flip the mark back off;
+   4. the outbox survives reload/tab-close and flushes on next open. */
+var OUTBOX=[];
+try{OUTBOX=JSON.parse(localStorage.getItem("k2c_outbox")||"[]");}catch(_){OUTBOX=[];}
+if(!Array.isArray(OUTBOX))OUTBOX=[];
+function outboxSave(){try{localStorage.setItem("k2c_outbox",JSON.stringify(OUTBOX.slice(-500)));}catch(_){}}
+var obTimer=null,obFails=0,obSending=false;
+function queueWrite(action,payload,localApply,rerender){
+  localApply();rerender();
+  /* setCheck/setChecklistNote state the FINAL value for an item, so an older
+     unsent write for the same item is obsolete — drop it (never the one at
+     index 0 while it's mid-flight). */
+  for(var i=OUTBOX.length-1;i>=(obSending?1:0);i--){
+    if(OUTBOX[i].a===action&&OUTBOX[i].p&&OUTBOX[i].p.id===payload.id)OUTBOX.splice(i,1);
+  }
+  OUTBOX.push({a:action,p:payload,id:uid()});
+  outboxSave();updateSync();
+  obFlush();
+}
+function obFlush(){
+  if(obSending||!OUTBOX.length)return;
+  if(!LEADERPIN)return; // no leader PIN in this session — flushing would only 403; resumes on unlock
+  obSending=true;inflight++;
+  var op=OUTBOX[0];
+  apiPost(op.a,op.p).then(function(){
+    obSending=false;inflight=Math.max(0,inflight-1);obFails=0;
+    OUTBOX.shift();outboxSave();
+    lastSyncAt=Date.now();everSynced=true;
+    if(!LIVE)LIVE=true;
+    updateSync();
+    if(OUTBOX.length)obFlush();
+  }).catch(function(err){
+    obSending=false;inflight=Math.max(0,inflight-1);
+    if(err===403)return;                              // PIN rejected — queue held until the leader unlocks again
+    if(err===400){OUTBOX.shift();outboxSave();updateSync();if(OUTBOX.length)obFlush();return;} // server refused it outright — a retry can't succeed
+    obFails++;
+    if(LIVE){LIVE=false;}
+    updateSync();
+    clearTimeout(obTimer);
+    obTimer=setTimeout(obFlush,Math.min(30000,1000*Math.pow(2,Math.min(5,obFails))));
+  });
+}
+/* Re-apply not-yet-confirmed writes on top of a server payload so polls can't
+   visually revert them while they wait to flush. */
+function applyPending(st){
+  for(var i=0;i<OUTBOX.length;i++){
+    var op=OUTBOX[i],p=op.p||{};
+    if(op.a==="setCheck"){
+      if(p.on)st.checklist[p.id]={by:p.by,t:p.t,dm:(p.dm!=null?p.dm:null)};
+      else delete st.checklist[p.id];
+    }else if(op.a==="setChecklistNote"){
+      st.notes=st.notes||{};
+      if(p.text)st.notes[p.id]=p.text;else delete st.notes[p.id];
+    }
+  }
+  return st;
+}
+window.addEventListener("online",function(){obFails=0;obFlush();});
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")obFlush();});
+/* Last-gasp flush if the tab closes with writes still queued: fire them as
+   beacons. They stay queued (a beacon can't confirm delivery), but both queued
+   actions are idempotent, so the re-send on next open is harmless. */
+window.addEventListener("pagehide",function(){
+  if(!OUTBOX.length||!navigator.sendBeacon||!LEADERPIN)return;
+  for(var i=0;i<OUTBOX.length;i++){
+    var op=OUTBOX[i];
+    try{navigator.sendBeacon(API,new Blob([JSON.stringify({action:op.a,payload:op.p,pin:LEADERPIN})],{type:"application/json"}));}catch(_){}
+  }
+});
 function seedDemo(){return normalize({
   announcements:[{id:uid(),pri:"heads",title:"Doors open at 1:00 PM",body:"Final setup check now — parking team to your posts.",by:"Kat Roedell · Logistics",t:"12:40 PM"},{id:uid(),pri:"urgent",title:"Stay clear of the crane zone",body:"Jesus Rig going up. Non-Tech volunteers keep outside the marked area until the all-clear.",by:"Kyle DeTrude · COO",t:"11:00 AM"}],
   praises:[{id:uid(),name:"Liz DeTrude",body:"First salvation of the day at the front table — heaven is rejoicing! 🎉",t:"3:18 PM"}],
@@ -2437,7 +2532,7 @@ function renderChecklist(mountId,data,key,overallId,overallBarId,overdueId){
     var dept='<span class="deptchip '+(DEPT_CLS[sec.cat]||"dlog")+'">'+(DEPT_LABEL[sec.cat]||sec.cat)+'</span>';
     var secDone=0,secTotal=sec.items.length;
     var rows=sec.items.map(function(it,ii){
-      var label=it[0],due=it[1],id=key+"-"+curDay+"-"+(sec._si!=null?sec._si:si)+"-"+ii;total++;
+      var label=it[0],due=it[1],idx=(it.length>2&&it[2]!=null)?it[2]:ii,id=key+"-"+curDay+"-"+(sec._si!=null?sec._si:si)+"-"+idx;total++;
       var rec=STATE.checklist[id];if(rec){done++;secDone++;}
       if(!rec&&ctx.phase==="live"&&(due-ctx.now)<0)overdue++;
       var stamp=rec?("✓ "+esc(rec.by)+(rec.t?(" · "+rec.t):"")):"";
@@ -2482,8 +2577,8 @@ function toggleCheck(id){
   if(!already&&!init){askName(function(){toggleCheck(id);});return;}
   var tctx=setupTimingContext(curDay);
   var dm=tctx.phase==="live"?Math.round(tctx.now):null;
-  var payload={id:id,by:init,t:nowLabel(),dm:dm};
-  vibr(10);doActionLight("toggleCheck",payload,function(){if(STATE.checklist[id])delete STATE.checklist[id];else STATE.checklist[id]={by:init,t:nowLabel(),dm:dm};},function(){refreshChecklists();renderDashboard();});
+  var on=!already,t=nowLabel();
+  vibr(10);queueWrite("setCheck",{id:id,on:on,by:init,t:t,dm:dm},function(){if(on)STATE.checklist[id]={by:init,t:t,dm:dm};else delete STATE.checklist[id];},function(){refreshChecklists();renderDashboard();});
 }
 /* Leader note on a checklist item. prompt() sidesteps the constant re-render
    (an inline field would get wiped like comments used to); the note lives in
@@ -2494,7 +2589,7 @@ function chkNote(id){
   var t=prompt("Note for this item (leave blank to remove):",cur);
   if(t===null)return;
   t=t.trim().slice(0,500);
-  doActionLight("setChecklistNote",{id:id,text:t},function(){STATE.notes=STATE.notes||{};if(t)STATE.notes[id]=t;else delete STATE.notes[id];},function(){refreshChecklists();});
+  queueWrite("setChecklistNote",{id:id,text:t},function(){STATE.notes=STATE.notes||{};if(t)STATE.notes[id]=t;else delete STATE.notes[id];},function(){refreshChecklists();});
   toast(t?"📝 Note saved":"📝 Note removed");
 }
 function renderAnnouncements(){
@@ -2704,8 +2799,9 @@ function updateBadges(){
   var b=document.getElementById("boardBadge");b.textContent=u;b.style.display=u?"flex":"none";
 }
 function updateSync(){var els=document.querySelectorAll(".syncpill");var label;
-  if(LIVE){var ago=lastSyncAt?Math.max(0,Math.round((Date.now()-lastSyncAt)/1000)):null;label="Live — synced"+(ago==null?" to everyone":(ago<3?" just now":" "+ago+"s ago"));}
-  else if(everSynced){label="Offline — reconnecting…";}
+  var pend=OUTBOX.length,pendLbl=pend+" change"+(pend>1?"s":"");
+  if(LIVE){var ago=lastSyncAt?Math.max(0,Math.round((Date.now()-lastSyncAt)/1000)):null;label=pend?("Live — sending "+pendLbl+"…"):("Live — synced"+(ago==null?" to everyone":(ago<3?" just now":" "+ago+"s ago")));}
+  else if(everSynced){label=pend?("Offline — "+pendLbl+" saved on this phone, will send when back"):"Offline — reconnecting…";}
   else{label="Demo mode — deploy to sync";}
   for(var i=0;i<els.length;i++){els[i].classList.toggle("live",LIVE);els[i].innerHTML='<span class="d"></span>'+label;}}
 setInterval(updateSync,1000);
@@ -2717,7 +2813,7 @@ function tryPin(){
   document.getElementById("pinErr").textContent="Checking…";
   verifyPin("verifyLeaderPin",v).then(function(res){
     if(res&&res.rateLimited){document.getElementById("pinErr").textContent="Too many wrong tries — wait 10 minutes, then try again.";return;}
-    if(res&&res.ok){LEADER=true;LEADERPIN=v;sessionStorage.setItem("k2c_lpin",v);document.getElementById("pinErr").textContent="";closePin();renderDynamic();applyLeaderUI();if(pinThen)pinThen();}
+    if(res&&res.ok){LEADER=true;LEADERPIN=v;sessionStorage.setItem("k2c_lpin",v);document.getElementById("pinErr").textContent="";closePin();renderDynamic();applyLeaderUI();obFlush();if(pinThen)pinThen();}
     else{document.getElementById("pinErr").textContent="Wrong PIN — try again.";}
   }).catch(function(){document.getElementById("pinErr").textContent="No connection — try again.";});
 }
@@ -3204,8 +3300,8 @@ function guidePlace(el,st){
 window.addEventListener("resize",function(){if(guideIdx>=0)guideShow();});
 function boot(){
   renderIOList();renderLeaders();
-  if(LEADERPIN){verifyPin("verifyLeaderPin",LEADERPIN).then(function(res){if(res&&res.ok){LEADER=true;setDayOK();applyLeaderUI();renderDynamic();}else{LEADERPIN="";sessionStorage.removeItem("k2c_lpin");}}).catch(function(){});}
-  apiGet().then(function(s){STATE=normalize(s);LIVE=true;adoptTallyEpoch(s);finishBoot();if(TALLY.dirty)scheduleFlush(500);}).catch(function(){LIVE=false;STATE=seedDemo();finishBoot();});
+  if(LEADERPIN){verifyPin("verifyLeaderPin",LEADERPIN).then(function(res){if(res&&res.ok){LEADER=true;setDayOK();applyLeaderUI();renderDynamic();obFlush();}else{LEADERPIN="";sessionStorage.removeItem("k2c_lpin");}}).catch(function(){});}
+  apiGet().then(function(s){STATE=applyPending(normalize(s));LIVE=true;adoptTallyEpoch(s);finishBoot();if(TALLY.dirty)scheduleFlush(500);}).catch(function(){LIVE=false;STATE=seedDemo();finishBoot();});
 }
 function setStickyTop(){var tw=document.querySelector(".topwrap");document.documentElement.style.setProperty("--toph",((tw?tw.offsetHeight:0)+6)+"px");}
 window.addEventListener("resize",setStickyTop);
@@ -3223,12 +3319,15 @@ function finishBoot(){
   }
   function syncLoop(){
     var delay=syncDelay();
-    if(settled()&&document.visibilityState==="visible"&&(LIVE||everSynced)){
+    /* Poll even when we've never synced: a phone that booted offline used to
+       be stuck in demo mode until a full reload — now it recovers by itself. */
+    if(settled()&&document.visibilityState==="visible"){
       apiGet().then(function(s){
         if(settled()){
           lastSyncAt=Date.now();everSynced=true;if(!LIVE){LIVE=true;updateSync();}
+          if(OUTBOX.length)obFlush();
           if(s&&s.__nomod)return;   // 304 — skip re-serialize and re-render entirely
-          var snap=JSON.stringify(s),changed=snap!==lastSnap;lastSnap=snap;STATE=normalize(s);adoptTallyEpoch(s);maybeDayGate();
+          var snap=JSON.stringify(s),changed=snap!==lastSnap;lastSnap=snap;STATE=applyPending(normalize(s));adoptTallyEpoch(s);maybeDayGate();
           if(changed){if(userEditing())remoteDirty=true;else renderDynamic();}
         }
       }).catch(function(){if(LIVE){LIVE=false;updateSync();}})
