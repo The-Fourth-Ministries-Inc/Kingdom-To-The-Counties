@@ -240,6 +240,41 @@ npm install
 npx netlify dev
 ```
 
+### Code layout
+
+The app still has **no build step** — the browser loads plain ES5 scripts in
+order, all sharing globals, exactly as when everything lived inline. The three
+big script blocks were split out of `index.html` so each is editable on its own:
+
+| File | What's in it |
+| --- | --- |
+| `js/app-core.js` | sync layer & outbox, checklists, counters, radios, Tech I/O, boards, dashboard, Quick Capture |
+| `js/counties.js` | shared county roster + Recording Studio / teleprompter |
+| `js/mobilize.js` | Pre-Crusade Mobilization church CRM |
+
+Order matters (`app-core` → `counties` → `mobilize`); they are listed at the
+bottom of `index.html` and precached in `sw.js`. When adding a file, add it to
+both.
+
+### Tests
+
+```bash
+npm test
+```
+
+Runs two things, neither needing a network or a Netlify account:
+
+1. **`npm run check:syntax`** — parses every shipped script (`js/*.js`,
+   `netlify/functions/*.mjs`, `scripts/*.mjs`, `sw.js`), every inline block in
+   `index.html`, and verifies each `<script src>` the page references exists.
+   With no build step this is the only thing standing between a typo and a
+   phone in a field.
+2. **`node --test test/`** — unit tests over the server-side normalizers: id
+   sanitization, URL scheme filtering, field whitelisting, clamping, tombstones
+   and the legacy tally conversion. These encode rules the rest of the app
+   relies on — e.g. if `idStr` stopped stripping quotes, the `onclick`
+   handlers in the client would become injectable again.
+
 ## Contributing
 
 Push changes to a branch and open a pull request, or commit to `main` to deploy.

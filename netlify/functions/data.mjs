@@ -67,10 +67,10 @@ const str = (v, n) => (v == null ? "" : v.toString()).slice(0, n);
 /* Record ids end up inside onclick="fn('<id>')" attributes on the client, so
    they are restricted to characters that can't break out of a JS string or an
    HTML attribute. Applied to every id the client can choose. */
-const idStr = (v, n = 40) => (v == null ? "" : v.toString()).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, n);
+export const idStr = (v, n = 40) => (v == null ? "" : v.toString()).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, n);
 /* Links are rendered as href="…" — only http(s) may through, so a stored
    javascript:/data: URL can't execute when someone taps a church website. */
-function safeUrl(v, n = 200){
+export function safeUrl(v, n = 200){
  const s = str(v, n).trim();
  if(!s) return "";
  if(/^https?:\/\//i.test(s)) return s;
@@ -100,7 +100,7 @@ function normComments(list){
   t: str(c && c.t, 12)
  })).slice(-100);
 }
-function normIssue(x){
+export function normIssue(x){
  x = x || {};
  return {
   id: idStr(x.id) || uid(),
@@ -164,7 +164,7 @@ function captureUsage(list){
    Planning Center" can be verified rather than trusted. */
 const CAPTURE_RESPONSES = new Set(["", "salvation", "dedication", "rededication", "prayer"]);
 const CAPTURE_STATES = new Set(["new", "entered", "done"]);
-function normCapture(x){
+export function normCapture(x){
  x = x || {};
  return {
   id: idStr(x.id) || uid(),
@@ -187,7 +187,7 @@ function normCapture(x){
 /* Hard ceiling on stored captures. Reaching it REFUSES new records (507)
    rather than evicting old ones — see captureAdd. */
 const CAPTURE_LIST_MAX = 1000;
-const normCaptures = v => Array.isArray(v) ? v.map(normCapture).slice(-CAPTURE_LIST_MAX) : [];
+export const normCaptures = v => Array.isArray(v) ? v.map(normCapture).slice(-CAPTURE_LIST_MAX) : [];
 const capMediaKey = id => "capmedia-" + (id || "").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 40);
 
 /* ---- Pre-Crusade Mobilization: church CRM ----
@@ -300,7 +300,7 @@ function mergeStarterChurches(c){
  return added;
 }
 
-function normCheckin(x){
+export function normCheckin(x){
  x = x || {};
  return {
   id: idStr(x.id) || uid(),
@@ -430,7 +430,7 @@ function normIOPerf(p){
   rows: (Array.isArray(p.rows) ? p.rows : []).map(normIORow).slice(0, 60)
  };
 }
-const normIO = v => ({ list: (v && Array.isArray(v.list)) ? v.list.map(normIOPerf).slice(0, 80) : [] });
+export const normIO = v => ({ list: (v && Array.isArray(v.list)) ? v.list.map(normIOPerf).slice(0, 80) : [] });
 
 /* ---- PIN brute-force protection ----
    Per-IP sliding window kept in a blob: 15 wrong PIN entries in 10 minutes
@@ -624,7 +624,7 @@ async function sumTally(s){
 
 /* Convert the old growing tap log to one compact per-device summary.
    Each device owns its own key, so 2-3 counters never overwrite each other. */
-function compactTally(value){
+export function compactTally(value){
  const out = { total:0, by:{} };
  if(Array.isArray(value)){
  for(const e of value){
