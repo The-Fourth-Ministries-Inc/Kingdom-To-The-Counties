@@ -485,31 +485,79 @@ const LEADER_ACTIONS = new Set([
     page is open to every tech behind the Day PIN, same as radios and the head
     count. Only STRUCTURAL roster edits (setIOList) need the leader PIN. */
  "toggleCheck","setCheck","setChecklistNote","addChecklistItem","removeChecklistItem","seasonList",
- "addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin","captureSetState",
+ "addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin","captureSetState","setCounty",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
  "capturesList","captureMedia","captureDelete","capturePurge","revokeLeaderTokens",
  "churchEdit","churchDelete","churchFlagClear","churchTemplate"
 ]);
 
-function devKey(id){
- id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
- return "count-" + id;
+/* ---------------- per-county scoping (v1.11.0) ----------------
+ Each county event is its own dataset. Day-scoped blobs carry a "~<county>"
+ suffix, so switching the active county in the leader dashboard swaps the whole
+ board — checklists, check-ins, counts, radios, issues, announcements, I/O
+ progress — instead of the team having to reset and lose the last event.
+ Season-long data (church CRM, teleprompter scripts, Quick Captures, season
+ summaries, backups, tokens, rate limits) is NOT scoped, and neither is the
+ Day PIN: those are shared across the whole season.
+ An empty county (nothing selected yet) keeps the original unscoped keys, so
+ existing deployments behave exactly as before until a leader picks a county. */
+const COUNTY_KEYS = new Set(["sullivan","grafton","strafford","carroll","cheshire","belknap","coos","rockingham","hillsborough","merrimack"]);
+const scopeSuffix = cty => (cty ? "~" + cty : "");
+function mkKeys(cty){
+ const x = scopeSuffix(cty);
+ return {
+  cty,
+  core: "core" + x,
+  checkins: "checkins" + x,
+  io: "io" + x,
+  radios: "radios" + x,
+  agg: "count-agg" + x,
+  decAgg: "dec-agg" + x,
+  epoch: "tallyEpoch" + x,
+  // shard prefixes (per-phone counters)
+  countPre: "count" + x + "-",
+  tallyPre: "tally" + x + "-",
+  tal2Pre: "tal2" + x + "-",
+  dec2Pre: "dec2" + x + "-"
+ };
 }
-function tallyKey(id){
- id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
- return "tally-" + id;
+const ACTIVE_KEY = "active";
+async function readActive(s){
+ let a = null;
+ try { a = await s.get(ACTIVE_KEY, { type:"json" }); } catch(_) {}
+ const cty = idStr((a && a.county) || "", 24);
+ return { county: COUNTY_KEYS.has(cty) ? cty : "", migrated: !!(a && a.migrated) };
 }
-function tal2Key(id){
- id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
- return "tal2-" + id;
+/* The Day PIN is deliberately global — one PIN for the season, not one per
+   county — so it lives in its own blob. Migrated out of core on first read. */
+const DAYPIN_KEY = "daypin";
+async function readDayPin(s, K){
+ let d = null;
+ try { d = await s.get(DAYPIN_KEY, { type:"json" }); } catch(_) {}
+ if(d && typeof d.pin === "string") return d.pin;
+ const core = normCore((await s.get(K.core, { type:"json" })) || (await s.get("state", { type:"json" })) || {});
+ return core.dayPin;
 }
-function dec2Key(id){
+
+function devKey(id, K){
  id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
- return "dec2-" + id;
+ return (K ? K.countPre : "count-") + id;
 }
-async function readEpoch(s){
+function tallyKey(id, K){
+ id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
+ return (K ? K.tallyPre : "tally-") + id;
+}
+function tal2Key(id, K){
+ id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
+ return (K ? K.tal2Pre : "tal2-") + id;
+}
+function dec2Key(id, K){
+ id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
+ return (K ? K.dec2Pre : "dec2-") + id;
+}
+async function readEpoch(s, K){
  let e = null;
- try { e = await s.get("tallyEpoch", { type:"json" }); } catch(_) {}
+ try { e = await s.get(K.epoch, { type:"json" }); } catch(_) {}
  return (e && typeof e.e === "string") ? e.e : "";
 }
 
@@ -568,20 +616,20 @@ async function snapshot(s, tag, data){
 }
 
 const legacyState = s => async () => (await s.get("state", { type:"json" })) || {};
-const casCore = (s, mutate) => compareAndSwap(s, "core", normCore, mutate, legacyState(s));
+const casCore = (s, K, mutate) => compareAndSwap(s, K.core, normCore, mutate, legacyState(s));
 
-async function readAll(s){
+async function readAll(s, K){
  const [core, checkins, io, prompter, radios] = await Promise.all([
- s.get("core", { type:"json" }),
- s.get("checkins", { type:"json" }),
- s.get("io", { type:"json" }),
- s.get("prompter", { type:"json" }),
- s.get("radios", { type:"json" })
+ s.get(K.core, { type:"json" }),
+ s.get(K.checkins, { type:"json" }),
+ s.get(K.io, { type:"json" }),
+ s.get("prompter", { type:"json" }),   // season-long, never county-scoped
+ s.get(K.radios, { type:"json" })
  ]);
  return { core, checkins, io, prompter, radios };
 }
 
-async function migrateIfNeeded(s, parts){
+async function migrateIfNeeded(s, K, parts){
  if(parts.core) return parts; // already on split layout
  const old = await s.get("state", { type:"json" });
  const core = normCore(old || {});
@@ -589,29 +637,29 @@ async function migrateIfNeeded(s, parts){
  const io = { list: (old && old.ioList) || [] };
  const prompter = normPrompter(old && old.prompter);
  await Promise.all([
- s.setJSON("core", core),
- s.setJSON("checkins", checkins),
- s.setJSON("io", io),
+ s.setJSON(K.core, core),
+ s.setJSON(K.checkins, checkins),
+ s.setJSON(K.io, io),
  s.setJSON("prompter", prompter),
- (old && old.count) ? s.setJSON(devKey("legacy"), old.count) : Promise.resolve()
+ (old && old.count) ? s.setJSON(devKey("legacy", K), old.count) : Promise.resolve()
  ]);
  // old "state" blob is left in place untouched as a safety net
  return { core, checkins, io, prompter, radios: parts.radios || null };
 }
 
 /* ---- head count aggregation ---- */
-async function sumCounts(s){
+async function sumCounts(s, K){
  let total = 0;
- const { blobs } = await s.list({ prefix: "count-" });
+ const { blobs } = await s.list({ prefix: K.countPre });
  await Promise.all((blobs || []).map(async b => {
  const n = await s.get(b.key, { type:"json" });
  if(typeof n === "number") total += n;
  }));
  return Math.max(0, total);
 }
-async function sumTally(s){
+async function sumTally(s, K){
  let total = 0; const by = {};
- const [t1, t2] = await Promise.all([ s.list({ prefix: "tally-" }), s.list({ prefix: "tal2-" }) ]);
+ const [t1, t2] = await Promise.all([ s.list({ prefix: K.tallyPre }), s.list({ prefix: K.tal2Pre }) ]);
  const blobs = [ ...((t1 && t1.blobs) || []), ...((t2 && t2.blobs) || []) ];
  await Promise.all(blobs.map(async b => {
  const tally = compactTally(await s.get(b.key, { type:"json" }));
@@ -643,9 +691,9 @@ export function compactTally(value){
 }
 
 /* ---- decisions aggregate (mirrors count-agg, own namespace) ---- */
-async function rebuildDecAgg(s){
+async function rebuildDecAgg(s, K){
  let total = 0; const by = {};
- const { blobs } = await s.list({ prefix: "dec2-" });
+ const { blobs } = await s.list({ prefix: K.dec2Pre });
  await Promise.all((blobs || []).map(async b => {
   const t = compactTally(await s.get(b.key, { type:"json" }));
   total += t.total;
@@ -653,75 +701,75 @@ async function rebuildDecAgg(s){
  }));
  return { total: Math.max(0, total), by };
 }
-async function readDecAgg(s){
- let agg = await s.get("dec-agg", { type:"json" });
+async function readDecAgg(s, K){
+ let agg = await s.get(K.decAgg, { type:"json" });
  if(!agg || typeof agg.total !== "number" || !agg.by || typeof agg.by !== "object"){
-  agg = await rebuildDecAgg(s);
-  await s.setJSON("dec-agg", agg).catch(() => {});
+  agg = await rebuildDecAgg(s, K);
+  await s.setJSON(K.decAgg, agg).catch(() => {});
  }
  return agg;
 }
-async function bumpDecAgg(s, effTotal, effBy){
+async function bumpDecAgg(s, K, effTotal, effBy){
  for(let attempt = 0; attempt < 20; attempt++){
   if(attempt) await backoff(attempt);
   let res = null;
-  try { res = await s.getWithMetadata("dec-agg", { type:"json" }); } catch(_) { res = null; }
+  try { res = await s.getWithMetadata(K.decAgg, { type:"json" }); } catch(_) { res = null; }
   if(!(res && res.data && typeof res.data.total === "number")){
-   const fresh = await rebuildDecAgg(s);
-   let w; try { w = await s.setJSON("dec-agg", fresh, { onlyIfNew:true }); } catch(_) { w = { modified:false }; }
+   const fresh = await rebuildDecAgg(s, K);
+   let w; try { w = await s.setJSON(K.decAgg, fresh, { onlyIfNew:true }); } catch(_) { w = { modified:false }; }
    if(w && w.modified) return;
    continue;
   }
   const agg = { total: Math.max(0, (Number(res.data.total) || 0) + (effTotal || 0)), by: { ...res.data.by } };
   if(effBy) for(const k of Object.keys(effBy)) agg.by[k] = Math.max(0, (Number(agg.by[k]) || 0) + effBy[k]);
-  let w; try { w = await s.setJSON("dec-agg", agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
+  let w; try { w = await s.setJSON(K.decAgg, agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
   if(w && w.modified) return;
  }
- await s.delete("dec-agg").catch(() => {});
+ await s.delete(K.decAgg).catch(() => {});
 }
 
 /* Authoritative rebuild of the head count from every shard (legacy + tally). */
-async function rebuildAgg(s){
- const [cnt, tally] = await Promise.all([sumCounts(s), sumTally(s)]);
+async function rebuildAgg(s, K){
+ const [cnt, tally] = await Promise.all([sumCounts(s, K), sumTally(s, K)]);
  return { total: Math.max(0, cnt + tally.total), by: tally.by };
 }
 /* Fast read: use the cached aggregate; rebuild + seed it if it is missing. */
-async function readAgg(s){
- let agg = await s.get("count-agg", { type:"json" });
+async function readAgg(s, K){
+ let agg = await s.get(K.agg, { type:"json" });
  if(!agg || typeof agg.total !== "number" || !agg.by || typeof agg.by !== "object"){
-  agg = await rebuildAgg(s);
-  await s.setJSON("count-agg", agg).catch(() => {});
+  agg = await rebuildAgg(s, K);
+  await s.setJSON(K.agg, agg).catch(() => {});
  }
  return agg;
 }
 /* Apply an already-persisted shard delta to the cached aggregate under CAS.
    If it drifts or we can't win the race, we delete it so the next read rebuilds
    from the shards (which are the source of truth) — never wrong for long. */
-async function bumpAgg(s, effTotal, effBy){
+async function bumpAgg(s, K, effTotal, effBy){
  for(let attempt = 0; attempt < 20; attempt++){
   if(attempt) await backoff(attempt);
   let res = null;
-  try { res = await s.getWithMetadata("count-agg", { type:"json" }); } catch(_) { res = null; }
+  try { res = await s.getWithMetadata(K.agg, { type:"json" }); } catch(_) { res = null; }
   if(!(res && res.data && typeof res.data.total === "number")){
    // No cache yet — seed it from the shards (which already include this tap).
-   const fresh = await rebuildAgg(s);
-   let w; try { w = await s.setJSON("count-agg", fresh, { onlyIfNew:true }); } catch(_) { w = { modified:false }; }
+   const fresh = await rebuildAgg(s, K);
+   let w; try { w = await s.setJSON(K.agg, fresh, { onlyIfNew:true }); } catch(_) { w = { modified:false }; }
    if(w && w.modified) return;
    continue; // someone else seeded it; loop to apply our delta on top
   }
   const agg = { total: Math.max(0, (Number(res.data.total) || 0) + (effTotal || 0)), by: { ...res.data.by } };
   if(effBy) for(const k of Object.keys(effBy)) agg.by[k] = Math.max(0, (Number(agg.by[k]) || 0) + effBy[k]);
-  let w; try { w = await s.setJSON("count-agg", agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
+  let w; try { w = await s.setJSON(K.agg, agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
   if(w && w.modified) return;
  }
- await s.delete("count-agg").catch(() => {}); // give up cleanly → next read rebuilds
+ await s.delete(K.agg).catch(() => {}); // give up cleanly → next read rebuilds
 }
 
-async function assemble(s){
- let parts = await readAll(s);
- parts = await migrateIfNeeded(s, parts);
+async function assemble(s, K, active){
+ let parts = await readAll(s, K);
+ parts = await migrateIfNeeded(s, K, parts);
  const core = normCore(parts.core);
- const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw] = await Promise.all([ readAgg(s), readDecAgg(s), readEpoch(s), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }) ]);
+ const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, dayPin] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), readDayPin(s, K) ]);
  const captures = normCaptures(capturesRaw);
  // Only the rev + count ride in the main payload; the roster itself is
  // fetched on demand (GET ?part=churches) so polling stays light.
@@ -747,7 +795,8 @@ async function assemble(s){
  radios: normRadios(parts.radios).list,
  event: core.event,
  ioList: (parts.io && Array.isArray(parts.io.list)) ? parts.io.list : [],
- dayPinSet: !!core.dayPin, // the PIN itself is never sent to clients
+ dayPinSet: !!dayPin, // the PIN itself is never sent to clients
+ county: K.cty,          // which county's board this is
  funding: core.funding,
  prompter: prompter,
  // Quick Capture records hold seekers' contact info, so the shared payload
@@ -802,23 +851,33 @@ async function validLeaderToken(s, tok){
  return true;
 }
 
-async function authLevel(s, req, body){
+async function authLevel(s, K, req, body){
  const leader = ((body && body.pin) || req.headers.get("x-leader-pin") || "").toString();
  if(leader && leader === LEADER_PIN()) return "leader";
  if(leader && await validLeaderToken(s, leader)) return "leader";
  let day = ((body && body.dayPin) || req.headers.get("x-day-pin") || "").toString();
  if(!day){ try { day = new URL(req.url).searchParams.get("dp") || ""; } catch(_) {} }
- const core = normCore((await s.get("core", { type:"json" })) || (await s.get("state", { type:"json" })) || {});
- if(!core.dayPin) return "day";           // no Day PIN set → open, as before
- if(day && day === core.dayPin) return "day";
+ const dayPin = await readDayPin(s, K);
+ if(!dayPin) return "day";                // no Day PIN set → open, as before
+ if(day && day === dayPin) return "day";
  return "none";
 }
 
+/* Test seam: the suite swaps in an in-memory stand-in for Netlify Blobs so the
+   request handler can be exercised without a network or a Netlify account.
+   Production always takes the getStore() path. */
+let _storeFactory = null;
+export function __setStoreFactory(fn){ _storeFactory = fn; }
+const openStore = () => _storeFactory ? _storeFactory() : getStore(STORE, { consistency: "strong" });
+
 export default async (req, context) => {
- const s = getStore(STORE, { consistency: "strong" });
+ const s = openStore();
+ // Which county's board are we on? Everything day-scoped keys off this.
+ const active = await readActive(s);
+ const K = mkKeys(active.county);
 
  if(req.method === "GET"){
-  const lvl = await authLevel(s, req, null);
+  const lvl = await authLevel(s, K, req, null);
   let wantPart = "";
   try { wantPart = new URL(req.url).searchParams.get("part") || ""; } catch(_) {}
   if(lvl === "none"){
@@ -852,7 +911,7 @@ export default async (req, context) => {
    }
    return new Response(body, { status:200, headers:{ "Content-Type":"application/json", "Cache-Control":"no-store", "ETag":etag } });
   }
-  const body = JSON.stringify(await assemble(s));
+  const body = JSON.stringify(await assemble(s, K, active));
   const etag = 'W/"' + hash(body) + '"';
   // Unchanged since the client last saw it? Skip the payload AND the re-render.
   if(req.headers.get("if-none-match") === etag){
@@ -879,7 +938,7 @@ export default async (req, context) => {
     how you obtain it, so they stay open) ---- */
  let lvl = "none";
  if(action !== "verifyLeaderPin" && action !== "verifyDayPin"){
- lvl = await authLevel(s, req, body);
+ lvl = await authLevel(s, K, req, body);
  if(lvl === "none"){
   if(body.dayPin) await pinNoteFail(s, failKey);
   return json({ error:"day pin required", locked:true }, 403);
@@ -904,8 +963,8 @@ export default async (req, context) => {
  }
  if(action === "verifyDayPin"){
  if(pin && pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, leader:true, token: await issueLeaderToken(s) }); }
- const core = normCore((await s.get("core", { type:"json" })) || (await s.get("state", { type:"json" })) || {});
- if(core.dayPin && pin === core.dayPin) return json({ ok:true, leader:false });
+ const dayPinNow = await readDayPin(s, K);
+ if(dayPinNow && pin === dayPinNow) return json({ ok:true, leader:false });
  if(pin) await pinNoteFail(s, failKey);
  return json({ error:"wrong pin" }, 403);
  }
@@ -925,12 +984,12 @@ export default async (req, context) => {
 
  /* ---- legacy counter: each device writes ONLY its own shard ---- */
  if(action === "bump"){
- const key = devKey(payload.dev);
+ const key = devKey(payload.dev, K);
  const cur = (await s.get(key, { type:"json" })) || 0;
  const before = (typeof cur === "number" ? cur : 0);
  const after = before + (Number(payload.delta) || 0);
  await s.setJSON(key, after);
- await bumpAgg(s, after - before, null);
+ await bumpAgg(s, K, after - before, null);
  return json({ ok:true });
  }
 
@@ -950,16 +1009,16 @@ export default async (req, context) => {
     anecdotes. Same absolute-per-phone shard design as the head count, in its
     own dec2-/dec-agg namespace, so it inherits the same idempotency. ---- */
  if(action === "decSet"){
- const epoch = await readEpoch(s);
+ const epoch = await readEpoch(s, K);
  if(((payload.epoch || "") + "") !== epoch){
-  const dagg = await readDecAgg(s);
+  const dagg = await readDecAgg(s, K);
   return json({ ok:false, epochMismatch:true, epoch, decisions: Math.max(0, dagg.total), decBy: dagg.by || {} });
  }
  const inc = compactTally({ total: payload.total, by: payload.by });
  const next = { total: Math.min(inc.total, 100000), by: {} };
  for(const k of Object.keys(inc.by).slice(0, 30)) next.by[str(k, 40) || "?"] = Math.min(inc.by[k], 100000);
  let prev = { total:0, by:{} };
- await compareAndSwap(s, dec2Key(payload.dev), compactTally, cur => {
+ await compareAndSwap(s, dec2Key(payload.dev, K), compactTally, cur => {
   prev = cur;
   return (JSON.stringify(cur) === JSON.stringify(next)) ? undefined : next;
  }, () => ({ total:0, by:{} }));
@@ -969,17 +1028,17 @@ export default async (req, context) => {
   if(d) effBy[k] = d;
  }
  const effTotal = next.total - prev.total;
- if(effTotal || Object.keys(effBy).length) await bumpDecAgg(s, effTotal, effBy);
- const dagg = await readDecAgg(s);
+ if(effTotal || Object.keys(effBy).length) await bumpDecAgg(s, K, effTotal, effBy);
+ const dagg = await readDecAgg(s, K);
  return json({ ok:true, decisions: Math.max(0, dagg.total), decBy: dagg.by || {} });
  }
 
  if(action === "tallySet"){
- const epoch = await readEpoch(s);
+ const epoch = await readEpoch(s, K);
  if(((payload.epoch || "") + "") !== epoch){
   // The event was reset while this phone still held a pre-reset tally.
   // Tell it to clear instead of resurrecting old numbers.
-  const agg = await readAgg(s);
+  const agg = await readAgg(s, K);
   return json({ ok:false, epochMismatch:true, epoch, count: Math.max(0, agg.total), tallyBy: agg.by || {} });
  }
  const inc = compactTally({ total: payload.total, by: payload.by });
@@ -989,7 +1048,7 @@ export default async (req, context) => {
   next.by[name] = Math.min(inc.by[k], 100000);
  }
  let prev = { total:0, by:{} };
- await compareAndSwap(s, tal2Key(payload.dev), compactTally, cur => {
+ await compareAndSwap(s, tal2Key(payload.dev, K), compactTally, cur => {
   prev = cur;
   return (JSON.stringify(cur) === JSON.stringify(next)) ? undefined : next;
  }, () => ({ total:0, by:{} }));
@@ -999,13 +1058,13 @@ export default async (req, context) => {
   if(d) effBy[k] = d;
  }
  const effTotal = next.total - prev.total;
- if(effTotal || Object.keys(effBy).length) await bumpAgg(s, effTotal, effBy);
- const agg = await readAgg(s);
+ if(effTotal || Object.keys(effBy).length) await bumpAgg(s, K, effTotal, effBy);
+ const agg = await readAgg(s, K);
  return json({ ok:true, count: Math.max(0, agg.total), tallyBy: agg.by || {} });
  }
 
  if(action === "tallyAdd"){
- const key = tallyKey(payload.dev);
+ const key = tallyKey(payload.dev, K);
  const tally = compactTally(await s.get(key, { type:"json" }));
  const by = (payload.by || "?").toString().slice(0, 40) || "?";
  const delta = Number(payload.delta) || 0;
@@ -1013,13 +1072,13 @@ export default async (req, context) => {
  tally.total = Math.max(0, tally.total + delta);
  tally.by[by] = Math.max(0, (tally.by[by] || 0) + delta);
  await s.setJSON(key, tally);
- await bumpAgg(s, tally.total - beforeTotal, { [by]: tally.by[by] - beforeBy });
+ await bumpAgg(s, K, tally.total - beforeTotal, { [by]: tally.by[by] - beforeBy });
  return json({ ok:true });
  }
 
  /* ---- everything else touches exactly one blob, via compare-and-swap ---- */
  // Ensure the split blobs exist (first-run migration off the old single blob).
- await migrateIfNeeded(s, await readAll(s));
+ await migrateIfNeeded(s, K, await readAll(s, K));
 
  switch(action){
  /* v1.10.0 — idempotent checkmark write for the client's persistent outbox.
@@ -1028,7 +1087,7 @@ export default async (req, context) => {
     toggleCheck, a retry after a landed-but-unconfirmed write would flip the
     mark back off. toggleCheck stays below for phones still on the old client. */
  case "setCheck":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  const id = str(payload.id, 60);
  if(!id) return undefined;
  const cur = core.checklist[id];
@@ -1043,7 +1102,7 @@ export default async (req, context) => {
  });
  break;
  case "toggleCheck":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  const id = payload.id;
  if(id){
  if(core.checklist[id]) delete core.checklist[id];
@@ -1053,7 +1112,7 @@ export default async (req, context) => {
  });
  break;
  case "addChecklistItem":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  const it = normExtraItem(payload);
  if(!it.text) return undefined;
  core.extras = normExtras(core.extras);
@@ -1064,7 +1123,7 @@ export default async (req, context) => {
  });
  break;
  case "removeChecklistItem":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  const id = idStr(payload.id);
  core.extras = normExtras(core.extras);
  if(!core.extras.some(x => x.id === id)) return undefined;
@@ -1074,7 +1133,7 @@ export default async (req, context) => {
  });
  break;
  case "setChecklistNote":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  const id = str(payload.id, 60);
  if(!id) return undefined;
  core.notes = core.notes || {};
@@ -1087,33 +1146,33 @@ export default async (req, context) => {
     client outbox can safely retry a request that may have already landed
     without creating duplicates. */
  case "addCheckin":
- await compareAndSwap(s, "checkins", normCheckins, list => {
+ await compareAndSwap(s, K.checkins, normCheckins, list => {
  if(payload.id && list.some(c => c.id === payload.id)) return undefined; // retry of an applied write
  list.push(normCheckin(payload)); return list.slice(-2000);
  }, () => []);
  break;
  case "addAnnouncement":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  if(payload.id && core.announcements.some(a => a.id === payload.id)) return undefined;
  core.announcements.unshift(normAnn(payload)); core.announcements = core.announcements.slice(0, 200); return core;
  });
  break;
  case "addPraise":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  if(payload.id && core.praises.some(x => x.id === payload.id)) return undefined;
  const it = normPraiseItem(payload); it.hidden = false; it.ackBy = ""; it.ackT = ""; it.comments = [];
  core.praises.unshift(it); core.praises = core.praises.slice(0, 500); return core;
  });
  break;
  case "addFeedback":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  if(payload.id && core.feedback.some(x => x.id === payload.id)) return undefined;
  const it = normIssue(payload); it.hidden = false; it.ackBy = ""; it.ackT = ""; it.comments = [];
  core.feedback.unshift(it); core.feedback = core.feedback.slice(0, 500); return core;
  });
  break;
  case "addComment":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  const arr = payload.kind === "praise" ? core.praises : (payload.kind === "ann" ? core.announcements : core.feedback);
  const it = arr.find(x => x.id === payload.id);
  if(!it) return undefined; // nothing to update — skip the write
@@ -1130,7 +1189,7 @@ export default async (req, context) => {
     radio at once) sets the same state instead of flipping it back the way
     radioToggle did. radioToggle stays below for phones on the old client. */
  case "setRadio":
- await compareAndSwap(s, "radios", normRadios, rad => {
+ await compareAndSwap(s, K.radios, normRadios, rad => {
  const n = Number(payload.n);
  if(!(n >= 1 && n <= 10)) return undefined;
  const next = { n, out: normStamp(payload.out), in: normStamp(payload.in) };
@@ -1140,7 +1199,7 @@ export default async (req, context) => {
  }, () => ({ list: defaultRadios() }));
  break;
  case "radioToggle":
- await compareAndSwap(s, "radios", normRadios, rad => {
+ await compareAndSwap(s, K.radios, normRadios, rad => {
  const n = Number(payload.n);
  if(!(n >= 1 && n <= 10)) return undefined;
  const r = rad.list[n-1];
@@ -1151,14 +1210,14 @@ export default async (req, context) => {
  }, () => ({ list: defaultRadios() }));
  break;
  case "setEvent":
- await casCore(s, core => { core.event = { name: str(payload.name, 80), date: str(payload.date, 40), shift: Math.max(0, Math.min(2, Math.round(Number(payload.shift) || 0))) }; return core; });
+ await casCore(s, K, core => { core.event = { name: str(payload.name, 80), date: str(payload.date, 40), shift: Math.max(0, Math.min(2, Math.round(Number(payload.shift) || 0))) }; return core; });
  break;
  case "setIOList":
  /* Wholesale roster replacement — now used ONLY for structural edits (edit
     list / reload defaults). Patch checkmark taps go through ioSetRow below
     so concurrent techs can't clobber each other's progress. */
  if(!Array.isArray(payload.list)) break;
- await compareAndSwap(s, "io", normIO, io => { io.list = payload.list; return io; }, () => ({ list: [] }));
+ await compareAndSwap(s, K.io, normIO, io => { io.list = payload.list; return io; }, () => ({ list: [] }));
  break;
  /* v1.10.0 — per-row patch checkmark, merged server-side. Idempotent: a
     retried request that already landed is a no-op, and two techs checking
@@ -1166,7 +1225,7 @@ export default async (req, context) => {
     was last-write-wins across the whole roster). `seed` carries the client's
     full roster only for the first-ever write, when the server list is empty. */
  case "ioSetRow": {
- await compareAndSwap(s, "io", normIO, io => {
+ await compareAndSwap(s, K.io, normIO, io => {
  if(!io.list.length && Array.isArray(payload.seed) && payload.seed.length) io.list = payload.seed;
  let hit = null;
  for(const p of io.list) if(p && p.id === payload.pid) for(const r of (p.rows || [])) if(r && r.id === payload.rid) hit = r;
@@ -1181,10 +1240,11 @@ export default async (req, context) => {
  break;
  }
  case "setDayPin":
- await casCore(s, core => { core.dayPin = (payload.pin || "").toString().trim().slice(0, 10); return core; });
+ // Global, not county-scoped — one Day PIN for the season.
+ await s.setJSON(DAYPIN_KEY, { pin: (payload.pin || "").toString().trim().slice(0, 10) });
  break;
  case "setFunding":
- await casCore(s, core => { core.funding = { pct: clampPct(payload.pct), needed: (payload.needed || "").toString().slice(0, 30) || core.funding.needed }; return core; });
+ await casCore(s, K, core => { core.funding = { pct: clampPct(payload.pct), needed: (payload.needed || "").toString().slice(0, 30) || core.funding.needed }; return core; });
  break;
  /* v1.10.0 — idempotent acknowledge/hide, same treatment as setCheck. The
     payload states the FINAL hidden value instead of toggling, so a retried
@@ -1192,7 +1252,7 @@ export default async (req, context) => {
     visible (the "acknowledge & hide didn't actually hide it" bug). ackCard
     stays below for phones still on the old client. */
  case "setAck":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  const arr = payload.kind === "praise" ? core.praises : core.feedback;
  const it = arr.find(x => x.id === payload.id);
  if(!it) return undefined;
@@ -1205,7 +1265,7 @@ export default async (req, context) => {
  });
  break;
  case "ackCard":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  const arr = payload.kind === "praise" ? core.praises : core.feedback;
  const it = arr.find(x => x.id === payload.id);
  if(!it) return undefined;
@@ -1230,8 +1290,8 @@ export default async (req, context) => {
     season-long relationship record. */
  {
  const [curCore, curCheckins, curIO, curRadios] = await Promise.all([
-  s.get("core", { type:"json" }), s.get("checkins", { type:"json" }),
-  s.get("io", { type:"json" }), s.get("radios", { type:"json" })
+  s.get(K.core, { type:"json" }), s.get(K.checkins, { type:"json" }),
+  s.get(K.io, { type:"json" }), s.get(K.radios, { type:"json" })
  ]);
  await snapshot(s, "reset", { core: curCore, checkins: curCheckins, io: curIO, radios: curRadios });
  /* Season roll-up: reset is the ONLY moment this event's numbers still
@@ -1240,13 +1300,14 @@ export default async (req, context) => {
     "how did the season go?" in October. */
  {
  const core2 = normCore(curCore);
- const [agg2, dec2, caps2] = await Promise.all([ readAgg(s), readDecAgg(s), s.get("captures", { type:"json" }) ]);
+ const [agg2, dec2, caps2] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), s.get("captures", { type:"json" }) ]);
  const checkins2 = normCheckins(curCheckins);
  const io2 = normIO(curIO);
  let ioDone = 0, ioTotal = 0;
  for(const p of io2.list){ if(p.off) continue; for(const r of (p.rows || [])){ ioTotal++; if(r.done) ioDone++; } }
  const entry = {
   at: new Date().toISOString(),
+  county: K.cty,
   event: core2.event,
   attendance: Math.max(0, agg2.total),
   decisions: Math.max(0, dec2.total),
@@ -1265,17 +1326,17 @@ export default async (req, context) => {
  }
  }
  // The rain-date shift is day-specific — the next event starts unshifted.
- await casCore(s, core => ({ ...EMPTY_CORE, event: { ...core.event, shift: 0 }, dayPin: core.dayPin, funding: core.funding, praises: core.praises }));
- await compareAndSwap(s, "io", normIO, io => { io.list = ioListClearProgress(io.list); return io; }, () => ({ list: [] }));
- const [c1, c2, c3, c4] = await Promise.all([ s.list({ prefix: "count-" }), s.list({ prefix: "tally-" }), s.list({ prefix: "tal2-" }), s.list({ prefix: "dec2-" }) ]);
+ await casCore(s, K, core => ({ ...EMPTY_CORE, event: { ...core.event, shift: 0 }, dayPin: core.dayPin, funding: core.funding, praises: core.praises }));
+ await compareAndSwap(s, K.io, normIO, io => { io.list = ioListClearProgress(io.list); return io; }, () => ({ list: [] }));
+ const [c1, c2, c3, c4] = await Promise.all([ s.list({ prefix: K.countPre }), s.list({ prefix: K.tallyPre }), s.list({ prefix: K.tal2Pre }), s.list({ prefix: K.dec2Pre }) ]);
  const doomed = [ ...((c1 && c1.blobs) || []), ...((c2 && c2.blobs) || []), ...((c3 && c3.blobs) || []), ...((c4 && c4.blobs) || []) ]
-  .filter(b => b.key !== "count-agg"); // rewritten below, not deleted (racy otherwise)
+  .filter(b => b.key !== K.agg); // rewritten below, not deleted (racy otherwise)
  await Promise.all([
- s.setJSON("checkins", []),
- s.setJSON("radios", { list: defaultRadios() }),
- s.setJSON("count-agg", { total:0, by:{} }),
- s.setJSON("dec-agg", { total:0, by:{} }),
- s.setJSON("tallyEpoch", { e: uid() }), // stale phones clear instead of re-pushing old tallies
+ s.setJSON(K.checkins, []),
+ s.setJSON(K.radios, { list: defaultRadios() }),
+ s.setJSON(K.agg, { total:0, by:{} }),
+ s.setJSON(K.decAgg, { total:0, by:{} }),
+ s.setJSON(K.epoch, { e: uid() }), // stale phones clear instead of re-pushing old tallies
  ...doomed.map(b => s.delete(b.key))
  ]);
  break;
@@ -1364,6 +1425,43 @@ export default async (req, context) => {
  return list;
  }, () => []);
  break;
+ }
+ /* Switch the whole board to another county (v1.11.0). Day-scoped blobs are
+    namespaced per county, so this swaps checklists, check-ins, counts, radios,
+    issues, announcements and I/O progress in one write — no reset, and the
+    previous county's work stays exactly where it was.
+    The FIRST switch adopts whatever is currently in the unscoped blobs as that
+    county's data, so a board already in use isn't stranded. */
+ case "setCounty": {
+ const want = idStr(payload.county, 24);
+ if(payload.county && !COUNTY_KEYS.has(want)) return json({ error:"unknown county" }, 400);
+ const cur = await readActive(s);
+ if(cur.county === want) return json({ ok:true, county: want });
+ if(!cur.migrated && !cur.county && want){
+  // Adopt the existing unscoped board as this county's starting data.
+  const from = mkKeys(""), to = mkKeys(want);
+  const [c0, ci0, io0, r0, ag0, dg0, ep0] = await Promise.all([
+   s.get(from.core, { type:"json" }), s.get(from.checkins, { type:"json" }),
+   s.get(from.io, { type:"json" }), s.get(from.radios, { type:"json" }),
+   s.get(from.agg, { type:"json" }), s.get(from.decAgg, { type:"json" }),
+   s.get(from.epoch, { type:"json" })
+  ]);
+  await Promise.all([
+   c0 ? s.setJSON(to.core, c0) : Promise.resolve(),
+   ci0 ? s.setJSON(to.checkins, ci0) : Promise.resolve(),
+   io0 ? s.setJSON(to.io, io0) : Promise.resolve(),
+   r0 ? s.setJSON(to.radios, r0) : Promise.resolve(),
+   ag0 ? s.setJSON(to.agg, ag0) : Promise.resolve(),
+   dg0 ? s.setJSON(to.decAgg, dg0) : Promise.resolve(),
+   ep0 ? s.setJSON(to.epoch, ep0) : Promise.resolve()
+  ]);
+ }
+ await s.setJSON(ACTIVE_KEY, { county: want, migrated: true });
+ /* Rotate the target county's tally epoch so phones holding another county's
+    tally clear it instead of pushing those taps onto this board. */
+ const target = mkKeys(want);
+ await s.setJSON(target.epoch, { e: uid() });
+ return json({ ok:true, county: want });
  }
  case "seasonList":
  return json(await compareAndSwap(s, "season", v => ({ events: Array.isArray(v && v.events) ? v.events : [] }), () => undefined, () => ({ events: [] })));

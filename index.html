@@ -336,7 +336,9 @@ textarea, select { font-size: 16px !important; }
   .hidebar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:12.5px}
   .hidebar span{color:var(--muted)}
   .hidebar button{background:none;border:none;color:var(--rust);font-weight:700;font-size:12.5px;cursor:pointer;padding:0}
-  .caplabel{font-size:12px;font-weight:700;color:var(--muted);margin:8px 0 5px;text-transform:uppercase;letter-spacing:.4px}
+  .caplabel{font-size:12px;font-weight:700;color:var(--muted);margin:8px 0 5px;text-transform:uppercase;letter-spacing:.4px;display:block}
+  .capfilter{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:9px;font-family:var(--sans);font-weight:700;background:#fff;color:var(--ink)}
+  .eventedit select{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px;font-family:var(--sans);background:#fff;color:var(--ink)}
   .capresp{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
   .capresp button{flex:1 1 46%;min-height:44px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;font-size:13.5px;font-weight:700;font-family:var(--sans);cursor:pointer}
   .capresp button.on{background:var(--wine);color:#fff;border-color:var(--wine)}
@@ -805,6 +807,9 @@ textarea, select { font-size: 16px !important; }
         <button onclick="show('mobilize')">⛪ Churches</button>
       </div>
       <div class="eventedit"><div class="ttl">📍 This event</div>
+        <label class="caplabel" for="evCounty">Which county are we in now?</label>
+        <select id="evCounty"></select>
+        <p class="hint" id="evCountyHint" style="margin:-2px 0 8px">Switching counties swaps the whole board — checklists, check-ins, counts, radios, issues &amp; announcements — to that county's own data. Nothing is deleted; the other county's work stays put. No reset needed.</p>
         <input id="evName" placeholder="Event name (e.g. Sullivan County)" />
         <input id="evDate" placeholder="Date (e.g. Sat, June 13)" />
         <label class="rainrow"><input type="checkbox" id="evShift" /> ☔ <b>Rain date</b> — event moved to Sunday (shifts every setup time by a day)</label>
@@ -991,6 +996,7 @@ textarea, select { font-size: 16px !important; }
       <input id="capName" maxlength="80" placeholder="Their name" autocomplete="off" />
       <div class="twocol"><input id="capPhone" maxlength="40" inputmode="tel" placeholder="Phone" autocomplete="off" /><input id="capEmail" maxlength="80" inputmode="email" placeholder="Email" autocomplete="off" /></div>
       <select id="capCounty"></select>
+      <p class="hint" id="capCountyNote" style="display:none;margin:-4px 0 8px"></p>
       <!-- The counselor booklet requires the response type on every encounter. -->
       <div class="caplabel">What was their response?</div>
       <div class="capresp" id="capResp">

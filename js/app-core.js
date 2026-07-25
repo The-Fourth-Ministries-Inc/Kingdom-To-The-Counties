@@ -327,7 +327,20 @@ var SETUP=[
   {day:"sat",cat:"tech",team:"Phase 9 · Fit & Finish — Sat 12:00–12:10",lead:"M. Nelson",items:[["Clean up stage (bags/cases/totes → green room)",m(12,10)],["Cable management (perpendicular & parallel)",m(12,10)],["Change all mic and pack batteries. Only use Black Fujitsu batteries for mics and packs. Do NOT use green batteries for mics and packs.",m(12,10)],["Prayer over venue",m(12,10)],["Arm multitrack recording to SD / standalone on ARK",m(12,10)],["Rest",m(12,10)]]},
   {day:"sat",ord:0.5,cat:"log",team:"Phase 7b · Day-Of Logistics — Sat morning",lead:"Kat Roedell",items:[["Tents put up",m(10,0)],["Tents set up inside — tables, chairs & signage",m(10,0)],["Parking — cones, signs & flow set",m(10,0)],["Crowd control vests handed out",m(10,0)],["Security brief done",m(10,0)],["Ice picked up & in coolers",m(10,0)]]},
   {day:"sat",ord:3.5,cat:"log",team:"Guest Services · Day-Of — Sat",lead:"Guest Services",items:[["Welcome tables stocked — booklets, pens, signage",m(13,0)],["Water & ice at Guest Services tent",m(13,0)],["Kids & family area walked and safe",m(13,0)]]},
-  {day:"sat",ord:3.6,cat:"log",team:"Ambassadors · Day-Of — Sat",lead:"Ambassador Leads",items:[["Ambassadors checked in & briefed",m(13,0)],["Counselor booklets in hand · counters have the app open",m(13,0)]]}
+  {day:"sat",ord:3.6,cat:"log",team:"Ambassadors · Day-Of — Sat",lead:"Ambassador Leads",items:[["Ambassadors checked in & briefed",m(13,0)],["Counselor booklets in hand · counters have the app open",m(13,0)]]},
+  /* Appended at the END of the array on purpose — checkmark IDs are keyed to
+     array position, so inserting here would re-key every section after it.
+     ord:0 makes it DISPLAY first, ahead of the 2-Wks-Prior list. */
+  {day:"fri",ord:0,cat:"both",team:"Phase 0 · Travel & Hospitality — Ahead of the event",lead:"Leadership",items:[
+    ["Identify who is travelling in — out-of-town crew, band, speakers, guests",m(12,0)],
+    ["Hotel booked & confirmed for everyone who needs a room (names on the reservation)",m(12,0)],
+    ["Hotel details sent to each person staying — address, check-in time, confirmation number",m(12,0)],
+    ["Friday dinner reservation made for the setup crew — headcount confirmed",m(12,0)],
+    ["Saturday setup-crew lunch confirmed (pizza order placed / delivery time set)",m(12,0)],
+    ["Any dietary needs & allergies collected and passed to whoever is ordering",m(12,0)],
+    ["Travel plan confirmed with each traveller — arrival times, who is driving, parking",m(12,0)],
+    ["Whoever it applies to has been told directly: hotel, dinner and reservation details in writing",m(12,0)]
+  ]}
 ];
 var TEARDOWN=[];
 var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],count:0,event:{name:"",date:""},ioList:[],dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
@@ -359,7 +372,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
    onclick="fn('...')" handlers all over this file, so a lone ' would break out
    of the JS string literal inside the attribute. */
 function esc(s){return(s||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
-function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
+function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],county:s.county||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
 function toast(msg){var el=document.getElementById("toastEl");if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}el.textContent=msg;el.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function vibr(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(_){}}
 function hasFullState(s){return !!(s&&("checklist" in s||"announcements" in s||"count" in s));}
@@ -988,8 +1001,48 @@ function renderFunding(){var f=STATE.funding||{};var p=document.getElementById("
   var fp=document.getElementById("fundPctEdit"),fn=document.getElementById("fundNeedEdit");
   if(fp&&document.activeElement!==fp)fp.value=(f.pct!=null?f.pct:64);
   if(fn&&document.activeElement!==fn)fn.value=f.needed||"";}
+/* ---- active county (v1.11.0) ----
+   The leader picks the county once; the whole board (and Quick Capture) keys
+   off it, and each county keeps its own data instead of the team resetting
+   between events. */
+function renderCountySelect(){
+  var sel=document.getElementById("evCounty");if(!sel)return;
+  if(!sel.options.length&&typeof COUNTIES!=="undefined"){
+    sel.innerHTML='<option value="">— No county selected —</option>'+COUNTIES.map(function(c){
+      return '<option value="'+esc(c.key)+'">'+esc(c.county)+'</option>';}).join("");
+  }
+  if(document.activeElement!==sel)sel.value=STATE.county||"";
+}
+function setCounty(key){
+  if(!LEADER){askPin(function(){setCounty(key);});return;}
+  var cur=STATE.county||"";
+  if(key===cur)return;
+  var c=(typeof countyByKey==="function")?countyByKey(key):null;
+  if(key&&!confirm("Switch the board to "+((c&&c.county)||key)+"?\n\nEveryone's app will show that county's checklists, check-ins, counts, radios, issues and announcements. Nothing is deleted — this county's work stays saved and you can switch back any time."))
+    {renderCountySelect();return;}
+  /* Not queued through the outbox: this changes which dataset every later
+     write lands in, so it must be confirmed by the server before anything
+     else is sent. */
+  apiPost("setCounty",{county:key}).then(function(){
+    STATE.county=key;
+    if(c){
+      /* Keep the event label in step with the county the leader picked. */
+      var name=c.county,date=c.dateLong||"";
+      queueWrite("setEvent",{name:name,date:date,shift:0},function(){STATE.event={name:name,date:date,shift:0};},function(){});
+    }
+    lastEtag="";
+    return refreshFromServer();
+  }).then(function(){
+    renderCountySelect();renderDynamic();
+    toast(key?("📍 Board switched to "+((c&&c.county)||key)):"📍 County cleared");
+  }).catch(function(e){
+    if(e!==403)toast("Couldn't switch counties — check your signal and try again");
+    renderCountySelect();
+  });
+}
 function renderEvent(){
   var ev=STATE.event||{},tag=document.getElementById("eventTag");
+  renderCountySelect();
   var shifted=eventShift()>0;
   if(ev.name||ev.date){tag.style.display="block";tag.textContent="📍 "+[ev.name,ev.date].filter(Boolean).join(" · ")+(shifted?" · ☔ RAIN DATE (+"+eventShift()+"d)":"");}
   else{tag.style.display="none";}
@@ -1394,6 +1447,7 @@ document.getElementById("fundSave").addEventListener("click",function(){
   if(isNaN(pct)||pct<0||pct>100){flash("fundPctEdit");return;}
   queueWrite("setFunding",{pct:pct,needed:need},function(){STATE.funding={pct:pct,needed:need||STATE.funding.needed};},function(){renderFunding();});
 });
+document.getElementById("evCounty").addEventListener("change",function(){setCounty(this.value);});
 document.getElementById("evSave").addEventListener("click",function(){var name=document.getElementById("evName").value.trim(),date=document.getElementById("evDate").value.trim();var sh=document.getElementById("evShift").checked?1:0;queueWrite("setEvent",{name:name,date:date,shift:sh},function(){STATE.event={name:name,date:date,shift:sh};},function(){renderEvent();refreshChecklists();renderDayBanner();});});
 /* v1.2.0 — one-tap CSV export of the day's data (leaders) */
 function csvCell(v){v=String(v==null?"":v);return '"'+v.replace(/"/g,'""')+'"';}

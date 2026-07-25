@@ -171,6 +171,19 @@ automatically on deploy.
   (last-write-wins), so two techs patching simultaneously erased each other's
   checkmarks. Wholesale `setIOList` is still used for structural edits
   (edit list / reload defaults), which are single-leader operations.
+- **Each county is its own board (v1.11.0).** A leader picks the current county
+  in the dashboard; every day-scoped blob is namespaced per county
+  (`core~carroll`, `checkins~carroll`, `count-agg~carroll`, per-phone tally and
+  decision shards, …). Switching counties swaps checklists, check-ins, counts,
+  decisions, radios, issues, announcements and I/O progress in one write — so
+  **reset is no longer needed between events**, and the previous county's work
+  stays exactly where it was. Season-long data (church CRM, teleprompter
+  scripts, Quick Captures, season summaries, backups) is deliberately NOT
+  scoped, and neither is the **Day PIN** — one PIN for the whole season, stored
+  in its own blob. With no county selected, the original unscoped keys are used,
+  so existing deployments behave exactly as before; the first county switch
+  adopts that in-progress board as the chosen county's data rather than
+  stranding it.
 - **Destructive actions snapshot first (v1.10.0).** Reset and capture-purge
   copy the data they're about to destroy into a `backup-<timestamp>-<tag>`
   blob (newest 20 kept) before clearing anything. There's no in-app restore;
@@ -269,7 +282,10 @@ Runs two things, neither needing a network or a Netlify account:
    `index.html`, and verifies each `<script src>` the page references exists.
    With no build step this is the only thing standing between a typo and a
    phone in a field.
-2. **`node --test test/`** — unit tests over the server-side normalizers: id
+2. **`node --test test/`** — unit tests over the server-side normalizers plus
+   an integration test that drives the real request handler against an
+   in-memory blob store (per-county isolation, shared Day PIN, season-long
+   data, reset scoping). Normalizer coverage: id
    sanitization, URL scheme filtering, field whitelisting, clamping, tombstones
    and the legacy tally conversion. These encode rules the rest of the app
    relies on — e.g. if `idStr` stopped stripping quotes, the `onclick`

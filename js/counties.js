@@ -111,13 +111,40 @@ function capRecStop(){
   document.getElementById("capRecBtn").classList.remove("rec");
   vibr(15);
 }
-/* ---- county dropdown ---- */
-function capFillCounty(){
-  var sel=document.getElementById("capCounty");if(!sel||sel.options.length)return;
-  sel.innerHTML='<option value="">Which county are you in?…</option>'+COUNTIES.map(function(c){return '<option>'+esc(c.county)+'</option>';}).join("")+'<option>Other / not sure</option>';
+/* ---- county dropdown ----
+   The app already knows which county it's on: leaders set it once in the
+   dashboard (STATE.county), so ambassadors shouldn't have to pick it on every
+   capture — one more thing to get wrong on the street. The field is filled in
+   and shown as confirmation, with an override for the edge case of capturing
+   someone from a different county. */
+function countyByKey(k){for(var i=0;i<COUNTIES.length;i++)if(COUNTIES[i].key===k)return COUNTIES[i];return null;}
+function activeCountyName(){
+  var c=countyByKey(STATE.county||"");
+  if(c)return c.county;
+  /* Fall back to matching the free-text event name, as before. */
   var evn=((STATE.event&&STATE.event.name)||"").toLowerCase();
-  if(evn)COUNTIES.forEach(function(c){var first=c.county.split(" ")[0].toLowerCase();if(evn.indexOf(first)>=0||(c.key==="coos"&&evn.indexOf("coos")>=0))sel.value=c.county;});
+  if(evn)for(var i=0;i<COUNTIES.length;i++){
+    var first=COUNTIES[i].county.split(" ")[0].toLowerCase();
+    if(evn.indexOf(first)>=0||(COUNTIES[i].key==="coos"&&evn.indexOf("coos")>=0))return COUNTIES[i].county;
+  }
+  return "";
 }
+function capFillCounty(){
+  var sel=document.getElementById("capCounty");if(!sel)return;
+  if(!sel.options.length){
+    sel.innerHTML='<option value="">Which county are you in?…</option>'+COUNTIES.map(function(c){return '<option>'+esc(c.county)+'</option>';}).join("")+'<option>Other / not sure</option>';
+  }
+  var auto=activeCountyName();
+  /* Only auto-set while the ambassador hasn't chosen something else. */
+  if(auto&&(!sel.value||sel.value===capCountyAuto))sel.value=auto;
+  capCountyAuto=auto;
+  var note=document.getElementById("capCountyNote");
+  if(note){
+    note.style.display=auto?"block":"none";
+    note.innerHTML=auto?('📍 Set automatically to <b>'+esc(auto)+'</b> — change it only if this person is from somewhere else.'):'';
+  }
+}
+var capCountyAuto="";
 /* ---- minimum-info pop-up reminder ---- */
 function capMissing(){
   var name=document.getElementById("capName").value.trim(),
@@ -298,10 +325,25 @@ function capSetState(id,st){
   if(!c||c.st===st)return;
   queueWrite("captureSetState",{id:id,st:st},function(){c.st=st;},function(){renderCapAll();});
 }
+var capCountyFilter="";
+function capSetCountyFilter(v){capCountyFilter=v;renderCapAll();}
 function renderCapAll(){
   var mt=document.getElementById("capAllMount");if(!mt)return;
   if(!capAll.length){mt.innerHTML='<div class="empty">No captures submitted yet. 📇</div>';return;}
-  var rows=capAll.slice().reverse().map(function(c){
+  /* Captures are season-long and now carry the county they were taken in, so
+     leaders can work one county's follow-up list at a time instead of a single
+     undifferentiated pile. */
+  var counties=[];
+  capAll.forEach(function(c){if(c.county&&counties.indexOf(c.county)<0)counties.push(c.county);});
+  counties.sort();
+  var filterBar=counties.length>1?('<select class="capfilter" onchange="capSetCountyFilter(this.value)"><option value="">All counties ('+capAll.length+')</option>'
+    +counties.map(function(n){
+      var n2=capAll.filter(function(c){return c.county===n;}).length;
+      return '<option value="'+esc(n)+'"'+(capCountyFilter===n?' selected':'')+'>'+esc(n)+' ('+n2+')</option>';
+    }).join("")+'</select>'):"";
+  var list=capCountyFilter?capAll.filter(function(c){return c.county===capCountyFilter;}):capAll;
+  if(!list.length){mt.innerHTML=filterBar+'<div class="empty">No captures for that county yet. 📇</div>';return;}
+  var rows=list.slice().reverse().map(function(c){
     var contact=[c.phone,c.email].filter(Boolean).join(" · ");
     return '<div class="caprow"><div class="hd"><b>'+esc(c.name||"(no name typed)")+'</b><span class="ln">'+(CAP_LANE_ICON[c.lane]||"")+' '+esc((c.d||"")+(c.t?(" · "+c.t):""))+'</span></div>'
       +(contact?'<div class="ct">'+esc(contact)+'</div>':'<div class="ct" style="color:var(--warn)">no typed contact — check the '+(c.mediaKind||"notes")+'</div>')
@@ -313,7 +355,7 @@ function renderCapAll(){
       +'<div class="acts2">'+(c.hasMedia?'<button onclick="capViewMedia(\''+esc(c.id)+'\',\''+esc(c.mediaKind)+'\')">'+(c.mediaKind==="photo"?"🖼️ View card photo":"🔊 Play voice note")+'</button>':'')
       +'<button class="del" onclick="capDelOne(\''+esc(c.id)+'\')">🗑 Delete</button></div></div>';
   }).join("");
-  mt.innerHTML='<button class="btn ghost" style="margin-bottom:9px" onclick="capExportCsv()">📊 Export captures (CSV)</button>'+rows;
+  mt.innerHTML='<button class="btn ghost" style="margin-bottom:9px" onclick="capExportCsv()">📊 Export captures (CSV)</button>'+filterBar+rows;
 }
 function capViewMedia(id,kind){
   var body=document.getElementById("capMediaBody");
@@ -345,12 +387,16 @@ function capExportCsv(){
   document.body.appendChild(a);a.click();a.remove();
 }
 function renderCapture(){
-  capFillCounty();
+  capFillCounty();   // re-runs on every render so a leader's county switch propagates
   capSetLane(capLaneCur);
   renderCapMine();
   renderCapLeader();
 }
 renderCapture();
+/* Keep the auto-filled county in step if a leader switches counties while an
+   ambassador is sitting on the capture screen. */
+var capPrevRD=renderDynamic;
+renderDynamic=function(){capPrevRD();capFillCounty();};
 
 /* ================= Recording Studio (Teleprompter) =================
    Lives under Guides → everyone behind the Day PIN can view & record.
