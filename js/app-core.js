@@ -372,7 +372,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
    onclick="fn('...')" handlers all over this file, so a lone ' would break out
    of the JS string literal inside the attribute. */
 function esc(s){return(s||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
-function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],county:s.county||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
+function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
 function toast(msg){var el=document.getElementById("toastEl");if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}el.textContent=msg;el.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function vibr(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(_){}}
 function hasFullState(s){return !!(s&&("checklist" in s||"announcements" in s||"count" in s));}
@@ -1008,15 +1008,52 @@ function renderFunding(){var f=STATE.funding||{};var p=document.getElementById("
 function renderCountySelect(){
   var sel=document.getElementById("evCounty");if(!sel)return;
   if(!sel.options.length&&typeof COUNTIES!=="undefined"){
-    sel.innerHTML='<option value="">— No county selected —</option>'+COUNTIES.map(function(c){
+    sel.innerHTML='<option value="auto">🗓 Automatic — follow the schedule</option>'+COUNTIES.map(function(c){
       return '<option value="'+esc(c.key)+'">'+esc(c.county)+'</option>';}).join("");
   }
-  if(document.activeElement!==sel)sel.value=STATE.county||"";
+  if(document.activeElement!==sel)sel.value=STATE.countyAuto?"auto":(STATE.county||"auto");
+}
+/* The Day PIN is the event's Saturday as MMDD and rolls to the next event on
+   the Monday after. Leaders see the live value (so they can read it out) and
+   exactly when it changes; volunteers never receive it. */
+function fmtDay(iso){
+  if(!iso)return "";
+  var d=new Date(iso+"T12:00:00");
+  if(isNaN(d.getTime()))return iso;
+  return d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
+}
+function renderPinPanel(){
+  var now=document.getElementById("pinNow"),roll=document.getElementById("pinRoll"),autoBtn=document.getElementById("dayPinAuto");
+  if(!now)return;
+  if(!LEADER||!STATE.dayPin){
+    now.textContent=STATE.dayPinSet?"•  •  •  •":"No PIN — app is unlocked";
+    if(roll)roll.textContent=LEADER?"":"";
+    if(autoBtn)autoBtn.style.display="none";
+    return;
+  }
+  now.innerHTML='Today\'s Day PIN <b>'+esc(STATE.dayPin)+'</b>';
+  if(roll){
+    if(STATE.dayPinManual){
+      roll.innerHTML="⚠️ Set by hand — it will <b>not</b> change automatically."
+        +(STATE.dayPinAuto?(" The scheduled PIN for right now would be <b>"+esc(STATE.dayPinAuto)+"</b>."):"");
+    }else if(STATE.pinRollsOver&&STATE.nextPin){
+      roll.innerHTML="Automatic — it\'s this event\'s Saturday ("+esc(fmtDay(STATE.eventDate))+"). Stays the same through Sunday\'s rain date, then becomes <b>"+esc(STATE.nextPin)+"</b> on "+esc(fmtDay(STATE.pinRollsOver))+".";
+    }else{
+      roll.textContent="Automatic — it\'s this event\'s Saturday. Last event of the season, so it won\'t change again.";
+    }
+  }
+  if(autoBtn)autoBtn.style.display=STATE.dayPinManual?"block":"none";
 }
 function setCounty(key){
   if(!LEADER){askPin(function(){setCounty(key);});return;}
+  if(key==="auto"){
+    apiPost("setCounty",{auto:true}).then(function(){lastEtag="";return refreshFromServer();})
+      .then(function(){renderCountySelect();renderDynamic();toast("🗓 Following the schedule again");})
+      .catch(function(e){if(e!==403)toast("Couldn't switch — check your signal");renderCountySelect();});
+    return;
+  }
   var cur=STATE.county||"";
-  if(key===cur)return;
+  if(key===cur&&!STATE.countyAuto)return;
   var c=(typeof countyByKey==="function")?countyByKey(key):null;
   if(key&&!confirm("Switch the board to "+((c&&c.county)||key)+"?\n\nEveryone's app will show that county's checklists, check-ins, counts, radios, issues and announcements. Nothing is deleted — this county's work stays saved and you can switch back any time."))
     {renderCountySelect();return;}
@@ -1042,7 +1079,7 @@ function setCounty(key){
 }
 function renderEvent(){
   var ev=STATE.event||{},tag=document.getElementById("eventTag");
-  renderCountySelect();
+  renderCountySelect();renderPinPanel();
   var shifted=eventShift()>0;
   if(ev.name||ev.date){tag.style.display="block";tag.textContent="📍 "+[ev.name,ev.date].filter(Boolean).join(" · ")+(shifted?" · ☔ RAIN DATE (+"+eventShift()+"d)":"");}
   else{tag.style.display="none";}
@@ -1234,13 +1271,20 @@ function dayGateCheckin(name,team){
 }
 document.getElementById("dayPinOk").addEventListener("click",tryDayPin);
 document.getElementById("dayPinInput").addEventListener("keydown",function(e){if(e.key==="Enter")tryDayPin();});
+document.getElementById("dayPinAuto").addEventListener("click",function(){
+  if(!LEADER){askPin(function(){});return;}
+  apiPost("setDayPin",{auto:true}).then(function(){lastEtag="";return refreshFromServer();})
+    .then(function(){toast("🗓 Day PIN follows the schedule again");})
+    .catch(function(e){if(e!==403)toast("Couldn't switch — check your signal");});
+});
 document.getElementById("dayPinSave").addEventListener("click",function(){
   var v=document.getElementById("dayPinEdit").value.trim();
   if(!v&&!confirm("Remove the Day PIN lock entirely? Anyone with the link could open the app."))return;
-  setDayOK();
-  doAction("setDayPin",{pin:v},function(){STATE.dayPinSet=!!v;});
+  if(v&&!confirm("Pin the Day PIN to "+v+"?\n\nIt will stop following the event schedule until you switch it back to automatic."))return;
+  setDayOK(v);
+  doAction("setDayPin",{pin:v},function(){STATE.dayPinSet=!!v;STATE.dayPin=v;STATE.dayPinManual=true;});
   document.getElementById("dayPinEdit").value="";
-  alert(v?("Day PIN set to "+v+" ✔"):"Day PIN lock removed.");
+  alert(v?("Day PIN set to "+v+" ✔ (no longer automatic)"):"Day PIN lock removed.");
 });
 function pre(id,val){var e=document.getElementById(id);if(e&&!e.value&&val)e.value=val;}
 function prefillNames(){pre("ciName",MY.name);pre("aName",MY.name);pre("pName",MY.name);pre("fName",MY.name);}

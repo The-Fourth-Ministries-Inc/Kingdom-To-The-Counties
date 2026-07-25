@@ -171,6 +171,15 @@ automatically on deploy.
   (last-write-wins), so two techs patching simultaneously erased each other's
   checkmarks. Wholesale `setIOList` is still used for structural edits
   (edit list / reload defaults), which are single-leader operations.
+- **The Day PIN and the active county follow the schedule (v1.11.0).** The Day
+  PIN is simply the event's Saturday as `MMDD` (Jul 25 → `0725`). An event stays
+  current **through its Sunday** — so a rain-date Sunday keeps the same PIN and
+  the same board — and the next county takes over on the **Monday following**.
+  Nobody has to set anything between events. Dates live in `SCHEDULE` in
+  `data.mjs` (keep in step with `COUNTIES` in `js/counties.js`) and roll over on
+  New Hampshire time, not UTC, so the change never lands mid-teardown. Leaders
+  see the live PIN and exactly when it rolls over in the dashboard; volunteers
+  never receive it. Either can be pinned by hand and switched back to automatic.
 - **Each county is its own board (v1.11.0).** A leader picks the current county
   in the dashboard; every day-scoped blob is namespaced per county
   (`core~carroll`, `checkins~carroll`, `count-agg~carroll`, per-phone tally and

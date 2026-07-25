@@ -20,10 +20,13 @@ function countyPlace(c){return (c.the?"the ":"")+c.venue+(c.town?(" in "+c.town)
    follow-up team needs, at minimum: NAME + CONTACT INFO + ENCOUNTER NOTES.
    Captures sync to leadership (headed for Planning Center Online later);
    when the field signal drops they queue on the phone and auto-send. */
-var capLaneCur="text",capPhotoData=null,capAudioData=null;
+/* Audio is the default lane: on the street, speaking is faster and more
+   complete than typing, and typed fields were the main thing slowing
+   ambassadors down. */
+var capLaneCur="audio",capPhotoData=null,capAudioData=null,capFieldsOpen=false;
 var CAP_HINTS={
   photo:"Snap the filled-out card, add anything the card doesn't show (especially notes on the conversation), then submit.",
-  audio:"Talk like you're leaving a voicemail for the follow-up team — their name, phone or email, and what happened. Add typed details too if you have a minute.",
+  audio:"Talk like you're leaving a voicemail for the follow-up team. Typed details are optional.",
   text:"Type it in — their name, a phone or email, and notes on the encounter are the minimum."
 };
 function capSetLane(l){
@@ -34,7 +37,20 @@ function capSetLane(l){
   document.getElementById("capAudioWrap").style.display=l==="audio"?"block":"none";
   document.getElementById("capLaneHint").textContent=CAP_HINTS[l]||"";
   document.getElementById("capFieldsTtl").textContent=l==="text"?"Their info":("Their info — add what the "+(l==="photo"?"card":"recording")+" doesn't cover");
+  /* Typed lane: fields are the capture, so they stay open. Voice/photo: the
+     recording is the capture, so the fields collapse to one optional tap. */
+  capFieldsOpen=(l==="text");
+  capApplyFields();
 }
+function capApplyFields(){
+  var box=document.getElementById("capFields"),btn=document.getElementById("capMoreBtn");
+  if(!box||!btn)return;
+  var optional=(capLaneCur!=="text");
+  btn.style.display=optional?"block":"none";
+  box.style.display=(!optional||capFieldsOpen)?"block":"none";
+  btn.textContent=capFieldsOpen?"▲ Hide typed details":"＋ Add typed details (optional)";
+}
+function capToggleFields(){capFieldsOpen=!capFieldsOpen;capApplyFields();}
 /* ---- photo lane: downscale to a phone-friendly JPEG data URL ---- */
 function capShrink(file,cb){
   var url=URL.createObjectURL(file),img=new Image();
@@ -179,6 +195,10 @@ function capSubmit(){
   if(capLaneCur==="photo"&&!capPhotoData){toast("📷 Snap the card first");return;}
   if(capLaneCur==="audio"&&capRecOn){toast("⏹ Tap the button to stop recording first");return;}
   if(capLaneCur==="audio"&&!capAudioData){toast("🎙️ Record the voice note first");return;}
+  /* Voice note: the recording IS the record. The ambassador was told up front
+     to say the name and contact out loud, so we do not stop them with a modal
+     about empty text boxes they were never asked to fill. */
+  if(capLaneCur==="audio"){capDoSend();return;}
   var miss=capMissing();
   if(miss.length){
     if(capLaneCur==="text"){

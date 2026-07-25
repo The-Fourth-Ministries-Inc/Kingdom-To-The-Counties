@@ -501,7 +501,54 @@ const LEADER_ACTIONS = new Set([
  Day PIN: those are shared across the whole season.
  An empty county (nothing selected yet) keeps the original unscoped keys, so
  existing deployments behave exactly as before until a leader picks a county. */
-const COUNTY_KEYS = new Set(["sullivan","grafton","strafford","carroll","cheshire","belknap","coos","rockingham","hillsborough","merrimack"]);
+/* ---------------- season schedule ----------------
+ The eight Saturday events. This drives BOTH the active county and the Day PIN
+ so neither has to be set by hand:
+   • The Day PIN is simply the event's Saturday as MMDD (Jul 25 → "0725").
+   • An event stays current through its Sunday — the rain date — and the next
+     one takes over on the Monday following.
+ Keep in step with COUNTIES in js/counties.js (same keys); the dates live here
+ because the server is the one that has to be right about them. */
+const SCHEDULE = [
+ { key:"sullivan",   date:"2026-06-13" },
+ { key:"grafton",    date:"2026-06-27" },
+ { key:"strafford",  date:"2026-07-11" },
+ { key:"carroll",    date:"2026-07-25" },
+ { key:"cheshire",   date:"2026-08-15" },
+ { key:"belknap",    date:"2026-08-22" },
+ { key:"coos",       date:"2026-09-05" },
+ { key:"rockingham", date:"2026-10-10" }
+];
+const COUNTY_KEYS = new Set(SCHEDULE.map(e => e.key));
+/* "Today" in New Hampshire, not UTC — otherwise the PIN would roll over at
+   8pm local on the Sunday, mid-teardown. */
+const EVENT_TZ = "America/New_York";
+function todayLocalISO(now){
+ try {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: EVENT_TZ, year:"numeric", month:"2-digit", day:"2-digit" })
+   .format(now || new Date());
+ } catch(_) {
+  return (now || new Date()).toISOString().slice(0, 10);
+ }
+}
+const addDaysISO = (iso, n) => {
+ const d = new Date(iso + "T12:00:00Z");
+ d.setUTCDate(d.getUTCDate() + n);
+ return d.toISOString().slice(0, 10);
+};
+/* The event whose window contains `todayISO`: current through its Sunday, then
+   the next one takes over on Monday. Before the season, the first event; after
+   it, the last (the board simply stays put). */
+export function currentEvent(todayISO){
+ const today = todayISO || todayLocalISO();
+ for(const e of SCHEDULE){
+  if(addDaysISO(e.date, 1) >= today) return e;   // still on/through its Sunday
+ }
+ return SCHEDULE[SCHEDULE.length - 1];
+}
+/* Day PIN for an event = its Saturday as MMDD. */
+export const pinForDate = iso => (iso || "").slice(5, 7) + (iso || "").slice(8, 10);
+export const autoDayPin = todayISO => pinForDate(currentEvent(todayISO).date);
 const scopeSuffix = cty => (cty ? "~" + cty : "");
 function mkKeys(cty){
  const x = scopeSuffix(cty);
@@ -522,22 +569,57 @@ function mkKeys(cty){
  };
 }
 const ACTIVE_KEY = "active";
+/* One-time adoption. Before per-county scoping every board lived in unscoped
+   blobs ("core", "checkins", …). The moment scoping switches on, the live
+   county's keys are "core~<county>" — which would be empty, so a board in use
+   would look wiped. This copies the existing unscoped data into whichever
+   county is current the first time we run, then records that it has happened.
+   Safe to call on every request: it is a no-op once `migrated` is set, and it
+   never overwrites a county that already has data. */
+async function ensureScopeReady(s){
+ let a = null;
+ try { a = await s.get(ACTIVE_KEY, { type:"json" }); } catch(_) {}
+ if(a && a.migrated) return;
+ const to = mkKeys(currentEvent().key), from = mkKeys("");
+ const pairs = [
+  [from.core, to.core], [from.checkins, to.checkins], [from.io, to.io],
+  [from.radios, to.radios], [from.agg, to.agg], [from.decAgg, to.decAgg], [from.epoch, to.epoch]
+ ];
+ await Promise.all(pairs.map(async ([src, dst]) => {
+  const [have, already] = await Promise.all([ s.get(src, { type:"json" }), s.get(dst, { type:"json" }) ]);
+  if(have != null && already == null) await s.setJSON(dst, have).catch(() => {});
+ }));
+ await s.setJSON(ACTIVE_KEY, { county: (a && a.county) || "", mode: (a && a.mode) || "auto", migrated: true }).catch(() => {});
+}
+/* Which county's board is live. Default is AUTO: it follows the schedule, so
+   the board moves to the next county on the Monday after each event with
+   nobody touching anything. A leader can pin a county manually (mode:"manual")
+   — e.g. to go back and finish last week's checklist — and switch back to
+   automatic whenever they like. */
 async function readActive(s){
  let a = null;
  try { a = await s.get(ACTIVE_KEY, { type:"json" }); } catch(_) {}
- const cty = idStr((a && a.county) || "", 24);
- return { county: COUNTY_KEYS.has(cty) ? cty : "", migrated: !!(a && a.migrated) };
+ const stored = idStr((a && a.county) || "", 24);
+ const manual = !!(a && a.mode === "manual");
+ const auto = currentEvent().key;
+ const county = manual ? (COUNTY_KEYS.has(stored) ? stored : "") : auto;
+ return { county, manual, autoCounty: auto, migrated: !!(a && a.migrated) };
 }
 /* The Day PIN is deliberately global — one PIN for the season, not one per
    county — so it lives in its own blob. Migrated out of core on first read. */
 const DAYPIN_KEY = "daypin";
-async function readDayPin(s, K){
+/* The Day PIN is the event's Saturday as MMDD, derived automatically unless a
+   leader has explicitly set one. Returns {pin, manual, auto}. */
+async function readDayPinCfg(s){
  let d = null;
  try { d = await s.get(DAYPIN_KEY, { type:"json" }); } catch(_) {}
- if(d && typeof d.pin === "string") return d.pin;
- const core = normCore((await s.get(K.core, { type:"json" })) || (await s.get("state", { type:"json" })) || {});
- return core.dayPin;
+ const auto = autoDayPin();
+ // A stored record without an explicit mode came from an older client that
+ // only ever set a PIN by hand — honour it as manual.
+ if(d && typeof d.pin === "string" && d.mode !== "auto") return { pin: d.pin, manual: true, auto };
+ return { pin: auto, manual: false, auto };
 }
+async function readDayPin(s, K){ return (await readDayPinCfg(s)).pin; }
 
 function devKey(id, K){
  id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
@@ -765,11 +847,28 @@ async function bumpAgg(s, K, effTotal, effBy){
  await s.delete(K.agg).catch(() => {}); // give up cleanly → next read rebuilds
 }
 
-async function assemble(s, K, active){
+async function assemble(s, K, active, lvl){
  let parts = await readAll(s, K);
  parts = await migrateIfNeeded(s, K, parts);
  const core = normCore(parts.core);
- const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, dayPin] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), readDayPin(s, K) ]);
+ const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, pinCfg] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), readDayPinCfg(s) ]);
+ const dayPin = pinCfg.pin;
+ /* Leaders (and only leaders) get the actual PIN plus when it rolls over, so
+    they can read it out at the huddle and tell people what changes Monday.
+    Volunteer clients still never receive it. */
+ let leaderInfo = {};
+ if(lvl === "leader"){
+  const ev = currentEvent(), i = SCHEDULE.indexOf(ev), nx = SCHEDULE[i + 1] || null;
+  leaderInfo = {
+   dayPin,
+   dayPinManual: pinCfg.manual,
+   dayPinAuto: pinCfg.auto,
+   eventDate: ev.date,
+   pinRollsOver: nx ? addDaysISO(ev.date, 2) : "",   // the Monday after this event
+   nextCounty: nx ? nx.key : "",
+   nextPin: nx ? pinForDate(nx.date) : ""
+  };
+ }
  const captures = normCaptures(capturesRaw);
  // Only the rev + count ride in the main payload; the roster itself is
  // fetched on demand (GET ?part=churches) so polling stays light.
@@ -797,6 +896,8 @@ async function assemble(s, K, active){
  ioList: (parts.io && Array.isArray(parts.io.list)) ? parts.io.list : [],
  dayPinSet: !!dayPin, // the PIN itself is never sent to clients
  county: K.cty,          // which county's board this is
+ countyAuto: !active.manual,
+ ...leaderInfo,
  funding: core.funding,
  prompter: prompter,
  // Quick Capture records hold seekers' contact info, so the shared payload
@@ -873,6 +974,7 @@ const openStore = () => _storeFactory ? _storeFactory() : getStore(STORE, { cons
 export default async (req, context) => {
  const s = openStore();
  // Which county's board are we on? Everything day-scoped keys off this.
+ await ensureScopeReady(s);
  const active = await readActive(s);
  const K = mkKeys(active.county);
 
@@ -911,7 +1013,7 @@ export default async (req, context) => {
    }
    return new Response(body, { status:200, headers:{ "Content-Type":"application/json", "Cache-Control":"no-store", "ETag":etag } });
   }
-  const body = JSON.stringify(await assemble(s, K, active));
+  const body = JSON.stringify(await assemble(s, K, active, lvl));
   const etag = 'W/"' + hash(body) + '"';
   // Unchanged since the client last saw it? Skip the payload AND the re-render.
   if(req.headers.get("if-none-match") === etag){
@@ -1240,8 +1342,11 @@ export default async (req, context) => {
  break;
  }
  case "setDayPin":
- // Global, not county-scoped — one Day PIN for the season.
- await s.setJSON(DAYPIN_KEY, { pin: (payload.pin || "").toString().trim().slice(0, 10) });
+ /* Global, not county-scoped. payload.auto returns it to following the
+    schedule (event Saturday as MMDD); otherwise the leader's PIN is pinned
+    until they turn automatic back on. */
+ if(payload.auto) await s.setJSON(DAYPIN_KEY, { mode:"auto", pin:"" });
+ else await s.setJSON(DAYPIN_KEY, { mode:"manual", pin: (payload.pin || "").toString().trim().slice(0, 10) });
  break;
  case "setFunding":
  await casCore(s, K, core => { core.funding = { pct: clampPct(payload.pct), needed: (payload.needed || "").toString().slice(0, 30) || core.funding.needed }; return core; });
@@ -1433,30 +1538,16 @@ export default async (req, context) => {
     The FIRST switch adopts whatever is currently in the unscoped blobs as that
     county's data, so a board already in use isn't stranded. */
  case "setCounty": {
+ /* payload.auto = follow the schedule again (the default behaviour). */
+ if(payload.auto){
+  await s.setJSON(ACTIVE_KEY, { county:"", mode:"auto", migrated:true });
+  return json({ ok:true, county: currentEvent().key, manual:false });
+ }
  const want = idStr(payload.county, 24);
  if(payload.county && !COUNTY_KEYS.has(want)) return json({ error:"unknown county" }, 400);
  const cur = await readActive(s);
- if(cur.county === want) return json({ ok:true, county: want });
- if(!cur.migrated && !cur.county && want){
-  // Adopt the existing unscoped board as this county's starting data.
-  const from = mkKeys(""), to = mkKeys(want);
-  const [c0, ci0, io0, r0, ag0, dg0, ep0] = await Promise.all([
-   s.get(from.core, { type:"json" }), s.get(from.checkins, { type:"json" }),
-   s.get(from.io, { type:"json" }), s.get(from.radios, { type:"json" }),
-   s.get(from.agg, { type:"json" }), s.get(from.decAgg, { type:"json" }),
-   s.get(from.epoch, { type:"json" })
-  ]);
-  await Promise.all([
-   c0 ? s.setJSON(to.core, c0) : Promise.resolve(),
-   ci0 ? s.setJSON(to.checkins, ci0) : Promise.resolve(),
-   io0 ? s.setJSON(to.io, io0) : Promise.resolve(),
-   r0 ? s.setJSON(to.radios, r0) : Promise.resolve(),
-   ag0 ? s.setJSON(to.agg, ag0) : Promise.resolve(),
-   dg0 ? s.setJSON(to.decAgg, dg0) : Promise.resolve(),
-   ep0 ? s.setJSON(to.epoch, ep0) : Promise.resolve()
-  ]);
- }
- await s.setJSON(ACTIVE_KEY, { county: want, migrated: true });
+ if(cur.manual && cur.county === want) return json({ ok:true, county: want, manual:true });
+ await s.setJSON(ACTIVE_KEY, { county: want, mode:"manual", migrated: true });
  /* Rotate the target county's tally epoch so phones holding another county's
     tally clear it instead of pushing those taps onto this board. */
  const target = mkKeys(want);

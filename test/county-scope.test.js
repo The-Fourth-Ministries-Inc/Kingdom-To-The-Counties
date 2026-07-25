@@ -159,3 +159,55 @@ test("reset clears only the active county and files a season summary", async () 
   assert.ok(season.events.length >= 1, "reset filed a season summary");
   assert.ok(season.events.some(e => e.county === "grafton"), "summary records which county it was");
 });
+
+test("an existing unscoped board is adopted into the current county on first run", async () => {
+  /* Simulates deploying per-county scoping onto a site that already has a day
+     in progress: the pre-scoping blobs must not be orphaned. */
+  const fresh = mockStore();
+  fresh._data.set("core", { value: JSON.stringify({
+    checklist: { "su-sat-0-0": { by:"Zach", t:"8:05 AM", dm:485 } },
+    announcements: [], feedback: [], praises: [], notes: {},
+    event: { name:"Carroll County", date:"2026-07-25" }, funding:{ pct:64, needed:"$60,000" }
+  }), etag:"x1" });
+  fresh._data.set("checkins", { value: JSON.stringify([{ id:"old1", name:"Rachel", team:"Ambassadors", t:"9:00 AM" }]), etag:"x2" });
+
+  __setStoreFactory(() => fresh);
+  try {
+    const r = await handler(new Request("https://x/api", { headers:{ "x-leader-pin":"999999" } }), {});
+    const s = await r.json();
+    assert.ok(s.checklist["su-sat-0-0"], "the in-progress checkmark survived the switch to scoped keys");
+    assert.equal(s.checkins.length, 1);
+    assert.equal(s.checkins[0].name, "Rachel");
+    assert.ok(fresh._data.has("core~carroll"), "data was copied into the current county's scope");
+  } finally {
+    __setStoreFactory(() => store);   // restore for any later tests
+  }
+});
+
+test("with nothing set by hand, the automatic Day PIN is what actually unlocks the app", async () => {
+  const fresh = mockStore();
+  __setStoreFactory(() => fresh);
+  try {
+    const { autoDayPin } = await import("../netlify/functions/data.mjs");
+    const expected = autoDayPin();          // today's event Saturday, MMDD
+
+    const ok = await handler(new Request("https://x/api", {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ action:"verifyDayPin", pin: expected })
+    }), {});
+    assert.equal(ok.status, 200, "the scheduled PIN should unlock the app with no leader setup at all");
+
+    const bad = await handler(new Request("https://x/api", {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ action:"verifyDayPin", pin:"0000" })
+    }), {});
+    assert.equal(bad.status, 403);
+
+    // And a volunteer holding it can actually read the board.
+    const board = await handler(new Request("https://x/api", { headers:{ "x-day-pin": expected } }), {});
+    const s = await board.json();
+    assert.ok(!s.locked, "a volunteer with the scheduled PIN is not locked out");
+  } finally {
+    __setStoreFactory(() => store);
+  }
+});

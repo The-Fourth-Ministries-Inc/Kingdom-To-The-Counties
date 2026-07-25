@@ -336,6 +336,13 @@ textarea, select { font-size: 16px !important; }
   .hidebar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:12.5px}
   .hidebar span{color:var(--muted)}
   .hidebar button{background:none;border:none;color:var(--rust);font-weight:700;font-size:12.5px;cursor:pointer;padding:0}
+  .pinnow{background:var(--ink);color:var(--cream);border-radius:11px;padding:12px 14px;font-size:15px;text-align:center;margin-bottom:7px}
+  .pinnow b{font-size:26px;letter-spacing:5px;display:block;margin-top:3px;font-family:var(--sans)}
+  .pinman{margin-top:9px}
+  .pinman summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted);min-height:44px;display:flex;align-items:center}
+  .capsay{background:#f3efe6;border:1px solid var(--line);border-left:4px solid var(--rust);border-radius:11px;padding:11px 13px;font-size:13.5px;line-height:1.45;color:var(--ink);margin-bottom:11px}
+  .capmore{width:100%;min-height:44px;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:11px;font-size:13.5px;font-weight:700;font-family:var(--sans);cursor:pointer;margin:4px 0 9px}
+  .capmore:hover{color:var(--ink);border-color:var(--ink)}
   .caplabel{font-size:12px;font-weight:700;color:var(--muted);margin:8px 0 5px;text-transform:uppercase;letter-spacing:.4px;display:block}
   .capfilter{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:9px;font-family:var(--sans);font-weight:700;background:#fff;color:var(--ink)}
   .eventedit select{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px;font-family:var(--sans);background:#fff;color:var(--ink)}
@@ -809,16 +816,21 @@ textarea, select { font-size: 16px !important; }
       <div class="eventedit"><div class="ttl">📍 This event</div>
         <label class="caplabel" for="evCounty">Which county are we in now?</label>
         <select id="evCounty"></select>
-        <p class="hint" id="evCountyHint" style="margin:-2px 0 8px">Switching counties swaps the whole board — checklists, check-ins, counts, radios, issues &amp; announcements — to that county's own data. Nothing is deleted; the other county's work stays put. No reset needed.</p>
+        <p class="hint" id="evCountyHint" style="margin:-2px 0 8px">Follows the schedule automatically — the board moves to the next county on the Monday after each event. Pick one here only to override. Switching swaps the whole board (checklists, check-ins, counts, radios, issues &amp; announcements); nothing is deleted and the other county's work stays put.</p>
         <input id="evName" placeholder="Event name (e.g. Sullivan County)" />
         <input id="evDate" placeholder="Date (e.g. Sat, June 13)" />
         <label class="rainrow"><input type="checkbox" id="evShift" /> ☔ <b>Rain date</b> — event moved to Sunday (shifts every setup time by a day)</label>
         <button class="btn ghost" id="evSave">Save event info</button>
         <p class="hint" id="evDateWarn" style="display:none">⚠️ No event date set — setup due-times stay neutral until you set one.</p></div>
       <div class="eventedit"><div class="ttl">🔒 Day PIN — locks the whole app</div>
-        <input id="dayPinEdit" inputmode="numeric" maxlength="10" placeholder="New Day PIN (kept secret — never shown here)" />
-        <button class="btn ghost" id="dayPinSave">Save Day PIN</button>
-        <p class="hint">Every volunteer must enter this PIN to open the app today. Share it at morning huddle. Leave blank to remove the lock. Leaders can always get in with the Leader PIN.</p></div>
+        <div class="pinnow" id="pinNow">—</div>
+        <p class="hint" id="pinRoll"></p>
+        <details class="pinman"><summary>Set it by hand instead</summary>
+          <input id="dayPinEdit" inputmode="numeric" maxlength="10" placeholder="New Day PIN" />
+          <button class="btn ghost" id="dayPinSave">Save Day PIN</button>
+          <button class="btn ghost" id="dayPinAuto" style="margin-top:6px;display:none">↻ Back to automatic</button>
+          <p class="hint">Leave blank and save to remove the lock entirely. Leaders can always get in with the Leader PIN.</p>
+        </details></div>
       <div class="eventedit"><div class="ttl">💛 Donate page numbers</div>
         <input id="fundPctEdit" inputmode="numeric" maxlength="3" placeholder="Funding % (e.g. 64)" />
         <input id="fundNeedEdit" maxlength="30" placeholder="Still needed (e.g. $60,000)" />
@@ -972,12 +984,11 @@ textarea, select { font-size: 16px !important; }
     <button class="back" onclick="show('guides')">‹ Ambassador Resources</button>
     <p class="eyebrow">Ambassadors</p><h1 class="title">Quick Capture 📇</h1>
     <span class="syncpill" id="sp-capture"><span class="d"></span>Demo mode</span>
-    <p class="sub">Met someone? Capture the encounter in seconds — snap their card, record a voice note, or type it — then get back out there. Every capture goes to leadership for follow-up (headed for Planning Center).</p>
-    <div class="capmin">🎯<span><b>Be detailed — capture everything you can.</b> At the very least the follow-up team needs their <b>name</b>, their <b>phone or email</b>, and <b>notes on the encounter</b> (what happened, what they need prayer for, next step). Ten extra seconds now saves the follow-up team an hour later.</span></div>
+    <p class="sub">Speak it, don't type it. Get back out there.</p>
     <div class="caplanes" id="capLanes">
+      <button data-lane="audio" class="on" onclick="capSetLane('audio')"><span class="ic">🎙️</span><span class="lb">Voice Note</span></button>
       <button data-lane="photo" onclick="capSetLane('photo')"><span class="ic">📷</span><span class="lb">Card Photo</span></button>
-      <button data-lane="audio" onclick="capSetLane('audio')"><span class="ic">🎙️</span><span class="lb">Voice Note</span></button>
-      <button data-lane="text" class="on" onclick="capSetLane('text')"><span class="ic">⌨️</span><span class="lb">Type It</span></button>
+      <button data-lane="text" onclick="capSetLane('text')"><span class="ic">⌨️</span><span class="lb">Type It</span></button>
     </div>
     <div class="form">
       <div id="capPhotoWrap" style="display:none">
@@ -986,18 +997,18 @@ textarea, select { font-size: 16px !important; }
         <div class="cappreview" id="capPhotoPrev" style="display:none"><img id="capPhotoImg" alt="Contact card photo" /><button class="redo" onclick="capPhotoRetake()">↺ Retake</button></div>
       </div>
       <div id="capAudioWrap" style="display:none">
+        <div class="capsay">🎙️ <b>Say their name and their phone or email</b> — then everything you can about the encounter. Be as detailed as you can, so not one precious soul gets left behind.</div>
         <div class="caprec">
           <button class="caprecbtn" id="capRecBtn" onclick="capRecTap()" aria-label="Record voice note"></button>
-          <div class="rt"><b id="capRecLbl">Tap to record</b><span>Say their <b>name</b>, <b>phone or email</b>, and the story of the encounter.</span><audio id="capAudioPrev" controls style="display:none"></audio></div>
+          <div class="rt"><b id="capRecLbl">Tap to record</b><span>Speak it all — nothing below is required.</span><audio id="capAudioPrev" controls style="display:none"></audio></div>
           <span class="tm" id="capRecTime">00:00</span>
         </div>
       </div>
-      <div class="ttl" id="capFieldsTtl">Their info</div>
-      <input id="capName" maxlength="80" placeholder="Their name" autocomplete="off" />
-      <div class="twocol"><input id="capPhone" maxlength="40" inputmode="tel" placeholder="Phone" autocomplete="off" /><input id="capEmail" maxlength="80" inputmode="email" placeholder="Email" autocomplete="off" /></div>
-      <select id="capCounty"></select>
-      <p class="hint" id="capCountyNote" style="display:none;margin:-4px 0 8px"></p>
-      <!-- The counselor booklet requires the response type on every encounter. -->
+      <!-- For the voice/photo lanes the recording IS the record, so the typed
+           fields collapse behind one tap instead of sitting there looking
+           mandatory. Typed lane shows them open. -->
+      <!-- The counselor booklet requires the response type on every encounter.
+           One tap, so it stays visible in every lane. -->
       <div class="caplabel">What was their response?</div>
       <div class="capresp" id="capResp">
         <button type="button" data-r="salvation">✝️ Salvation</button>
@@ -1005,7 +1016,15 @@ textarea, select { font-size: 16px !important; }
         <button type="button" data-r="dedication">🕊️ Dedication</button>
         <button type="button" data-r="prayer">🙏 Prayer</button>
       </div>
-      <textarea id="capNotes" rows="4" maxlength="4000" placeholder="Notes on the encounter — what happened, prayer needs, decision made, next step…"></textarea>
+      <button type="button" class="capmore" id="capMoreBtn" onclick="capToggleFields()" style="display:none"></button>
+      <div id="capFields">
+        <div class="ttl" id="capFieldsTtl">Their info</div>
+        <input id="capName" maxlength="80" placeholder="Their name" autocomplete="off" />
+        <div class="twocol"><input id="capPhone" maxlength="40" inputmode="tel" placeholder="Phone" autocomplete="off" /><input id="capEmail" maxlength="80" inputmode="email" placeholder="Email" autocomplete="off" /></div>
+        <select id="capCounty"></select>
+        <p class="hint" id="capCountyNote" style="display:none;margin:-4px 0 8px"></p>
+        <textarea id="capNotes" rows="4" maxlength="4000" placeholder="Notes on the encounter — what happened, prayer needs, decision made, next step…"></textarea>
+      </div>
       <button class="btn rust" id="capSubmit" onclick="capSubmit()">📤 Capture &amp; move on</button>
       <p class="hint" id="capLaneHint"></p>
     </div>
