@@ -2331,18 +2331,51 @@ function warnUnsaved(){
   toast("⚠️ Couldn't reach the server — that change is only on this phone. Retry when you're back online.");
 }
 var lastEtag="";
+/* Same-origin custom headers — no preflight. The API verifies these; sending
+   them on GET is what keeps the roster and the boards out of public reach. */
+function authHeaders(h){
+  h=h||{};
+  var dp=dayPinStored();if(dp)h["X-Day-Pin"]=dp;
+  if(LEADERPIN)h["X-Leader-Pin"]=LEADERPIN;
+  return h;
+}
 function apiGet(){
-  var h={};if(lastEtag)h["If-None-Match"]=lastEtag;
+  var h=authHeaders();if(lastEtag)h["If-None-Match"]=lastEtag;
   return fetch(API,{method:"GET",headers:h}).then(function(r){
     if(r.status===304)return {__nomod:true};   // nothing changed since our last poll
-    if(!r.ok)throw 0;
+    if(!r.ok)throw(r.status||0);
     var et=r.headers.get("ETag");if(et)lastEtag=et;
     return r.json();
   });
 }
+/* One-shot pull outside the poll cadence (used right after unlocking). */
+function refreshFromServer(){
+  return apiGet().then(function(s){
+    if(s&&s.__nomod)return;
+    lastSyncAt=Date.now();everSynced=true;if(!LIVE){LIVE=true;}
+    STATE=applyPending(normalize(s));adoptTallyEpoch(s);maybeDayGate();renderDynamic();updateSync();
+  }).catch(function(){});
+}
 var LEADERPIN=sessionStorage.getItem("k2c_lpin")||"";
-function apiPost(a,p){return fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:a,payload:p,pin:LEADERPIN})}).then(function(r){if(r.status===403){LEADER=false;LEADERPIN="";sessionStorage.removeItem("k2c_lpin");applyLeaderUI();renderDynamic();alert("Leader PIN check failed — tap a 🔒 to unlock again.");throw 403;}if(!r.ok)throw(r.status||0);return r.json();});}
-function verifyPin(action,pin){return fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:action,pin:pin})}).then(function(r){if(r.status===403)return null;if(r.status===429)return {rateLimited:true};if(!r.ok)throw 0;return r.json();});}
+function apiPost(a,p){return fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:a,payload:p,pin:LEADERPIN,dayPin:dayPinStored()})}).then(function(r){
+  if(r.status===403){
+    /* Two different 403s now: the Day PIN gate (whole session is locked out —
+       show the gate, keep the queued write) and a leader-PIN rejection. */
+    return r.json().catch(function(){return {};}).then(function(d){
+      if(d&&d.locked){
+        try{sessionStorage.removeItem("k2c_daypin");sessionStorage.removeItem("k2c_dayok");}catch(_){}
+        maybeDayGate();
+        throw 403;
+      }
+      LEADER=false;LEADERPIN="";sessionStorage.removeItem("k2c_lpin");applyLeaderUI();renderDynamic();
+      alert("Leader PIN check failed — tap a 🔒 to unlock again.");
+      throw 403;
+    });
+  }
+  if(!r.ok)throw(r.status||0);
+  return r.json();
+});}
+function verifyPin(action,pin){return fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:action,pin:pin,dayPin:dayPinStored()})}).then(function(r){if(r.status===403)return null;if(r.status===429)return {rateLimited:true};if(!r.ok)throw 0;return r.json();});}
 function doAction(action,payload,localApply){
   // Apply optimistically right away so the UI feels instant, then reconcile
   // with the server. While any write is in flight we ignore polls & server
@@ -2909,8 +2942,12 @@ document.getElementById("pinCancel").addEventListener("click",closePin);
 document.getElementById("pinOk").addEventListener("click",tryPin);
 document.getElementById("pinInput").addEventListener("keydown",function(e){if(e.key==="Enter")tryPin();});
 /* ===== Day PIN — locks the whole app for all volunteers ===== */
-function dayOK(){try{return sessionStorage.getItem("k2c_dayok")==="1";}catch(_){return false;}}
-function setDayOK(){try{sessionStorage.setItem("k2c_dayok","1");}catch(_){}}
+/* The Day PIN itself is kept (not just a boolean) because the API now verifies
+   it server-side on every request — the old k2c_dayok flag only ever unlocked
+   the UI. Sessions that predate this re-enter the PIN once. */
+function dayPinStored(){try{return sessionStorage.getItem("k2c_daypin")||"";}catch(_){return "";}}
+function dayOK(){return !!dayPinStored()||!!LEADERPIN;}
+function setDayOK(pin){try{if(pin)sessionStorage.setItem("k2c_daypin",pin);sessionStorage.setItem("k2c_dayok","1");}catch(_){}}
 function dayUnlocked(){return !STATE.dayPinSet || LEADER || dayOK();}
 function maybeDayGate(){
   var g=document.getElementById("dayGate");if(!g)return;
@@ -2930,9 +2967,11 @@ function tryDayPin(){
     var nmEl=document.getElementById("dayNameInput"),teamEl=document.getElementById("dayTeamSel");
     var nm=(nmEl&&nmEl.value.trim())||"";
     if(nm){rememberName(nm);prefillNames();dayGateCheckin(nm,teamEl?teamEl.value:"");}
-    setDayOK();
+    setDayOK(v);
     if(res.leader){LEADER=true;LEADERPIN=v;sessionStorage.setItem("k2c_lpin",v);applyLeaderUI();renderDynamic();}
     maybeDayGate();
+    lastEtag="";refreshFromServer();   // we were locked a moment ago — pull the real payload now
+    obFlush();
   }).catch(function(){document.getElementById("dayPinErr").textContent="No connection — check your signal and try again.";});
 }
 /* v1.6.1 — unlocking the Day PIN gate IS the check-in: the name (+ team) from
@@ -4118,7 +4157,7 @@ function chFetch(force){
   if(chFetching)return;
   if(!force&&CH.list.length&&STATE.churchesRev!=null&&STATE.churchesRev===CH.rev)return;
   chFetching=true;
-  var h={};if(chEtag)h["If-None-Match"]=chEtag;
+  var h=authHeaders();if(chEtag)h["If-None-Match"]=chEtag;
   fetch(API+"?part=churches",{headers:h}).then(function(r){
     if(r.status===304)return null;
     if(!r.ok)throw 0;

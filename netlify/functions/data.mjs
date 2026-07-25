@@ -673,16 +673,49 @@ const json = (obj, status=200) => new Response(JSON.stringify(obj), {
  status, headers: { "Content-Type":"application/json", "Cache-Control":"no-store" }
 });
 
+/* ---- access control (v1.10.0) ----
+   Until now the Day PIN was enforced only in the browser: the API itself was
+   open, so anyone with the URL could read every check-in, issue, praise — and
+   the whole church CRM with pastors' names, numbers and private notes — or
+   write to any non-leader action. The gate is now enforced here.
+   Levels: "leader" (leader PIN), "day" (current Day PIN), "none".
+   When no Day PIN is configured the app is intentionally open, exactly as
+   before, so nothing breaks for a site that hasn't set one. */
+async function authLevel(s, req, body){
+ const leader = ((body && body.pin) || req.headers.get("x-leader-pin") || "").toString();
+ if(leader && leader === LEADER_PIN()) return "leader";
+ let day = ((body && body.dayPin) || req.headers.get("x-day-pin") || "").toString();
+ if(!day){ try { day = new URL(req.url).searchParams.get("dp") || ""; } catch(_) {} }
+ const core = normCore((await s.get("core", { type:"json" })) || (await s.get("state", { type:"json" })) || {});
+ if(!core.dayPin) return "day";           // no Day PIN set → open, as before
+ if(day && day === core.dayPin) return "day";
+ return "none";
+}
+
 export default async (req, context) => {
  const s = getStore(STORE, { consistency: "strong" });
 
  if(req.method === "GET"){
+  const lvl = await authLevel(s, req, null);
+  let wantPart = "";
+  try { wantPart = new URL(req.url).searchParams.get("part") || ""; } catch(_) {}
+  if(lvl === "none"){
+   /* Locked. The church roster is refused outright; the main payload returns
+      only what the client needs to draw the Day PIN gate — no event data, no
+      names, no contact info. */
+   if(wantPart === "churches") return json({ error:"day pin required", locked:true }, 403);
+   const body = JSON.stringify({ locked:true, dayPinSet:true });
+   const etag = 'W/"lock-' + hash(body) + '"';
+   if(req.headers.get("if-none-match") === etag){
+    return new Response(null, { status:304, headers:{ "ETag":etag, "Cache-Control":"no-store" } });
+   }
+   return new Response(body, { status:200, headers:{ "Content-Type":"application/json", "Cache-Control":"no-store", "ETag":etag } });
+  }
   /* Church roster is its own endpoint (+ETag) so phones download it only when
      it changed and only when someone is actually on the Mobilization tab.
      The read is also where missing starter churches self-seed (no-op write
      when nothing is missing). */
-  let part = "";
-  try { part = new URL(req.url).searchParams.get("part") || ""; } catch(_) {}
+  const part = wantPart;
   if(part === "churches"){
    const ch = await compareAndSwap(s, "churches", normChurches, c => {
     const merged = mergeStarterChurches(c);
@@ -718,6 +751,16 @@ export default async (req, context) => {
  const failKey = pinFailKey(req, context);
  if(pin && checksPin && (await pinFails(s, failKey)).length >= PIN_MAX_FAILS){
  return pinBlockedResp();
+ }
+
+ /* ---- every write needs at least the Day PIN (the two verify actions are
+    how you obtain it, so they stay open) ---- */
+ if(action !== "verifyLeaderPin" && action !== "verifyDayPin"){
+ const lvl = await authLevel(s, req, body);
+ if(lvl === "none"){
+  if(body.dayPin) await pinNoteFail(s, failKey);
+  return json({ error:"day pin required", locked:true }, 403);
+ }
  }
 
  /* ---- PIN verification (no state change) ---- */
