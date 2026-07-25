@@ -803,7 +803,7 @@
       <p class="hint">Purge asks for the reset password. It permanently deletes <b>every</b> Quick Capture — names, contact info, notes, card photos &amp; voice notes — for everyone, and can't be undone. Only purge once you've confirmed it has ALL been properly entered into Planning Center Online.</p>
       <button class="btn ghost" id="csvBtn" style="margin-top:6px">📊 Export day report (CSV)</button>
       <button class="btn ink" id="resetBtn" style="margin-top:6px">♻️ Reset all data for next event</button>
-      <p class="hint">Reset asks for the reset password. Clears checklists, check-ins, head count, radios, praise & announcements — <b>issues are kept</b>. Keeps event name, Day PIN & Tech I/O roster (patch checkmarks cleared). Leaders only.</p>
+      <p class="hint">Reset asks for the reset password. Clears checklists, check-ins, head count, radios, praise, announcements &amp; <b>issues</b>. Keeps event name, Day PIN & Tech I/O roster (patch checkmarks cleared). A backup snapshot is saved server-side first. Leaders only.</p>
     </div>
   </section>
   <section class="page" id="page-checkin">
@@ -2182,12 +2182,22 @@ function ioNudgeInit(){askName();}
 function ioToggle(pid,rid){
   var init=myTag();
   if(!init){askName(function(){ioToggle(pid,rid);});return;}
+  /* Per-row write (v1.10.0). The old path uploaded the ENTIRE roster on every
+     checkbox tap and the server replaced it wholesale — two techs patching at
+     the same time clobbered each other's checkmarks (each phone's copy was up
+     to a poll interval stale). Now only this row's final state goes up and the
+     server merges it in. The full list rides along as a seed ONLY when the
+     server has no roster yet (first ever write). */
+  var hadList=!!(STATE.ioList&&STATE.ioList.length);
   var list=ioClone(ioCurrent());
-  list.forEach(function(p){if(p.id===pid)p.rows.forEach(function(r){if(r.id===rid){
-    if(r.done){r.done=false;r.by="";r.t="";}
-    else{r.done=true;r.by=init;r.t=nowLabel();}
-  }});});
-  doAction("setIOList",{list:list},function(){STATE.ioList=list;});
+  var row=null;
+  list.forEach(function(p){if(p.id===pid)(p.rows||[]).forEach(function(r){if(r.id===rid)row=r;});});
+  if(!row)return;
+  var done=!row.done,t=nowLabel();
+  if(done){row.done=true;row.by=init;row.t=t;}else{row.done=false;row.by="";row.t="";}
+  var payload={pid:pid,rid:rid,done:done,by:init,t:t};
+  if(!hadList)payload.seed=list;
+  queueWrite("ioSetRow",payload,function(){STATE.ioList=list;},function(){renderIOList();renderDashboard();});
 }
 function ioStartEdit(){
   if(!LEADER){askPin(function(){ioStartEdit();});return;}
@@ -2310,15 +2320,6 @@ function userEditing(){
 document.addEventListener("focusout",function(){
   setTimeout(function(){if(remoteDirty&&!userEditing()){remoteDirty=false;renderDynamic();}},120);
 });
-/* v1.3.0 — like doAction, but re-renders only what the caller asks for.
-   Full renderDynamic() on every tap was the #1 source of checklist lag. */
-function doActionLight(action,payload,localApply,rerender){
-  localApply();rerender();
-  if(!LIVE&&!everSynced)return; // demo mode (no backend at all) — local only
-  inflight++;
-  apiPost(action,payload).then(function(st){inflight=Math.max(0,inflight-1);if(!LIVE){LIVE=true;updateSync();}if(settled()){reconcileResponse(st);renderDynamic();}})
-  .catch(function(err){inflight=Math.max(0,inflight-1);LIVE=false;updateSync();renderDynamic();if(err!==403)warnUnsaved();});
-}
 /* A write that never reached the server used to fail in silence — the user saw
    their (local, optimistic) change and had no idea nobody else did. Say so. */
 var lastUnsavedWarn=0;
@@ -2358,17 +2359,33 @@ function doAction(action,payload,localApply){
    LIVE off, every later tap was applied locally but NEVER sent, and the next
    successful background poll replaced STATE with the server copy — silently
    undoing everything tapped while LIVE was off, even on a working connection.
-   Now checklist writes — and acknowledge/hide on issues & praises, which had
-   the same failure mode — go through a persistent OUTBOX (localStorage):
-   1. every checkmark/note/ack is queued and retried with backoff until the
-      server confirms it — a network blip delays a write, it never discards it;
+   Now every tap-frequency write — checkmarks, notes, acknowledge/hide, I/O
+   patch rows, radios, check-ins, praise, issues, announcements, comments —
+   goes through a persistent OUTBOX (localStorage):
+   1. every write is queued and retried with backoff until the server confirms
+      it — a network blip delays a write, it never discards it;
    2. queued writes are re-applied on top of every server payload, so a poll
       can never visually revert work that hasn't flushed yet;
-   3. the wire actions are setCheck / setAck (explicit final state, idempotent
-      server-side), so a retry of a request that already landed — or two
-      leaders doing the same thing at once — is a no-op, unlike the old
-      toggleCheck/ackCard, where a second application flipped the state back;
+   3. every queued action is idempotent server-side: set-style actions
+      (setCheck/setAck/setRadio/ioSetRow) carry the explicit FINAL state, and
+      add-style actions (posts, check-ins, comments) carry a client id the
+      server dedupes on — so a retry of a request that already landed, or two
+      people doing the same thing at once, is a no-op instead of a re-toggle
+      or a duplicate;
    4. the outbox survives reload/tab-close and flushes on next open. */
+/* Set-style actions: a newer write for the same target supersedes an older
+   unsent one, so the queue compacts on this key. Add-style actions have no
+   entry here — every one of those is its own record. */
+var OB_KEY={
+  setCheck:function(p){return p.id;},
+  setChecklistNote:function(p){return p.id;},
+  setAck:function(p){return p.kind+":"+p.id;},
+  setRadio:function(p){return "n"+p.n;},
+  ioSetRow:function(p){return p.pid+"/"+p.rid;}
+};
+/* Actions the server gates behind the leader PIN — held in the queue (not
+   sent, not dropped) whenever this session has no PIN, e.g. after a reload. */
+var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,ioSetRow:1,addAnnouncement:1};
 var OUTBOX=[];
 try{OUTBOX=JSON.parse(localStorage.getItem("k2c_outbox")||"[]");}catch(_){OUTBOX=[];}
 if(!Array.isArray(OUTBOX))OUTBOX=[];
@@ -2376,11 +2393,19 @@ function outboxSave(){try{localStorage.setItem("k2c_outbox",JSON.stringify(OUTBO
 var obTimer=null,obFails=0,obSending=false;
 function queueWrite(action,payload,localApply,rerender){
   localApply();rerender();
-  /* setCheck/setChecklistNote state the FINAL value for an item, so an older
-     unsent write for the same item is obsolete — drop it (never the one at
-     index 0 while it's mid-flight). */
-  for(var i=OUTBOX.length-1;i>=(obSending?1:0);i--){
-    if(OUTBOX[i].a===action&&OUTBOX[i].p&&OUTBOX[i].p.id===payload.id)OUTBOX.splice(i,1);
+  /* Set-style writes state the FINAL value for their target, so an older
+     unsent write for the same target is obsolete — drop it (never the one at
+     index 0 while it's mid-flight). A dropped op's seed (first-write I/O
+     roster payload) is carried forward so it can't be lost. */
+  var keyFn=OB_KEY[action];
+  if(keyFn){
+    var k=keyFn(payload);
+    for(var i=OUTBOX.length-1;i>=(obSending?1:0);i--){
+      if(OUTBOX[i].a===action&&OUTBOX[i].p&&keyFn(OUTBOX[i].p)===k){
+        if(OUTBOX[i].p.seed&&!payload.seed)payload.seed=OUTBOX[i].p.seed;
+        OUTBOX.splice(i,1);
+      }
+    }
   }
   OUTBOX.push({a:action,p:payload,id:uid()});
   outboxSave();updateSync();
@@ -2388,9 +2413,9 @@ function queueWrite(action,payload,localApply,rerender){
 }
 function obFlush(){
   if(obSending||!OUTBOX.length)return;
-  if(!LEADERPIN)return; // no leader PIN in this session — flushing would only 403; resumes on unlock
-  obSending=true;inflight++;
   var op=OUTBOX[0];
+  if(OB_LEADER[op.a]&&!LEADERPIN)return; // leader op, no PIN this session — held until unlock
+  obSending=true;inflight++;
   apiPost(op.a,op.p).then(function(){
     obSending=false;inflight=Math.max(0,inflight-1);obFails=0;
     OUTBOX.shift();outboxSave();
@@ -2425,6 +2450,31 @@ function applyPending(st){
       for(var j=0;j<arr.length;j++){
         if(arr[j].id===p.id){arr[j].hidden=!!p.hidden;arr[j].ackBy=p.hidden?p.by:"";arr[j].ackT=p.hidden?p.t:"";break;}
       }
+    }else if(op.a==="setRadio"){
+      if(!(st.radios&&st.radios.length===10))st.radios=defaultRadiosLocal();
+      st.radios[p.n-1]={n:p.n,out:p.out||null,in:p.in||null};
+    }else if(op.a==="ioSetRow"){
+      if((!st.ioList||!st.ioList.length)&&p.seed)st.ioList=JSON.parse(JSON.stringify(p.seed));
+      (st.ioList||[]).forEach(function(perf){
+        if(perf.id===p.pid)(perf.rows||[]).forEach(function(r){
+          if(r.id===p.rid){r.done=!!p.done;r.by=p.done?p.by:"";r.t=p.done?p.t:"";}
+        });
+      });
+    }else if(op.a==="addCheckin"){
+      if(!st.checkins.some(function(c){return c.id===p.id;}))st.checkins.push(p);
+    }else if(op.a==="addAnnouncement"){
+      if(!st.announcements.some(function(a){return a.id===p.id;}))st.announcements.unshift(p);
+    }else if(op.a==="addPraise"){
+      if(!st.praises.some(function(x){return x.id===p.id;}))st.praises.unshift(p);
+    }else if(op.a==="addFeedback"){
+      if(!st.feedback.some(function(x){return x.id===p.id;}))st.feedback.unshift(p);
+    }else if(op.a==="addComment"){
+      var list=p.kind==="praise"?st.praises:(p.kind==="ann"?st.announcements:st.feedback);
+      var card=(list||[]).filter(function(x){return x.id===p.id;})[0];
+      if(card){
+        card.comments=Array.isArray(card.comments)?card.comments:[];
+        if(!card.comments.some(function(c){return c.cid&&c.cid===p.cid;}))card.comments.push({cid:p.cid,name:p.name,text:p.text,t:p.t});
+      }
     }
   }
   return st;
@@ -2435,7 +2485,7 @@ document.addEventListener("visibilitychange",function(){if(document.visibilitySt
    beacons. They stay queued (a beacon can't confirm delivery), but every
    queued action is idempotent, so the re-send on next open is harmless. */
 window.addEventListener("pagehide",function(){
-  if(!OUTBOX.length||!navigator.sendBeacon||!LEADERPIN)return;
+  if(!OUTBOX.length||!navigator.sendBeacon)return;
   for(var i=0;i<OUTBOX.length;i++){
     var op=OUTBOX[i];
     try{navigator.sendBeacon(API,new Blob([JSON.stringify({action:op.a,payload:op.p,pin:LEADERPIN})],{type:"application/json"}));}catch(_){}
@@ -2662,15 +2712,15 @@ function cmtPost(btn,kind,id){
   var f=btn.parentNode,name=f.querySelector(".cn").value.trim()||"Volunteer",text=f.querySelector(".ct").value.trim();
   if(!text){f.querySelector(".ct").focus();return;}
   rememberName(name);
-  var c={name:name,text:text,t:nowLabel()};
+  var c={cid:uid(),name:name,text:text,t:nowLabel()};
   // Clear + collapse BEFORE the optimistic re-render so the just-sent draft
   // isn't restored back into the box (see snapshot/restoreComments).
   var ct=f.querySelector(".ct");if(ct)ct.value="";f.classList.remove("show");
-  doAction("addComment",{kind:kind,id:id,name:name,text:text,t:c.t},function(){
+  queueWrite("addComment",{kind:kind,id:id,cid:c.cid,name:name,text:text,t:c.t},function(){
     var arr=kind==="praise"?STATE.praises:(kind==="ann"?STATE.announcements:STATE.feedback);
     var it=arr.filter(function(x){return x.id===id;})[0];
     if(it){it.comments=Array.isArray(it.comments)?it.comments:[];it.comments.push(c);}
-  });
+  },function(){renderDynamic();});
   toast("💬 Comment added");
 }
 function ackCard(kind,id){
@@ -2712,11 +2762,13 @@ function radioTap(n){
   var init=myTag();
   if(!init){askName(function(){radioTap(n);});return;}
   vibr(12);
-  doActionLight("radioToggle",{n:n,by:init,t:nowLabel()},function(){
-    if(!(STATE.radios&&STATE.radios.length===10))STATE.radios=defaultRadiosLocal();
-    var r=STATE.radios[n-1],stamp={by:init,t:nowLabel()};
-    if(r.out&&!r.in)r.in=stamp;else{r.out=stamp;r.in=null;}
-  },function(){renderRadios();renderDashRadios();});
+  /* Explicit final state (v1.10.0) — the old radioToggle flipped whatever was
+     on the server, so a retried request or two people tapping at once flipped
+     a radio back to the wrong state. */
+  if(!(STATE.radios&&STATE.radios.length===10))STATE.radios=defaultRadiosLocal();
+  var r=STATE.radios[n-1],stamp={by:init,t:nowLabel()};
+  var next=(r.out&&!r.in)?{n:n,out:r.out,in:stamp}:{n:n,out:stamp,in:null};
+  queueWrite("setRadio",next,function(){STATE.radios[n-1]={n:next.n,out:next.out,in:next.in};},function(){renderRadios();renderDashRadios();});
 }
 function radioLate(){var ctx=setupTimingContext("sat");return ctx.phase==="after"||(ctx.phase==="live"&&ctx.now>1050);}
 function renderDashRadios(){
@@ -2870,7 +2922,7 @@ function hasCheckedIn(name){
 function dayGateCheckin(name,team){
   if(hasCheckedIn(name))return;
   var rec={id:uid(),name:name,team:team||"",attested:false,t:nowLabel()};
-  doAction("addCheckin",rec,function(){STATE.checkins.push(rec);});
+  queueWrite("addCheckin",rec,function(){STATE.checkins.push(rec);},function(){renderDynamic();});
   toast("✅ "+name+" checked in — welcome to the field!");
 }
 document.getElementById("dayPinOk").addEventListener("click",tryDayPin);
@@ -2915,10 +2967,10 @@ function renderNameBars(){
 }
 /* v1.5.0 — the per-tool initials inputs are gone; identity is the saved name
    ("working as" bars, rendered by renderNameBars). */
-document.getElementById("ciBtn").addEventListener("click",function(){var name=document.getElementById("ciName").value.trim(),team=document.getElementById("ciTeam").value;if(!name){flash("ciName");return;}if(!document.getElementById("ciAttest").checked){document.getElementById("ciAttestMsg").classList.add("show");document.getElementById("ciAttestRow").classList.add("nudge");setTimeout(function(){document.getElementById("ciAttestRow").classList.remove("nudge");},600);return;}rememberName(name);var rec={id:uid(),name:name,team:team,attested:true,t:nowLabel()};doAction("addCheckin",rec,function(){STATE.checkins.push(rec);});document.getElementById("ciName").value="";document.getElementById("ciAttest").checked=false;document.getElementById("ciAttestMsg").classList.remove("show");prefillNames();toast(tourDone()?"✅ Checked in!":"✅ Checked in! New to the app? Take the 2-min App Tour under Resources 🧭");});
-document.getElementById("aBtn").addEventListener("click",function(){if(!LEADER){askPin(function(){});return;}var by=document.getElementById("aName").value.trim()||"Leadership",title=document.getElementById("aTitle").value.trim(),body=document.getElementById("aBody").value.trim(),pri=document.getElementById("aPri").value;if(!title||!body){flash(title?"aBody":"aTitle");return;}rememberName(by);var rec={id:uid(),pri:pri,title:title,body:body,by:by,t:nowLabel()};barDismissed=false;doAction("addAnnouncement",rec,function(){STATE.announcements.unshift(rec);});document.getElementById("aTitle").value="";document.getElementById("aBody").value="";prefillNames();});
-document.getElementById("pBtn").addEventListener("click",function(){var name=document.getElementById("pName").value.trim()||"Anonymous",body=document.getElementById("pBody").value.trim();if(!body){flash("pBody");return;}rememberName(name);var rec={id:uid(),name:name,body:body,t:nowLabel()};doAction("addPraise",rec,function(){STATE.praises.unshift(rec);});document.getElementById("pBody").value="";prefillNames();toast("🎉 Praise posted!");});
-document.getElementById("fBtn").addEventListener("click",function(){var by=document.getElementById("fName").value.trim()||"Volunteer",title=document.getElementById("fTitle").value.trim(),body=document.getElementById("fBody").value.trim(),priority=document.getElementById("fPri").value;if(!title){flash("fTitle");return;}rememberName(by);var rec={id:uid(),priority:priority,title:title,body:body,by:by,t:nowLabel()};doAction("addFeedback",rec,function(){STATE.feedback.unshift(rec);});document.getElementById("fTitle").value="";document.getElementById("fBody").value="";prefillNames();toast("✅ Sent to leadership");});
+document.getElementById("ciBtn").addEventListener("click",function(){var name=document.getElementById("ciName").value.trim(),team=document.getElementById("ciTeam").value;if(!name){flash("ciName");return;}if(!document.getElementById("ciAttest").checked){document.getElementById("ciAttestMsg").classList.add("show");document.getElementById("ciAttestRow").classList.add("nudge");setTimeout(function(){document.getElementById("ciAttestRow").classList.remove("nudge");},600);return;}rememberName(name);var rec={id:uid(),name:name,team:team,attested:true,t:nowLabel()};queueWrite("addCheckin",rec,function(){STATE.checkins.push(rec);},function(){renderDynamic();});document.getElementById("ciName").value="";document.getElementById("ciAttest").checked=false;document.getElementById("ciAttestMsg").classList.remove("show");prefillNames();toast(tourDone()?"✅ Checked in!":"✅ Checked in! New to the app? Take the 2-min App Tour under Resources 🧭");});
+document.getElementById("aBtn").addEventListener("click",function(){if(!LEADER){askPin(function(){});return;}var by=document.getElementById("aName").value.trim()||"Leadership",title=document.getElementById("aTitle").value.trim(),body=document.getElementById("aBody").value.trim(),pri=document.getElementById("aPri").value;if(!title||!body){flash(title?"aBody":"aTitle");return;}rememberName(by);var rec={id:uid(),pri:pri,title:title,body:body,by:by,t:nowLabel()};barDismissed=false;queueWrite("addAnnouncement",rec,function(){STATE.announcements.unshift(rec);},function(){renderDynamic();});document.getElementById("aTitle").value="";document.getElementById("aBody").value="";prefillNames();});
+document.getElementById("pBtn").addEventListener("click",function(){var name=document.getElementById("pName").value.trim()||"Anonymous",body=document.getElementById("pBody").value.trim();if(!body){flash("pBody");return;}rememberName(name);var rec={id:uid(),name:name,body:body,t:nowLabel()};queueWrite("addPraise",rec,function(){STATE.praises.unshift(rec);},function(){renderDynamic();});document.getElementById("pBody").value="";prefillNames();toast("🎉 Praise posted!");});
+document.getElementById("fBtn").addEventListener("click",function(){var by=document.getElementById("fName").value.trim()||"Volunteer",title=document.getElementById("fTitle").value.trim(),body=document.getElementById("fBody").value.trim(),priority=document.getElementById("fPri").value;if(!title){flash("fTitle");return;}rememberName(by);var rec={id:uid(),priority:priority,title:title,body:body,by:by,t:nowLabel()};queueWrite("addFeedback",rec,function(){STATE.feedback.unshift(rec);},function(){renderDynamic();});document.getElementById("fTitle").value="";document.getElementById("fBody").value="";prefillNames();toast("✅ Sent to leadership");});
 function flash(id){var e=document.getElementById(id);if(e){e.style.borderColor="#B86239";e.focus();setTimeout(function(){e.style.borderColor="";},1200);}}
 /* Attendance counter (v1.6.1): every tap lands in a per-phone ABSOLUTE tally
    that survives reloads (localStorage) and is pushed to the server whole —
@@ -3057,8 +3109,8 @@ document.getElementById("resetBtn").addEventListener("click",function(){
   var pw=prompt("🔐 Reset password?");
   if(pw==null)return;
   if((pw||"").trim().toLowerCase()!=="kingdom"){alert("Wrong reset password.");return;}
-  if(!confirm("Reset event data (checklists, check-ins, head count, radios, praise, announcements)? ISSUES ARE KEPT. Keeps event name, Day PIN & Tech I/O roster; clears patch checkmarks. This can't be undone."))return;
-  doAction("reset",{},function(){var ev=STATE.event,fb=STATE.feedback,fu=STATE.funding,pr=STATE.prompter,dps=STATE.dayPinSet,io=ioListClearProgress(STATE.ioList);STATE=normalize({checklist:{},announcements:[],checkins:[],feedback:fb,praises:[],count:0,event:ev,ioList:io,dayPinSet:dps,funding:fu,prompter:pr});});
+  if(!confirm("Reset event data (checklists, check-ins, head count, radios, praise, announcements & issues)? Keeps event name, Day PIN & Tech I/O roster; clears patch checkmarks. A backup snapshot is saved server-side first."))return;
+  doAction("reset",{},function(){var ev=STATE.event,fu=STATE.funding,pr=STATE.prompter,dps=STATE.dayPinSet,io=ioListClearProgress(STATE.ioList);STATE=normalize({checklist:{},announcements:[],checkins:[],feedback:[],praises:[],count:0,event:ev,ioList:io,dayPinSet:dps,funding:fu,prompter:pr});});
 });
 document.addEventListener("click",function(e){var row=e.target.closest(".chk");if(row)toggleCheck(row.getAttribute("data-id"));});
 document.getElementById("annBarX").addEventListener("click",function(e){e.stopPropagation();barDismissed=true;document.getElementById("annBar").classList.remove("show");});

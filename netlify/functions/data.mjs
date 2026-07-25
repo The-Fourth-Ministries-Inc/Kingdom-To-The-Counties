@@ -45,6 +45,9 @@ const LEADER_PIN = () => process.env.LEADER_PIN || "2026";
  tallyEpoch— {e} rotated on every reset; a phone whose stored epoch is stale
              gets told to clear its local tally instead of re-pushing
              pre-reset numbers.
+ backup-   — pre-destructive-action snapshots: reset and capturePurge write a
+             backup-<ms>-<tag> copy of the data they are about to destroy
+             (newest 20 kept). Recovery is manual via the Netlify Blobs UI/CLI.
  count-agg — CACHED {total, by} aggregate of every count-/tally- shard so a GET
              is one read instead of listing + fetching ~50 shards. Maintained
              incrementally on each tap and rebuilt from the shards whenever it
@@ -78,6 +81,7 @@ const ANN_PRIOS = new Set(["urgent","heads","info"]);
 function normComments(list){
  if(!Array.isArray(list)) return [];
  return list.map(c => ({
+  cid: str(c && c.cid, 40), // client-generated id so a retried addComment can't duplicate
   name: str((c && c.name) || "Volunteer", 40),
   text: str(c && c.text, 500),
   t: str(c && c.t, 12)
@@ -389,7 +393,7 @@ async function pinNoteFail(s, key){
 const pinBlockedResp = () => json({ error:"too many wrong PIN attempts — wait 10 minutes and try again", rateLimited:true }, 429);
 
 const LEADER_ACTIONS = new Set([
- "toggleCheck","setCheck","setChecklistNote","addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin",
+ "toggleCheck","setCheck","setChecklistNote","addAnnouncement","ackCard","setAck","setEvent","setIOList","ioSetRow","setDayPin",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
  "capturesList","captureMedia","captureDelete","capturePurge",
  "churchEdit","churchDelete","churchFlagClear","churchTemplate"
@@ -451,6 +455,22 @@ async function compareAndSwap(s, key, normalize, mutate, fallback){
  }
  throw new Error("write conflict: " + key);
 }
+/* ---- pre-destructive-action snapshots (v1.10.0) ----
+   reset and capturePurge copy the data they are about to destroy into a
+   backup-<ms>-<tag> blob first (newest 20 kept; keys sort chronologically).
+   There is no in-app restore: recover by copying a backup's contents back
+   over the live blobs via the Netlify Blobs UI or CLI. Capture MEDIA blobs
+   are not snapshotted (too large) — only the text records. Best-effort by
+   design: a snapshot failure never blocks the action itself. */
+async function snapshot(s, tag, data){
+ try {
+  await s.setJSON("backup-" + Date.now() + "-" + tag, { at: new Date().toISOString(), tag, data });
+  const { blobs } = await s.list({ prefix: "backup-" });
+  const keys = (blobs || []).map(b => b.key).sort();
+  for(const k of keys.slice(0, Math.max(0, keys.length - 20))) await s.delete(k).catch(() => {});
+ } catch(_) {}
+}
+
 const legacyState = s => async () => (await s.get("state", { type:"json" })) || {};
 const casCore = (s, mutate) => compareAndSwap(s, "core", normCore, mutate, legacyState(s));
 
@@ -791,20 +811,31 @@ export default async (req, context) => {
  return core;
  });
  break;
+ /* v1.10.0 — every add is idempotent on the client-generated id, so the
+    client outbox can safely retry a request that may have already landed
+    without creating duplicates. */
  case "addCheckin":
- await compareAndSwap(s, "checkins", normCheckins, list => { list.push(normCheckin(payload)); return list.slice(-2000); }, () => []);
+ await compareAndSwap(s, "checkins", normCheckins, list => {
+ if(payload.id && list.some(c => c.id === payload.id)) return undefined; // retry of an applied write
+ list.push(normCheckin(payload)); return list.slice(-2000);
+ }, () => []);
  break;
  case "addAnnouncement":
- await casCore(s, core => { core.announcements.unshift(normAnn(payload)); core.announcements = core.announcements.slice(0, 200); return core; });
+ await casCore(s, core => {
+ if(payload.id && core.announcements.some(a => a.id === payload.id)) return undefined;
+ core.announcements.unshift(normAnn(payload)); core.announcements = core.announcements.slice(0, 200); return core;
+ });
  break;
  case "addPraise":
  await casCore(s, core => {
+ if(payload.id && core.praises.some(x => x.id === payload.id)) return undefined;
  const it = normPraiseItem(payload); it.hidden = false; it.ackBy = ""; it.ackT = ""; it.comments = [];
  core.praises.unshift(it); core.praises = core.praises.slice(0, 500); return core;
  });
  break;
  case "addFeedback":
  await casCore(s, core => {
+ if(payload.id && core.feedback.some(x => x.id === payload.id)) return undefined;
  const it = normIssue(payload); it.hidden = false; it.ackBy = ""; it.ackT = ""; it.comments = [];
  core.feedback.unshift(it); core.feedback = core.feedback.slice(0, 500); return core;
  });
@@ -815,10 +846,26 @@ export default async (req, context) => {
  const it = arr.find(x => x.id === payload.id);
  if(!it) return undefined; // nothing to update — skip the write
  it.comments = Array.isArray(it.comments) ? it.comments : [];
- it.comments.push({ name: str(payload.name || "Volunteer", 40), text: str(payload.text, 500), t: str(payload.t, 12) });
+ const cid = str(payload.cid, 40);
+ if(cid && it.comments.some(c => c.cid === cid)) return undefined; // retry of an applied write
+ it.comments.push({ cid, name: str(payload.name || "Volunteer", 40), text: str(payload.text, 500), t: str(payload.t, 12) });
  it.comments = it.comments.slice(-100);
  return core;
  });
+ break;
+ /* v1.10.0 — explicit-state radio write. The payload carries the radio's
+    FINAL out/in stamps, so a retried request (or two people tapping the same
+    radio at once) sets the same state instead of flipping it back the way
+    radioToggle did. radioToggle stays below for phones on the old client. */
+ case "setRadio":
+ await compareAndSwap(s, "radios", normRadios, rad => {
+ const n = Number(payload.n);
+ if(!(n >= 1 && n <= 10)) return undefined;
+ const next = { n, out: normStamp(payload.out), in: normStamp(payload.in) };
+ if(JSON.stringify(rad.list[n-1]) === JSON.stringify(next)) return undefined; // already there
+ rad.list[n-1] = next;
+ return rad;
+ }, () => ({ list: defaultRadios() }));
  break;
  case "radioToggle":
  await compareAndSwap(s, "radios", normRadios, rad => {
@@ -835,9 +882,32 @@ export default async (req, context) => {
  await casCore(s, core => { core.event = { name: payload.name || "", date: payload.date || "" }; return core; });
  break;
  case "setIOList":
+ /* Wholesale roster replacement — now used ONLY for structural edits (edit
+    list / reload defaults). Patch checkmark taps go through ioSetRow below
+    so concurrent techs can't clobber each other's progress. */
  if(!Array.isArray(payload.list)) break;
  await compareAndSwap(s, "io", normIO, io => { io.list = payload.list; return io; }, () => ({ list: [] }));
  break;
+ /* v1.10.0 — per-row patch checkmark, merged server-side. Idempotent: a
+    retried request that already landed is a no-op, and two techs checking
+    DIFFERENT rows at the same time both stick (the old full-list setIOList
+    was last-write-wins across the whole roster). `seed` carries the client's
+    full roster only for the first-ever write, when the server list is empty. */
+ case "ioSetRow": {
+ await compareAndSwap(s, "io", normIO, io => {
+ if(!io.list.length && Array.isArray(payload.seed) && payload.seed.length) io.list = payload.seed;
+ let hit = null;
+ for(const p of io.list) if(p && p.id === payload.pid) for(const r of (p.rows || [])) if(r && r.id === payload.rid) hit = r;
+ if(!hit) return undefined;
+ const done = !!payload.done;
+ if(!!hit.done === done) return undefined; // already in the desired state (keep the first author's stamp)
+ hit.done = done;
+ hit.by = done ? str(payload.by, 40) : "";
+ hit.t = done ? str(payload.t, 12) : "";
+ return io;
+ }, () => ({ list: [] }));
+ break;
+ }
  case "setDayPin":
  await casCore(s, core => { core.dayPin = (payload.pin || "").toString().trim().slice(0, 10); return core; });
  break;
@@ -875,17 +945,25 @@ export default async (req, context) => {
  });
  break;
  case "reset": {
- /* ISSUES AND PRAISES SURVIVE THE RESET, per leadership — the praise wall is
-    a lasting testimony record, not a day-scoped list (this also fixes reports
-    of praise "disappearing" / being un-postable after an end-of-day reset).
-    Clears checklists, check-ins, counts (legacy + tally), announcements &
-    radios. Keeps event info, Day PIN, funding, I/O roster (progress cleared),
-    the Recording Studio scripts, issues and praises. Quick Captures also
-    SURVIVE the reset — they are seekers' contact info headed for the CRM,
-    never day-scoped throwaway data (leaders delete them individually once
-    they're in Planning Center). The Mobilization church CRM ("churches" blob)
-    also survives — it's a season-long relationship record. */
- await casCore(s, core => ({ ...EMPTY_CORE, event: core.event, dayPin: core.dayPin, funding: core.funding, feedback: core.feedback, praises: core.praises }));
+ /* PRAISES SURVIVE THE RESET, per leadership — the praise wall is a lasting
+    testimony record, not a day-scoped list. Issues are CLEARED (leadership,
+    Jul 2026 — they are day-scoped punch-list items, and the pre-reset
+    snapshot below keeps them recoverable). Clears checklists, check-ins,
+    counts (legacy + tally), announcements, radios and issues. Keeps event
+    info, Day PIN, funding, I/O roster (progress cleared), the Recording
+    Studio scripts and praises. Quick Captures also SURVIVE the reset — they
+    are seekers' contact info headed for the CRM, never day-scoped throwaway
+    data (leaders delete them individually once they're in Planning Center).
+    The Mobilization church CRM ("churches" blob) also survives — it's a
+    season-long relationship record. */
+ {
+ const [curCore, curCheckins, curIO, curRadios] = await Promise.all([
+  s.get("core", { type:"json" }), s.get("checkins", { type:"json" }),
+  s.get("io", { type:"json" }), s.get("radios", { type:"json" })
+ ]);
+ await snapshot(s, "reset", { core: curCore, checkins: curCheckins, io: curIO, radios: curRadios });
+ }
+ await casCore(s, core => ({ ...EMPTY_CORE, event: core.event, dayPin: core.dayPin, funding: core.funding, praises: core.praises }));
  await compareAndSwap(s, "io", normIO, io => { io.list = ioListClearProgress(io.list); return io; }, () => ({ list: [] }));
  const [c1, c2, c3] = await Promise.all([ s.list({ prefix: "count-" }), s.list({ prefix: "tally-" }), s.list({ prefix: "tal2-" }) ]);
  const doomed = [ ...((c1 && c1.blobs) || []), ...((c2 && c2.blobs) || []), ...((c3 && c3.blobs) || []) ]
@@ -1118,7 +1196,9 @@ export default async (req, context) => {
  case "capturePurge": {
  /* Wholesale cleanup once everything is in Planning Center Online: clears
     the capture list AND every capmedia- blob (listing by prefix also sweeps
-    up any orphaned media whose record was already gone). */
+    up any orphaned media whose record was already gone). Text records are
+    snapshotted first (media is not — too large). */
+ await snapshot(s, "purge", { captures: await s.get("captures", { type:"json" }) });
  const { blobs } = await s.list({ prefix: "capmedia-" });
  await Promise.all((blobs || []).map(b => s.delete(b.key).catch(() => {})));
  await s.setJSON("captures", []);

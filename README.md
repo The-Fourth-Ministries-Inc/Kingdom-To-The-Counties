@@ -38,8 +38,8 @@ CRM push is a later build). Privacy & resilience:
   double-submit). The "Captured from this phone" list shows sent/waiting state.
 - Photos are downscaled client-side (≤1400 px JPEG) and voice notes cap at 3
   minutes so submissions stay field-signal friendly.
-- Captures **survive the end-of-day reset** — like issues, they're not
-  day-scoped data.
+- Captures **survive the end-of-day reset** — like praises, they're not
+  day-scoped data. (Issues are day-scoped and DO clear on reset as of v1.10.0.)
 - **Storage meter + purge (v1.7.1):** the Leader Dashboard shows a live
   "Quick Capture storage" bar — the backend tracks exactly how many bytes
   capture media is using against a budget (default **1 GB**, override with a
@@ -144,18 +144,38 @@ automatically on deploy.
   retrying on a conflict. Two leaders toggling different checkmarks at the same
   instant both stick (the pre-v20 last-write-wins was the cause of checkmarks
   that "only occasionally" saved).
-- **Checklist and acknowledge writes go through a persistent outbox (v1.10.0).**
-  Every checkmark, item note, and issue/praise acknowledge-&-hide is queued in
-  `localStorage` and retried with backoff until the server confirms it — a
-  failed request delays the write instead of silently dropping it, and the
-  queue survives a reload or closed tab. Queued writes are re-applied on top of
-  every incoming poll, so the background sync can never visually "undo" work
-  that hasn't flushed yet (the bug behind volunteers' checkmarks disappearing —
-  and acknowledged issues reappearing — even on a working connection). On the
-  wire the client sends `setCheck` / `setAck` — idempotent "this is the final
-  state" writes — so a retried request that already landed, or two leaders
-  doing the same thing at once, is a no-op rather than a re-toggle. The sync
-  pill shows how many changes are still waiting to send.
+- **Every tap-frequency write goes through a persistent outbox (v1.10.0).**
+  Checkmarks, item notes, acknowledge-&-hide, Tech I/O patch rows, radio
+  checkouts, check-ins, praise posts, issue reports, announcements and
+  comments are queued in `localStorage` and retried with backoff until the
+  server confirms — a failed request delays the write instead of silently
+  dropping it, and the queue survives a reload or closed tab. Queued writes
+  are re-applied on top of every incoming poll, so the background sync can
+  never visually "undo" work that hasn't flushed yet (the bug behind
+  volunteers' checkmarks disappearing — and acknowledged issues reappearing —
+  even on a working connection). The sync pill shows how many changes are
+  still waiting to send.
+- **Every queued action is idempotent, so retries are safe.** Set-style writes
+  (`setCheck`, `setAck`, `setRadio`, `ioSetRow`) carry the explicit FINAL
+  state — a retry that already landed, or two people doing the same thing at
+  once, is a no-op rather than a re-toggle. Add-style writes (check-ins,
+  praise, issues, announcements, comments) carry a client-generated id the
+  server dedupes on, so a retry can't create duplicates. (The old
+  toggle-style `toggleCheck`/`ackCard`/`radioToggle` actions remain server-side
+  for phones still running an older client.)
+- **Tech I/O patch checkmarks are merged per-row (v1.10.0).** A checkbox tap
+  sends just that row's state (`ioSetRow`) and the server merges it into the
+  stored roster — the previous design uploaded the whole roster per tap
+  (last-write-wins), so two techs patching simultaneously erased each other's
+  checkmarks. Wholesale `setIOList` is still used for structural edits
+  (edit list / reload defaults), which are single-leader operations.
+- **Destructive actions snapshot first (v1.10.0).** Reset and capture-purge
+  copy the data they're about to destroy into a `backup-<timestamp>-<tag>`
+  blob (newest 20 kept) before clearing anything. There's no in-app restore;
+  recovery is copying a backup's contents back over the live blobs via the
+  Netlify Blobs UI or CLI. Reset clears checklists, check-ins, counts,
+  announcements, radios **and issues** (praises, captures, the church CRM,
+  event info, Day PIN, funding and the I/O roster structure survive).
 - **The head count is O(1) to read.** Taps still land in per-phone shards (never
   lost), but a cached `count-agg` blob is kept in sync incrementally, so a `GET`
   reads one blob instead of listing + fetching every device shard. It rebuilds
