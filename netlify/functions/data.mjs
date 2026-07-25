@@ -393,7 +393,10 @@ async function pinNoteFail(s, key){
 const pinBlockedResp = () => json({ error:"too many wrong PIN attempts — wait 10 minutes and try again", rateLimited:true }, 429);
 
 const LEADER_ACTIONS = new Set([
- "toggleCheck","setCheck","setChecklistNote","addAnnouncement","ackCard","setAck","setEvent","setIOList","ioSetRow","setDayPin",
+ /* NOTE: ioSetRow (a patch checkmark) is deliberately NOT here — the Tech I/O
+    page is open to every tech behind the Day PIN, same as radios and the head
+    count. Only STRUCTURAL roster edits (setIOList) need the leader PIN. */
+ "toggleCheck","setCheck","setChecklistNote","addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
  "capturesList","captureMedia","captureDelete","capturePurge",
  "churchEdit","churchDelete","churchFlagClear","churchTemplate"

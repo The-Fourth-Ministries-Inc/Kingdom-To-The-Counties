@@ -2385,12 +2385,12 @@ var OB_KEY={
 };
 /* Actions the server gates behind the leader PIN — held in the queue (not
    sent, not dropped) whenever this session has no PIN, e.g. after a reload. */
-var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,ioSetRow:1,addAnnouncement:1};
+var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1};
 var OUTBOX=[];
 try{OUTBOX=JSON.parse(localStorage.getItem("k2c_outbox")||"[]");}catch(_){OUTBOX=[];}
 if(!Array.isArray(OUTBOX))OUTBOX=[];
 function outboxSave(){try{localStorage.setItem("k2c_outbox",JSON.stringify(OUTBOX.slice(-500)));}catch(_){}}
-var obTimer=null,obFails=0,obSending=false;
+var obTimer=null,obFails=0,obSending=false,obSendingId="";
 function queueWrite(action,payload,localApply,rerender){
   localApply();rerender();
   /* Set-style writes state the FINAL value for their target, so an older
@@ -2400,7 +2400,8 @@ function queueWrite(action,payload,localApply,rerender){
   var keyFn=OB_KEY[action];
   if(keyFn){
     var k=keyFn(payload);
-    for(var i=OUTBOX.length-1;i>=(obSending?1:0);i--){
+    for(var i=OUTBOX.length-1;i>=0;i--){
+      if(OUTBOX[i].id===obSendingId)continue; // never drop the op currently in flight
       if(OUTBOX[i].a===action&&OUTBOX[i].p&&keyFn(OUTBOX[i].p)===k){
         if(OUTBOX[i].p.seed&&!payload.seed)payload.seed=OUTBOX[i].p.seed;
         OUTBOX.splice(i,1);
@@ -2411,22 +2412,34 @@ function queueWrite(action,payload,localApply,rerender){
   outboxSave();updateSync();
   obFlush();
 }
+/* Index of the first op we can actually send right now. A leader-only op with
+   no PIN in this session is HELD, but it must not block unrelated writes queued
+   behind it (a volunteer's check-in or praise post has no causal dependency on
+   a leader's checkmark) — so we skip past held ops instead of stopping. */
+function obNextIdx(){
+  for(var i=0;i<OUTBOX.length;i++)if(!(OB_LEADER[OUTBOX[i].a]&&!LEADERPIN))return i;
+  return -1;
+}
+function obDrop(id){
+  for(var i=0;i<OUTBOX.length;i++)if(OUTBOX[i].id===id){OUTBOX.splice(i,1);return;}
+}
 function obFlush(){
   if(obSending||!OUTBOX.length)return;
-  var op=OUTBOX[0];
-  if(OB_LEADER[op.a]&&!LEADERPIN)return; // leader op, no PIN this session — held until unlock
-  obSending=true;inflight++;
+  var idx=obNextIdx();
+  if(idx<0){updateSync();return;} // everything queued is waiting on a leader unlock
+  var op=OUTBOX[idx];
+  obSending=true;obSendingId=op.id;inflight++;
   apiPost(op.a,op.p).then(function(){
-    obSending=false;inflight=Math.max(0,inflight-1);obFails=0;
-    OUTBOX.shift();outboxSave();
+    obSending=false;obSendingId="";inflight=Math.max(0,inflight-1);obFails=0;
+    obDrop(op.id);outboxSave();
     lastSyncAt=Date.now();everSynced=true;
     if(!LIVE)LIVE=true;
     updateSync();
     if(OUTBOX.length)obFlush();
   }).catch(function(err){
-    obSending=false;inflight=Math.max(0,inflight-1);
-    if(err===403)return;                              // PIN rejected — queue held until the leader unlocks again
-    if(err===400){OUTBOX.shift();outboxSave();updateSync();if(OUTBOX.length)obFlush();return;} // server refused it outright — a retry can't succeed
+    obSending=false;obSendingId="";inflight=Math.max(0,inflight-1);
+    if(err===403){updateSync();return;}               // PIN rejected — queue held until the leader unlocks again
+    if(err===400){obDrop(op.id);outboxSave();updateSync();if(OUTBOX.length)obFlush();return;} // server refused it outright — a retry can't succeed
     obFails++;
     if(LIVE){LIVE=false;}
     updateSync();
@@ -2865,6 +2878,12 @@ function updateBadges(){
 }
 function updateSync(){var els=document.querySelectorAll(".syncpill");var label;
   var pend=OUTBOX.length,pendLbl=pend+" change"+(pend>1?"s":"");
+  /* Don't claim we're "sending" when every queued write is actually waiting on
+     a leader unlock — say so, since the fix is one tap. */
+  if(pend&&obNextIdx()<0){
+    for(var j=0;j<els.length;j++){els[j].classList.toggle("live",LIVE);els[j].innerHTML='<span class="d"></span>🔒 '+pendLbl+' waiting — unlock with your leader PIN to send';}
+    return;
+  }
   if(LIVE){var ago=lastSyncAt?Math.max(0,Math.round((Date.now()-lastSyncAt)/1000)):null;label=pend?("Live — sending "+pendLbl+"…"):("Live — synced"+(ago==null?" to everyone":(ago<3?" just now":" "+ago+"s ago")));}
   else if(everSynced){label=pend?("Offline — "+pendLbl+" saved on this phone, will send when back"):"Offline — reconnecting…";}
   else{label="Demo mode — deploy to sync";}
