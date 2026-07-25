@@ -64,6 +64,19 @@ const EMPTY_CORE = { checklist:{}, notes:{}, announcements:[], feedback:[], prai
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const str = (v, n) => (v == null ? "" : v.toString()).slice(0, n);
+/* Record ids end up inside onclick="fn('<id>')" attributes on the client, so
+   they are restricted to characters that can't break out of a JS string or an
+   HTML attribute. Applied to every id the client can choose. */
+const idStr = (v, n = 40) => (v == null ? "" : v.toString()).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, n);
+/* Links are rendered as href="…" — only http(s) may through, so a stored
+   javascript:/data: URL can't execute when someone taps a church website. */
+function safeUrl(v, n = 200){
+ const s = str(v, n).trim();
+ if(!s) return "";
+ if(/^https?:\/\//i.test(s)) return s;
+ if(/^[a-z][a-z0-9+.-]*:/i.test(s)) return ""; // some other scheme (javascript:, data:, …) — drop it
+ return "https://" + s.replace(/^\/+/, "");
+}
 
 function ioListClearProgress(list){
  if(!Array.isArray(list) || !list.length) return list;
@@ -81,7 +94,7 @@ const ANN_PRIOS = new Set(["urgent","heads","info"]);
 function normComments(list){
  if(!Array.isArray(list)) return [];
  return list.map(c => ({
-  cid: str(c && c.cid, 40), // client-generated id so a retried addComment can't duplicate
+  cid: idStr(c && c.cid), // client-generated id so a retried addComment can't duplicate
   name: str((c && c.name) || "Volunteer", 40),
   text: str(c && c.text, 500),
   t: str(c && c.t, 12)
@@ -90,7 +103,7 @@ function normComments(list){
 function normIssue(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
+  id: idStr(x.id) || uid(),
   priority: ISSUE_PRIOS.has(x.priority) ? x.priority : "med",
   title: str(x.title, 140),
   body: str(x.body, 2000),
@@ -105,7 +118,7 @@ function normIssue(x){
 function normPraiseItem(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
+  id: idStr(x.id) || uid(),
   name: str(x.name || "Anonymous", 40),
   body: str(x.body, 2000),
   t: str(x.t, 12),
@@ -118,7 +131,7 @@ function normPraiseItem(x){
 function normAnn(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
+  id: idStr(x.id) || uid(),
   pri: ANN_PRIOS.has(x.pri) ? x.pri : "info",
   title: str(x.title, 140),
   body: str(x.body, 2000),
@@ -149,7 +162,7 @@ function captureUsage(list){
 function normCapture(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
+  id: idStr(x.id) || uid(),
   lane: CAPTURE_LANES.has(x.lane) ? x.lane : "text",
   name: str(x.name, 80),
   phone: str(x.phone, 40),
@@ -190,7 +203,7 @@ function normChConn(x){
 function normChurch(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
+  id: idStr(x.id) || uid(),
   name: str(x.name, 120),
   kind: CH_KINDS.has(x.kind) ? x.kind : "church",
   town: str(x.town, 60),
@@ -199,7 +212,7 @@ function normChurch(x){
   address: str(x.address, 160),
   phone: str(x.phone, 40),
   email: str(x.email, 120),
-  website: str(x.website, 200),
+  website: safeUrl(x.website),
   contact: str(x.contact, 80),
   contactRole: str(x.contactRole, 60),
   leader: str(x.leader, 80),
@@ -219,8 +232,8 @@ function normChurch(x){
 function normChLog(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
-  ch: str(x.ch, 40),
+  id: idStr(x.id) || uid(),
+  ch: idStr(x.ch),
   type: CH_LOG_TYPES.has(x.type) ? x.type : "note",
   by: str(x.by || "Ambassador", 40),
   note: str(x.note, 300),
@@ -280,7 +293,7 @@ function mergeStarterChurches(c){
 function normCheckin(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
+  id: idStr(x.id) || uid(),
   name: str(x.name, 40),
   team: str(x.team, 40),
   attested: !!x.attested,
@@ -323,7 +336,7 @@ export function normPrompter(p){
  // being re-merged on the next read.
  removed: Array.isArray(p.removed) ? p.removed.map(x => str(x, 40)).filter(Boolean).slice(0, 400) : [],
  scripts: scripts.map(sc => ({
- id: (sc.id || "").toString().slice(0, 40),
+ id: idStr(sc.id),
  event: (sc.event || "").toString().slice(0, 60),
  title: (sc.title || "").toString().slice(0, 80),
  due: (sc.due || "").toString().slice(0, 10),
@@ -362,7 +375,29 @@ function normRadios(r){
  return { list: out };
 }
 const normCheckins = v => Array.isArray(v) ? v.map(normCheckin).slice(-2000) : [];
-const normIO = v => ({ list: (v && Array.isArray(v.list)) ? v.list : [] });
+/* Tech I/O roster. Previously stored verbatim from the client — the only blob
+   where a caller controlled both structure and size. Fields are whitelisted and
+   capped like everything else, and ids are id-safe because the client renders
+   them into onclick="ioToggle('<id>','<id>')". */
+function normIORow(r){
+ r = r || {};
+ return {
+  id: idStr(r.id) || uid(),
+  role: str(r.role, 60), gear: str(r.gear, 60), loc: str(r.loc, 60),
+  done: !!r.done, by: str(r.by, 40), t: str(r.t, 12)
+ };
+}
+function normIOPerf(p){
+ p = p || {};
+ return {
+  id: idStr(p.id) || uid(),
+  name: str(p.name, 60), inst: str(p.inst, 60), pack: str(p.pack, 30),
+  color: /^#[0-9a-f]{3,8}$/i.test(str(p.color, 9)) ? str(p.color, 9) : "#c7c2b8",
+  qmix: str(p.qmix, 20), tx: str(p.tx, 60), off: !!p.off,
+  rows: (Array.isArray(p.rows) ? p.rows : []).map(normIORow).slice(0, 60)
+ };
+}
+const normIO = v => ({ list: (v && Array.isArray(v.list)) ? v.list.map(normIOPerf).slice(0, 80) : [] });
 
 /* ---- PIN brute-force protection ----
    Per-IP sliding window kept in a blob: 15 wrong PIN entries in 10 minutes

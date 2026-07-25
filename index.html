@@ -2164,7 +2164,7 @@ function renderIOList(){
     var rows=p.rows.map(function(r){
       var prim=r.role||r.gear, sec=r.role?r.gear:"";
       var stamp=(r.done&&r.by)?'<span class="iostamp">✓ '+esc(r.by)+(r.t?(' · '+esc(r.t)):'')+'</span>':'';
-      return '<div class="iorow'+(r.done?' done':'')+(p.off?'':' tap')+'"'+(p.off?'':' onclick="ioToggle(\''+p.id+'\',\''+r.id+'\')"')+'>'+
+      return '<div class="iorow'+(r.done?' done':'')+(p.off?'':' tap')+'"'+(p.off?'':' onclick="ioToggle(\''+esc(p.id)+'\',\''+esc(r.id)+'\')"')+'>'+
         '<span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg></span>'+
         '<span class="w"><b>'+esc(prim)+'</b>'+(sec?'<span>'+esc(sec)+'</span>':'')+stamp+'</span>'+
         (r.loc?'<span class="loc">'+esc(r.loc)+'</span>':'')+'</div>';
@@ -2307,7 +2307,10 @@ var MY={name:""};
 try{MY.name=(localStorage.getItem("k2c_name")||"").slice(0,40);}catch(_){}
 function nowLabel(){return fmt(nowMinutes());}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
-function esc(s){return(s||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
+/* Escapes BOTH quote styles. Single quotes matter: ids are interpolated into
+   onclick="fn('...')" handlers all over this file, so a lone ' would break out
+   of the JS string literal inside the attribute. */
+function esc(s){return(s||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
 function normalize(s){return{checklist:s.checklist||{},notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],count:s.count||0,event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
 function toast(msg){var el=document.getElementById("toastEl");if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}el.textContent=msg;el.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function vibr(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(_){}}
@@ -2605,7 +2608,7 @@ function renderChecklist(mountId,data,key,overallId,overallBarId,overdueId){
       var label=it[0],due=it[1],idx=(it.length>2&&it[2]!=null)?it[2]:ii,id=key+"-"+curDay+"-"+(sec._si!=null?sec._si:si)+"-"+idx;total++;
       var rec=STATE.checklist[id];if(rec){done++;secDone++;}
       if(!rec&&ctx.phase==="live"&&(due-ctx.now)<0)overdue++;
-      var stamp=rec?("✓ "+esc(rec.by)+(rec.t?(" · "+rec.t):"")):"";
+      var stamp=rec?("✓ "+esc(rec.by)+(rec.t?(" · "+esc(rec.t)):"")):"";
       var hide=rec&&hideCompleted;if(hide)hidden++;
       var chip;
       if(rec){var st=itemStatus(due,rec,curDay);chip='<span class="duechip '+st.cls+'">'+st.txt+'</span>';}
@@ -2691,7 +2694,7 @@ function renderSimGate(){
   else{lock.innerHTML='<div class="lockbar">🔒 Leaders only — scrub the day timeline to test it.<button onclick="askPin(function(){})">Unlock</button></div>';body.style.display="none";}
 }
 function visCount(arr){var n=0;for(var i=0;i<arr.length;i++)if(!arr[i].hidden)n++;return n;}
-function ackBtn(kind,x){return LEADER?'<button class="ackbtn'+(x.hidden?' un':'')+'" onclick="ackCard(\''+kind+'\',\''+x.id+'\')">'+(x.hidden?'↩ Unhide':'✓ Acknowledge &amp; hide')+'</button>':'';}
+function ackBtn(kind,x){return LEADER?'<button class="ackbtn'+(x.hidden?' un':'')+'" onclick="ackCard(\''+esc(kind)+'\',\''+esc(x.id)+'\')">'+(x.hidden?'↩ Unhide':'✓ Acknowledge &amp; hide')+'</button>':'';}
 function ackMeta(x){return (x.hidden&&x.ackBy)?'<div class="ackmeta">✓ Acknowledged by '+esc(x.ackBy)+(x.ackT?(' · '+esc(x.ackT)):'')+'</div>':'';}
 function praiseCard(p){return '<div class="item praise'+(p.hidden?' acked':'')+'"><div class="top"><span class="pri">Praise 🎉</span><span class="meta">'+esc(p.t)+'</span></div><p>'+esc(p.body)+'</p><div class="by">— '+esc(p.name)+'</div>'+ackMeta(p)+cmtBlock("praise",p)+ackBtn("praise",p)+'</div>';}
 function renderPraise(){
@@ -3779,8 +3782,8 @@ function renderPrompt(){
         +'<span class="who'+(s.assignee?'':' unset')+'">'+(s.assignee?'🎥 '+esc(s.assignee):'unassigned')+'</span>'
         +(s.done?'<span class="doneby">✅ '+esc(s.done.initials)+' · '+esc(s.done.date)+'</span>':'')
         +'</div></div>'
-        +(LEADER&&!localOnly?'<button class="editb" onclick="tpOpenEditor(\''+s.id+'\')">✏️</button>':'')
-        +'<button class="open" onclick="tpOpen(\''+s.id+'\')">Open ▶</button></div>';
+        +(LEADER&&!localOnly?'<button class="editb" onclick="tpOpenEditor(\''+esc(s.id)+'\')">✏️</button>':'')
+        +'<button class="open" onclick="tpOpen(\''+esc(s.id)+'\')">Open ▶</button></div>';
     }).join("");
     return '<div class="tpgroup"><h3>'+esc(g)+'</h3>'+rows+'</div>';
   }).join("");
@@ -4512,7 +4515,7 @@ function renderChurchPage(){
   var id=chId(c.id),tel=chDigits(c.phone),eng=chLastEngage(c.id),h="";
   h+='<p class="eyebrow">'+(c.kind==="ministry"?"Ministry":"Church")+(c.county?' · '+esc(c.county)+(c.county!=="Out of state"?" County":""):"")+'</p>';
   h+='<h1 class="title" style="font-size:25px">'+esc(c.name)+'</h1>';
-  var subBits=[c.town,(c.state&&c.state!=="NH")?c.state:"",c.website?'<a href="'+esc(c.website)+'" target="_blank" rel="noopener" style="color:var(--rust)">website ↗</a>':""].filter(Boolean);
+  var subBits=[esc(c.town),(c.state&&c.state!=="NH")?esc(c.state):"",c.website?'<a href="'+esc(c.website)+'" target="_blank" rel="noopener" style="color:var(--rust)">website ↗</a>':""].filter(Boolean);
   h+='<p class="sub" style="margin-bottom:10px">'+subBits.join(" · ")+'</p>';
   if(c.flag){
     h+='<div class="chflagbar">🚩 <b>Flagged — not aligned with our vision.</b><br>'+esc(c.flag.reason)+(c.flag.note?' — '+esc(c.flag.note):"")+'<br><span style="font-weight:600;opacity:.8">by '+esc(c.flag.by)+' · '+esc(chWhen(c.flag))+'</span>'
