@@ -336,6 +336,7 @@ var SETUP=[
     ["Hotel booked & confirmed for everyone who needs a room (names on the reservation)",m(12,0)],
     ["Hotel details sent to each person staying — address, check-in time, confirmation number",m(12,0)],
     ["Friday dinner reservation made for the setup crew — headcount confirmed",m(12,0)],
+    ["Saturday breakfast sorted for the overnight crew — hotel breakfast confirmed, or a spot/order arranged before the 8 AM call",m(12,0)],
     ["Saturday setup-crew lunch confirmed (pizza order placed / delivery time set)",m(12,0)],
     ["Any dietary needs & allergies collected and passed to whoever is ordering",m(12,0)],
     ["Travel plan confirmed with each traveller — arrival times, who is driving, parking",m(12,0)],
