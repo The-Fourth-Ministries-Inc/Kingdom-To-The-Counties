@@ -800,10 +800,10 @@
         <div class="overdue" id="dCapStoreWarn" style="margin:10px 0 0"></div>
         <p class="hint" style="margin-top:8px">Card photos &amp; voice notes live in Netlify Blobs against a set budget. When this bar fills up, new photo/voice attachments stop being stored (typed info still saves) — export to Planning Center, then purge below.</p></div>
       <button class="btn ghost" id="capPurgeBtn" style="margin-top:6px">🧹 Purge all exported captures</button>
-      <p class="hint">Purge asks for the reset password. It permanently deletes <b>every</b> Quick Capture — names, contact info, notes, card photos &amp; voice notes — for everyone, and can't be undone. Only purge once you've confirmed it has ALL been properly entered into Planning Center Online.</p>
+      <p class="hint">Purge asks you to type PURGE. It permanently deletes <b>every</b> Quick Capture — names, contact info, notes, card photos &amp; voice notes — for everyone, and can't be undone. Only purge once you've confirmed it has ALL been properly entered into Planning Center Online.</p>
       <button class="btn ghost" id="csvBtn" style="margin-top:6px">📊 Export day report (CSV)</button>
       <button class="btn ink" id="resetBtn" style="margin-top:6px">♻️ Reset all data for next event</button>
-      <p class="hint">Reset asks for the reset password. Clears checklists, check-ins, head count, radios, praise, announcements &amp; <b>issues</b>. Keeps event name, Day PIN & Tech I/O roster (patch checkmarks cleared). A backup snapshot is saved server-side first. Leaders only.</p>
+      <p class="hint">Reset asks you to type RESET. Clears checklists, check-ins, head count, radios, praise, announcements &amp; <b>issues</b>. Keeps event name, Day PIN & Tech I/O roster (patch checkmarks cleared). A backup snapshot is saved server-side first. Leaders only.</p>
     </div>
   </section>
   <section class="page" id="page-checkin">
@@ -2933,7 +2933,13 @@ function tryPin(){
   document.getElementById("pinErr").textContent="Checking…";
   verifyPin("verifyLeaderPin",v).then(function(res){
     if(res&&res.rateLimited){document.getElementById("pinErr").textContent="Too many wrong tries — wait 10 minutes, then try again.";return;}
-    if(res&&res.ok){LEADER=true;LEADERPIN=v;sessionStorage.setItem("k2c_lpin",v);document.getElementById("pinErr").textContent="";closePin();renderDynamic();applyLeaderUI();obFlush();if(pinThen)pinThen();}
+    if(res&&res.ok){
+      /* Store the server-issued session token, never the PIN itself — an XSS
+         then steals something revocable and short-lived. */
+      LEADER=true;LEADERPIN=res.token||v;
+      try{sessionStorage.setItem("k2c_lpin",LEADERPIN);}catch(_){}
+      document.getElementById("pinErr").textContent="";closePin();renderDynamic();applyLeaderUI();lastEtag="";refreshFromServer();obFlush();if(pinThen)pinThen();
+    }
     else{document.getElementById("pinErr").textContent="Wrong PIN — try again.";}
   }).catch(function(){document.getElementById("pinErr").textContent="No connection — try again.";});
 }
@@ -2968,7 +2974,7 @@ function tryDayPin(){
     var nm=(nmEl&&nmEl.value.trim())||"";
     if(nm){rememberName(nm);prefillNames();dayGateCheckin(nm,teamEl?teamEl.value:"");}
     setDayOK(v);
-    if(res.leader){LEADER=true;LEADERPIN=v;sessionStorage.setItem("k2c_lpin",v);applyLeaderUI();renderDynamic();}
+    if(res.leader){LEADER=true;LEADERPIN=res.token||v;try{sessionStorage.setItem("k2c_lpin",LEADERPIN);}catch(_){}applyLeaderUI();renderDynamic();}
     maybeDayGate();
     lastEtag="";refreshFromServer();   // we were locked a moment ago — pull the real payload now
     obFlush();
@@ -3154,9 +3160,12 @@ document.getElementById("csvBtn").addEventListener("click",function(){
 document.getElementById("capPurgeBtn").addEventListener("click",function(){
   if(!LEADER){askPin(function(){});return;}
   if(!LIVE){toast("Demo mode — captures live on the deployed site");return;}
-  var pw=prompt("🔐 Reset password? (required to purge all captures)");
+  /* This is a deliberate speed bump, NOT a security control — it is checked
+     here in the browser only. The real gate is the leader PIN, verified
+     server-side on capturePurge. */
+  var pw=prompt("Type PURGE to confirm you have exported every capture to Planning Center:");
   if(pw==null)return;
-  if((pw||"").trim().toLowerCase()!=="kingdom"){alert("Wrong reset password.");return;}
+  if((pw||"").trim().toUpperCase()!=="PURGE"){alert("Not purged — you must type PURGE exactly.");return;}
   if(!confirm("⚠️ BEFORE YOU PURGE — has EVERY capture been properly entered into Planning Center Online?\n\nThis permanently deletes ALL Quick Captures for everyone — names, contact info, notes, card photos AND voice notes. It cannot be undone.\n\nOnly continue if all of this data is safely in Planning Center."))return;
   apiPost("capturePurge",{}).then(function(){
     STATE.captureCount=0;STATE.captureBytes=0;
@@ -3167,9 +3176,11 @@ document.getElementById("capPurgeBtn").addEventListener("click",function(){
   }).catch(function(e){if(e!==403)toast("Purge failed — check your signal and try again");});
 });
 document.getElementById("resetBtn").addEventListener("click",function(){
-  var pw=prompt("🔐 Reset password?");
+  /* Speed bump only — browser-side. The leader PIN (server-verified) is the
+     actual gate on `reset`. */
+  var pw=prompt("Type RESET to confirm you want to clear this event's data:");
   if(pw==null)return;
-  if((pw||"").trim().toLowerCase()!=="kingdom"){alert("Wrong reset password.");return;}
+  if((pw||"").trim().toUpperCase()!=="RESET"){alert("Not reset — you must type RESET exactly.");return;}
   if(!confirm("Reset event data (checklists, check-ins, head count, radios, praise, announcements & issues)? Keeps event name, Day PIN & Tech I/O roster; clears patch checkmarks. A backup snapshot is saved server-side first."))return;
   doAction("reset",{},function(){var ev=STATE.event,fu=STATE.funding,pr=STATE.prompter,dps=STATE.dayPinSet,io=ioListClearProgress(STATE.ioList);STATE=normalize({checklist:{},announcements:[],checkins:[],feedback:[],praises:[],count:0,event:ev,ioList:io,dayPinSet:dps,funding:fu,prompter:pr});});
 });
@@ -3426,7 +3437,7 @@ function guidePlace(el,st){
 window.addEventListener("resize",function(){if(guideIdx>=0)guideShow();});
 function boot(){
   renderIOList();renderLeaders();
-  if(LEADERPIN){verifyPin("verifyLeaderPin",LEADERPIN).then(function(res){if(res&&res.ok){LEADER=true;setDayOK();applyLeaderUI();renderDynamic();obFlush();}else{LEADERPIN="";sessionStorage.removeItem("k2c_lpin");}}).catch(function(){});}
+  if(LEADERPIN){verifyPin("verifyLeaderPin",LEADERPIN).then(function(res){if(res&&res.ok){LEADER=true;if(res.token)LEADERPIN=res.token;setDayOK();applyLeaderUI();renderDynamic();obFlush();}else{LEADERPIN="";sessionStorage.removeItem("k2c_lpin");}}).catch(function(){});}
   apiGet().then(function(s){STATE=applyPending(normalize(s));LIVE=true;adoptTallyEpoch(s);finishBoot();if(TALLY.dirty)scheduleFlush(500);}).catch(function(){LIVE=false;STATE=seedDemo();finishBoot();});
 }
 function setStickyTop(){var tw=document.querySelector(".topwrap");document.documentElement.style.setProperty("--toph",((tw?tw.offsetHeight:0)+6)+"px");}
@@ -3693,7 +3704,16 @@ function capFlush(){
     capLogMark(p.id,"sent");STATE.captureCount=(STATE.captureCount||0)+1;updateBadges();renderCapMine();
     capFlushing=false;
     if(capQueue().length)capFlush();else toast("✅ Offline captures sent to leadership");
-  }).catch(function(){capFlushing=false;});
+  }).catch(function(err){
+    capFlushing=false;
+    /* 507 = the server's capture list is full and REFUSED this record (it no
+       longer evicts older ones). Keep it queued on this phone and tell the
+       ambassador plainly — the contact isn't lost, but it isn't filed either. */
+    if(err===507){
+      capLogMark(p.id,"blocked");renderCapMine();
+      toast("⚠️ Capture storage is full — leadership must export & purge. Your capture is saved on this phone.");
+    }
+  });
 }
 setInterval(capFlush,15000);
 /* ---- "captured from this phone" log (device-local, no PII beyond a label) ---- */
@@ -3712,8 +3732,8 @@ function renderCapMine(){
   var l=capLog();
   wrap.style.display=l.length?"block":"none";
   mt.innerHTML=l.map(function(e){
-    var sent=e.st==="sent";
-    return '<div class="listrow"><span class="av">'+(CAP_LANE_ICON[e.lane]||"📇")+'</span><span class="nm">'+esc(e.label)+'<small>'+esc((e.d||"")+(e.t?(" · "+e.t):""))+'</small></span><span class="st '+(sent?"sent":"wait")+'">'+(sent?"SENT ✓":"WAITING…")+'</span></div>';
+    var sent=e.st==="sent",blocked=e.st==="blocked";
+    return '<div class="listrow"><span class="av">'+(CAP_LANE_ICON[e.lane]||"📇")+'</span><span class="nm">'+esc(e.label)+'<small>'+esc((e.d||"")+(e.t?(" · "+e.t):""))+'</small></span><span class="st '+(sent?"sent":"wait")+'">'+(sent?"SENT ✓":(blocked?"STORAGE FULL":"WAITING…"))+'</span></div>';
   }).join("");
 }
 /* ---- leader view: full list, media viewer, CSV export ---- */

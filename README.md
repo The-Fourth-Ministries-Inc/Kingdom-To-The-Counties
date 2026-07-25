@@ -47,7 +47,9 @@ CRM push is a later build). Privacy & resilience:
   appears in the dashboard; at **95%** it goes mission-critical, and once the
   budget is full new photo/voice attachments are refused server-side (typed
   info still saves, with a note flagging the dropped media). A **🧹 Purge all
-  exported captures** button — behind the reset password *and* the leader PIN
+  exported captures** button — behind a type-PURGE confirmation *and* the
+  leader PIN (the confirmation is a speed bump in the browser; the leader PIN
+  is the real gate and is verified server-side)
   — permanently deletes every capture record and media blob once leadership
   confirms it has all been entered into Planning Center Online.
 
@@ -189,6 +191,21 @@ automatically on deploy.
   (Legacy `count-`/`tally-` delta shards from older clients still sum in.)
 - **Polls are cheap.** `GET` returns a weak `ETag`; clients send `If-None-Match`
   and get a bodyless `304` (and skip re-rendering) whenever nothing changed.
+- **The Day PIN is enforced server-side (v1.10.0).** Every request carries the
+  Day PIN (or a leader credential); without one, `GET` returns only enough to
+  draw the lock screen, `?part=churches` is refused, and every write is
+  rejected. Before this the PIN only gated the browser UI — the API itself was
+  open to anyone with the URL. Sites that have not set a Day PIN stay open, as
+  before.
+- **Leaders hold a revocable session token, not the PIN.** `verifyLeaderPin`
+  issues a random token (14h TTL) that the phone stores and sends; the PIN
+  itself is never persisted. `revokeLeaderTokens` signs every leader out at
+  once (lost phone, PIN shared too widely).
+- **Per-IP write budgets.** Non-leader writes are capped (400 / 10 min) and
+  media uploads more tightly (40 / hour), reusing the PIN-throttle blob
+  pattern. Captures at the 1000-record ceiling are **refused** (HTTP 507) so
+  the oldest irreplaceable contacts are never silently evicted; the phone
+  keeps the record queued and says storage is full.
 - **User-submitted content is normalized server-side** — feedback, praise,
   announcements, check-ins and comments have their fields whitelisted, lengths
   capped, and `priority`/`pri` validated against a fixed set. Clients can't

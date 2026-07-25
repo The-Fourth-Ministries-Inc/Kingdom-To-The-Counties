@@ -177,7 +177,10 @@ function normCapture(x){
   bytes: Math.max(0, Math.min(CAPTURE_MEDIA_MAX, Number(x.bytes) || 0))
  };
 }
-const normCaptures = v => Array.isArray(v) ? v.map(normCapture).slice(-1000) : [];
+/* Hard ceiling on stored captures. Reaching it REFUSES new records (507)
+   rather than evicting old ones — see captureAdd. */
+const CAPTURE_LIST_MAX = 1000;
+const normCaptures = v => Array.isArray(v) ? v.map(normCapture).slice(-CAPTURE_LIST_MAX) : [];
 const capMediaKey = id => "capmedia-" + (id || "").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 40);
 
 /* ---- Pre-Crusade Mobilization: church CRM ----
@@ -427,13 +430,33 @@ async function pinNoteFail(s, key){
 }
 const pinBlockedResp = () => json({ error:"too many wrong PIN attempts — wait 10 minutes and try again", rateLimited:true }, 429);
 
+/* ---- per-IP write budget ----
+   Even behind the Day PIN, one runaway retry loop (or one bored volunteer)
+   could push enough writes to evict older records from the capped lists. This
+   is a coarse ceiling — far above anything a human does during an event, low
+   enough to stop a script. Media uploads get their own tighter budget because
+   each one costs megabytes. */
+const WRITE_MAX = 400, WRITE_WINDOW_MS = 10 * 60 * 1000;
+const MEDIA_MAX_PER_IP = 40, MEDIA_WINDOW_MS = 60 * 60 * 1000;
+async function rateHit(s, key, windowMs, max){
+ let rec = null;
+ try { rec = await s.get(key, { type:"json" }); } catch(_) {}
+ const cutoff = Date.now() - windowMs;
+ const t = (rec && Array.isArray(rec.t) ? rec.t : []).filter(x => x > cutoff);
+ if(t.length >= max) return false;
+ t.push(Date.now());
+ await s.setJSON(key, { t: t.slice(-max * 2) }).catch(() => {});
+ return true;
+}
+const rateBlockedResp = what => json({ error:"too many " + what + " from this connection — wait a few minutes", rateLimited:true }, 429);
+
 const LEADER_ACTIONS = new Set([
  /* NOTE: ioSetRow (a patch checkmark) is deliberately NOT here — the Tech I/O
     page is open to every tech behind the Day PIN, same as radios and the head
     count. Only STRUCTURAL roster edits (setIOList) need the leader PIN. */
  "toggleCheck","setCheck","setChecklistNote","addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
- "capturesList","captureMedia","captureDelete","capturePurge",
+ "capturesList","captureMedia","captureDelete","capturePurge","revokeLeaderTokens",
  "churchEdit","churchDelete","churchFlagClear","churchTemplate"
 ]);
 
@@ -681,9 +704,32 @@ const json = (obj, status=200) => new Response(JSON.stringify(obj), {
    Levels: "leader" (leader PIN), "day" (current Day PIN), "none".
    When no Day PIN is configured the app is intentionally open, exactly as
    before, so nothing breaks for a site that hasn't set one. */
+/* ---- leader session tokens ----
+   The client used to persist the leader PIN itself and send it with every
+   request, so any XSS could read the PIN out of sessionStorage and use it
+   forever (it unlocks the seekers' contact list). It now stores a random
+   token instead: expires on its own, and a leader can invalidate every
+   outstanding one with revokeLeaderTokens. The PIN still works directly,
+   so older clients keep functioning. */
+const LTOK_TTL_MS = 14 * 60 * 60 * 1000; // one long event day
+const ltokKey = t => "ltok-" + idStr(t, 64);
+async function issueLeaderToken(s){
+ const tok = (uid() + uid() + uid()).replace(/[^a-z0-9]/gi, "").slice(0, 40);
+ await s.setJSON(ltokKey(tok), { exp: Date.now() + LTOK_TTL_MS }).catch(() => {});
+ return tok;
+}
+async function validLeaderToken(s, tok){
+ if(!tok || tok.length < 16) return false;
+ let rec = null;
+ try { rec = await s.get(ltokKey(tok), { type:"json" }); } catch(_) {}
+ if(!rec || !(Number(rec.exp) > Date.now())) return false;
+ return true;
+}
+
 async function authLevel(s, req, body){
  const leader = ((body && body.pin) || req.headers.get("x-leader-pin") || "").toString();
  if(leader && leader === LEADER_PIN()) return "leader";
+ if(leader && await validLeaderToken(s, leader)) return "leader";
  let day = ((body && body.dayPin) || req.headers.get("x-day-pin") || "").toString();
  if(!day){ try { day = new URL(req.url).searchParams.get("dp") || ""; } catch(_) {} }
  const core = normCore((await s.get("core", { type:"json" })) || (await s.get("state", { type:"json" })) || {});
@@ -755,32 +801,50 @@ export default async (req, context) => {
 
  /* ---- every write needs at least the Day PIN (the two verify actions are
     how you obtain it, so they stay open) ---- */
+ let lvl = "none";
  if(action !== "verifyLeaderPin" && action !== "verifyDayPin"){
- const lvl = await authLevel(s, req, body);
+ lvl = await authLevel(s, req, body);
  if(lvl === "none"){
   if(body.dayPin) await pinNoteFail(s, failKey);
   return json({ error:"day pin required", locked:true }, 403);
+ }
+ /* Read-only leader actions and the tally aren't "writes" worth budgeting;
+    everything that mutates a shared list is. Leaders are exempt — a leader
+    doing bulk work should never be throttled. */
+ if(lvl !== "leader" && action !== "capturesList" && action !== "captureMedia"){
+  if(!await rateHit(s, "wrate-" + pinFailKey(req, context).slice(8), WRITE_WINDOW_MS, WRITE_MAX)){
+   return rateBlockedResp("changes");
+  }
  }
  }
 
  /* ---- PIN verification (no state change) ---- */
  if(action === "verifyLeaderPin"){
- if(pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true }); }
+ if(pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, token: await issueLeaderToken(s) }); }
+ // A still-valid session token re-verifies without re-entering the PIN.
+ if(await validLeaderToken(s, pin)) return json({ ok:true, token: pin });
  if(pin) await pinNoteFail(s, failKey);
  return json({ error:"wrong pin" }, 403);
  }
  if(action === "verifyDayPin"){
- if(pin && pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, leader:true }); }
+ if(pin && pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, leader:true, token: await issueLeaderToken(s) }); }
  const core = normCore((await s.get("core", { type:"json" })) || (await s.get("state", { type:"json" })) || {});
  if(core.dayPin && pin === core.dayPin) return json({ ok:true, leader:false });
  if(pin) await pinNoteFail(s, failKey);
  return json({ error:"wrong pin" }, 403);
  }
 
- /* ---- privileged actions require the leader PIN, verified here ---- */
- if(LEADER_ACTIONS.has(action) && pin !== LEADER_PIN()){
+ /* ---- privileged actions require leader auth (PIN or a valid session
+    token — authLevel resolved both above) ---- */
+ if(LEADER_ACTIONS.has(action) && lvl !== "leader"){
  if(pin) await pinNoteFail(s, failKey);
  return json({ error:"leader pin required" }, 403);
+ }
+ /* Sign every leader out everywhere (lost phone, PIN shared too widely). */
+ if(action === "revokeLeaderTokens"){
+ const { blobs } = await s.list({ prefix: "ltok-" });
+ await Promise.all((blobs || []).map(b => s.delete(b.key).catch(() => {})));
+ return json({ ok:true, revoked: (blobs || []).length });
  }
 
  /* ---- legacy counter: each device writes ONLY its own shard ---- */
@@ -1107,8 +1171,21 @@ export default async (req, context) => {
  // record never points at media that failed to store.
  const rec = normCapture(payload);
  rec.bytes = 0;
+ /* Records are irreplaceable (a seeker's contact info), so when the list is
+    at its cap we REFUSE the new one instead of letting slice() evict the
+    oldest. Losing the newest is recoverable — the ambassador still has the
+    card in hand and gets told — while silently dropping the oldest is not. */
+ {
+ const existing = normCaptures(await s.get("captures", { type:"json" }));
+ if(existing.length >= CAPTURE_LIST_MAX && !existing.some(c => c.id === rec.id)){
+  return json({ error:"capture list is full — export to Planning Center and purge before capturing more", full:true }, 507);
+ }
+ }
  const media = payload.media || null;
  if(media && typeof media.dataUrl === "string" && media.dataUrl.startsWith("data:") && media.dataUrl.length <= CAPTURE_MEDIA_MAX){
+ if(!await rateHit(s, "mrate-" + pinFailKey(req, context).slice(8), MEDIA_WINDOW_MS, MEDIA_MAX_PER_IP)){
+  return rateBlockedResp("photo/voice uploads");
+ }
  // Enforce the storage budget: when it's full, keep the typed record (never
  // lose the contact) but refuse the media and say so in the notes.
  const existing = normCaptures(await s.get("captures", { type:"json" }));
@@ -1124,8 +1201,9 @@ export default async (req, context) => {
  } else { rec.hasMedia = false; rec.mediaKind = ""; }
  await compareAndSwap(s, "captures", normCaptures, list => {
  if(list.some(c => c.id === rec.id)) return undefined; // idempotent retry
+ if(list.length >= CAPTURE_LIST_MAX) return undefined; // full (re-checked under CAS)
  list.push(rec);
- return list.slice(-1000);
+ return list;
  }, () => []);
  break;
  }
