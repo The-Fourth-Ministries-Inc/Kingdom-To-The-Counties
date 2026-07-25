@@ -2209,14 +2209,14 @@ function ioReloadDefaults(){
   if(!confirm("Reload the Tech I/O roster from the deployed defaults? This replaces the current list for everyone and clears all patch checkmarks."))return;
   var list=ioClone(IO_DEFAULT);
   STATE.ioList=list;
-  doAction("setIOList",{list:list},function(){STATE.ioList=list;renderIOList();});
+  queueWrite("setIOList",{list:list},function(){STATE.ioList=list;},function(){renderIOList();});
   renderIOList();
 }
 function ioCancelEdit(){ioEditing=false;ioBuf=null;renderIOList();}
 function ioSaveEdit(){
   var list=ioBuf;ioEditing=false;ioBuf=null;
   STATE.ioList=list;
-  doAction("setIOList",{list:list},function(){STATE.ioList=list;});
+  queueWrite("setIOList",{list:list},function(){STATE.ioList=list;},function(){renderIOList();});
   renderIOList();
 }
 function ioUid(){return "x"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
@@ -2301,7 +2301,18 @@ var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],coun
 var LIVE=false,LEADER=false,seenAnn=0,seenIssue=0,barDismissed=false,inflight=0,countFlushT=null,countSending=false;
 var lastSyncAt=0,everSynced=false; /* v1.2.0 — sync freshness */
 var remoteDirty=false;
-function settled(){return inflight===0&&!countSending&&!(typeof TALLY!=="undefined"&&TALLY.dirty);}
+/* "Nothing of ours is in flight, so a server payload is safe to adopt whole."
+   A DIRTY tally is deliberately not part of this: dirty just means taps are
+   waiting to be pushed, which can persist across a whole outage — gating the
+   poll loop on it stopped phones from ever reconnecting. The count/tallyBy
+   fields are protected separately in adoptCounts(). */
+function settled(){return inflight===0&&!countSending;}
+/* Keep our own un-pushed tally from being overwritten by a server payload that
+   doesn't include it yet. */
+function adoptCounts(s,prevCount,prevBy){
+  if(typeof TALLY!=="undefined"&&TALLY.dirty){s.count=prevCount;s.tallyBy=prevBy;}
+  return s;
+}
 var API="/.netlify/functions/data";
 var MY={name:""};
 try{MY.name=(localStorage.getItem("k2c_name")||"").slice(0,40);}catch(_){}
@@ -2315,7 +2326,7 @@ function normalize(s){return{checklist:s.checklist||{},notes:s.notes||{},announc
 function toast(msg){var el=document.getElementById("toastEl");if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}el.textContent=msg;el.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function vibr(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(_){}}
 function hasFullState(s){return !!(s&&("checklist" in s||"announcements" in s||"count" in s));}
-function reconcileResponse(s){if(hasFullState(s))STATE=applyPending(normalize(s));}
+function reconcileResponse(s){if(hasFullState(s)){var pc=STATE.count,pb=STATE.tallyBy;STATE=adoptCounts(applyPending(normalize(s)),pc,pb);}}
 function userEditing(){
   var e=document.activeElement;
   return !!(e&&(e.matches("input,textarea,[contenteditable=true]")||e.closest(".cmtform")));
@@ -2353,7 +2364,8 @@ function refreshFromServer(){
   return apiGet().then(function(s){
     if(s&&s.__nomod)return;
     lastSyncAt=Date.now();everSynced=true;if(!LIVE){LIVE=true;}
-    STATE=applyPending(normalize(s));adoptTallyEpoch(s);maybeDayGate();renderDynamic();updateSync();
+    var pc=STATE.count,pb=STATE.tallyBy;
+    STATE=adoptCounts(applyPending(normalize(s)),pc,pb);adoptTallyEpoch(s);maybeDayGate();renderDynamic();updateSync();
   }).catch(function(){});
 }
 var LEADERPIN=sessionStorage.getItem("k2c_lpin")||"";
@@ -2417,11 +2429,16 @@ var OB_KEY={
   setChecklistNote:function(p){return p.id;},
   setAck:function(p){return p.kind+":"+p.id;},
   setRadio:function(p){return "n"+p.n;},
-  ioSetRow:function(p){return p.pid+"/"+p.rid;}
+  ioSetRow:function(p){return p.pid+"/"+p.rid;},
+  /* Whole-record leader saves: only the latest matters, so they compact to a
+     single queued op each. */
+  setIOList:function(){return "io";},
+  setEvent:function(){return "event";},
+  setFunding:function(){return "funding";}
 };
 /* Actions the server gates behind the leader PIN — held in the queue (not
    sent, not dropped) whenever this session has no PIN, e.g. after a reload. */
-var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1};
+var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,setEvent:1,setFunding:1};
 var OUTBOX=[];
 try{OUTBOX=JSON.parse(localStorage.getItem("k2c_outbox")||"[]");}catch(_){OUTBOX=[];}
 if(!Array.isArray(OUTBOX))OUTBOX=[];
@@ -2517,6 +2534,14 @@ function applyPending(st){
       if(!st.praises.some(function(x){return x.id===p.id;}))st.praises.unshift(p);
     }else if(op.a==="addFeedback"){
       if(!st.feedback.some(function(x){return x.id===p.id;}))st.feedback.unshift(p);
+    }else if(op.a==="setIOList"){
+      if(Array.isArray(p.list))st.ioList=p.list;
+    }else if(op.a==="setEvent"){
+      st.event={name:p.name||"",date:p.date||""};
+    }else if(op.a==="setFunding"){
+      st.funding={pct:p.pct,needed:p.needed||(st.funding&&st.funding.needed)||""};
+    }else if(op.a==="churchLog"){
+      /* CH is its own cache; nothing to overlay on the main payload. */
     }else if(op.a==="addComment"){
       var list=p.kind==="praise"?st.praises:(p.kind==="ann"?st.announcements:st.feedback);
       var card=(list||[]).filter(function(x){return x.id===p.id;})[0];
@@ -2528,7 +2553,11 @@ function applyPending(st){
   }
   return st;
 }
-window.addEventListener("online",function(){obFails=0;obFlush();});
+window.addEventListener("online",function(){
+  obFails=0;obFlush();
+  if(typeof TALLY!=="undefined"&&TALLY.dirty)scheduleFlush(300);
+  if(typeof capFlush==="function")capFlush();
+});
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")obFlush();});
 /* Last-gasp flush if the tab closes with writes still queued: fire them as
    beacons. They stay queued (a beacon can't confirm delivery), but every
@@ -3115,9 +3144,12 @@ function flushCount(){
   }).catch(function(){
     countSending=false;inflight=Math.max(0,inflight-1);
     if(LIVE){LIVE=false;updateSync();}
-    // Taps are safe in TALLY (and localStorage). Keep retrying while we've
-    // ever had a server — never strand a dirty tally like the delta code did.
-    if(everSynced)scheduleFlush(2500);
+    // Taps are safe in TALLY (and localStorage). Always keep retrying — the
+    // old `if(everSynced)` guard stranded a phone that booted offline: its
+    // tally stayed dirty forever, and because settled() gates the poll loop on
+    // TALLY.dirty, the phone then stopped polling entirely and never
+    // discovered the network had come back.
+    scheduleFlush(2500);
   });
 }
 // pointerdown (not click) = fires instantly on touch, immune to the
@@ -3133,9 +3165,9 @@ document.addEventListener("visibilitychange",function(){if(document.visibilitySt
 document.getElementById("fundSave").addEventListener("click",function(){
   var pct=parseInt(document.getElementById("fundPctEdit").value,10),need=document.getElementById("fundNeedEdit").value.trim();
   if(isNaN(pct)||pct<0||pct>100){flash("fundPctEdit");return;}
-  doAction("setFunding",{pct:pct,needed:need},function(){STATE.funding={pct:pct,needed:need||STATE.funding.needed};});
+  queueWrite("setFunding",{pct:pct,needed:need},function(){STATE.funding={pct:pct,needed:need||STATE.funding.needed};},function(){renderFunding();});
 });
-document.getElementById("evSave").addEventListener("click",function(){var name=document.getElementById("evName").value.trim(),date=document.getElementById("evDate").value.trim();doAction("setEvent",{name:name,date:date},function(){STATE.event={name:name,date:date};});});
+document.getElementById("evSave").addEventListener("click",function(){var name=document.getElementById("evName").value.trim(),date=document.getElementById("evDate").value.trim();queueWrite("setEvent",{name:name,date:date},function(){STATE.event={name:name,date:date};},function(){renderEvent();refreshChecklists();});});
 /* v1.2.0 — one-tap CSV export of the day's data (leaders) */
 function csvCell(v){v=String(v==null?"":v);return '"'+v.replace(/"/g,'""')+'"';}
 document.getElementById("csvBtn").addEventListener("click",function(){
@@ -3464,7 +3496,9 @@ function finishBoot(){
           lastSyncAt=Date.now();everSynced=true;if(!LIVE){LIVE=true;updateSync();}
           if(OUTBOX.length)obFlush();
           if(s&&s.__nomod)return;   // 304 — skip re-serialize and re-render entirely
-          var snap=JSON.stringify(s),changed=snap!==lastSnap;lastSnap=snap;STATE=applyPending(normalize(s));adoptTallyEpoch(s);maybeDayGate();
+          var snap=JSON.stringify(s),changed=snap!==lastSnap;lastSnap=snap;
+          var pc=STATE.count,pb=STATE.tallyBy;
+          STATE=adoptCounts(applyPending(normalize(s)),pc,pb);adoptTallyEpoch(s);maybeDayGate();
           if(changed){if(userEditing())remoteDirty=true;else renderDynamic();}
         }
       }).catch(function(){if(LIVE){LIVE=false;updateSync();}})
@@ -4322,10 +4356,15 @@ var chQuickLast={};
 function chQuick(id,type,note){
   var k=id+"|"+type,nowMs=Date.now();
   if(chQuickLast[k]&&nowMs-chQuickLast[k]<600000){toast((CH_ICON[type]||"📝")+" Already logged a few minutes ago");return;}
-  chQuickLast[k]=nowMs;
   var by=myTag()||"Ambassador",st=chStamp();
   var rec={id:uid(),ch:id,type:type,by:by,note:note||"",t:st.t,d:st.d};
-  if(LIVE){apiPost("churchLog",rec).then(function(){chFetch(true);}).catch(function(){});CH.log.push(rec);chSave();setTimeout(chRenderAll,400);toast((CH_ICON[type]||"📝")+" Logged to the church's history");}
+  /* Offline this used to do NOTHING — no log, no message — while still
+     stamping chQuickLast, so tapping again later said "Already logged" for an
+     entry that never existed. churchLog is id-idempotent server-side, so it
+     belongs in the outbox like every other write. */
+  chQuickLast[k]=nowMs;
+  queueWrite("churchLog",rec,function(){CH.log.push(rec);chSave();},function(){setTimeout(chRenderAll,400);});
+  toast((CH_ICON[type]||"📝")+" Logged to the church's history");
 }
 /* ---- the 20-second "what is K2C" script ---- */
 function chScriptText(c){
