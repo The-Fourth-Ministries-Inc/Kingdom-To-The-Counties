@@ -45,6 +45,9 @@ const LEADER_PIN = () => process.env.LEADER_PIN || "2026";
  tallyEpoch— {e} rotated on every reset; a phone whose stored epoch is stale
              gets told to clear its local tally instead of re-pushing
              pre-reset numbers.
+ backup-   — pre-destructive-action snapshots: reset and capturePurge write a
+             backup-<ms>-<tag> copy of the data they are about to destroy
+             (newest 20 kept). Recovery is manual via the Netlify Blobs UI/CLI.
  count-agg — CACHED {total, by} aggregate of every count-/tally- shard so a GET
              is one read instead of listing + fetching ~50 shards. Maintained
              incrementally on each tap and rebuilt from the shards whenever it
@@ -61,6 +64,19 @@ const EMPTY_CORE = { checklist:{}, notes:{}, announcements:[], feedback:[], prai
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const str = (v, n) => (v == null ? "" : v.toString()).slice(0, n);
+/* Record ids end up inside onclick="fn('<id>')" attributes on the client, so
+   they are restricted to characters that can't break out of a JS string or an
+   HTML attribute. Applied to every id the client can choose. */
+export const idStr = (v, n = 40) => (v == null ? "" : v.toString()).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, n);
+/* Links are rendered as href="…" — only http(s) may through, so a stored
+   javascript:/data: URL can't execute when someone taps a church website. */
+export function safeUrl(v, n = 200){
+ const s = str(v, n).trim();
+ if(!s) return "";
+ if(/^https?:\/\//i.test(s)) return s;
+ if(/^[a-z][a-z0-9+.-]*:/i.test(s)) return ""; // some other scheme (javascript:, data:, …) — drop it
+ return "https://" + s.replace(/^\/+/, "");
+}
 
 function ioListClearProgress(list){
  if(!Array.isArray(list) || !list.length) return list;
@@ -78,15 +94,16 @@ const ANN_PRIOS = new Set(["urgent","heads","info"]);
 function normComments(list){
  if(!Array.isArray(list)) return [];
  return list.map(c => ({
+  cid: idStr(c && c.cid), // client-generated id so a retried addComment can't duplicate
   name: str((c && c.name) || "Volunteer", 40),
   text: str(c && c.text, 500),
   t: str(c && c.t, 12)
  })).slice(-100);
 }
-function normIssue(x){
+export function normIssue(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
+  id: idStr(x.id) || uid(),
   priority: ISSUE_PRIOS.has(x.priority) ? x.priority : "med",
   title: str(x.title, 140),
   body: str(x.body, 2000),
@@ -101,7 +118,7 @@ function normIssue(x){
 function normPraiseItem(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
+  id: idStr(x.id) || uid(),
   name: str(x.name || "Anonymous", 40),
   body: str(x.body, 2000),
   t: str(x.t, 12),
@@ -114,7 +131,7 @@ function normPraiseItem(x){
 function normAnn(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
+  id: idStr(x.id) || uid(),
   pri: ANN_PRIOS.has(x.pri) ? x.pri : "info",
   title: str(x.title, 140),
   body: str(x.body, 2000),
@@ -142,11 +159,18 @@ function captureUsage(list){
  for(const c of (list || [])) bytes += (c.bytes > 0 ? c.bytes : (c.hasMedia ? CAPTURE_BYTES_FALLBACK : 0));
  return bytes;
 }
-function normCapture(x){
+/* The counselor booklet requires the response type on every encounter, and the
+   leader pipeline needs per-record follow-up state so "purge, it's all in
+   Planning Center" can be verified rather than trusted. */
+const CAPTURE_RESPONSES = new Set(["", "salvation", "dedication", "rededication", "prayer"]);
+const CAPTURE_STATES = new Set(["new", "entered", "done"]);
+export function normCapture(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
+  id: idStr(x.id) || uid(),
   lane: CAPTURE_LANES.has(x.lane) ? x.lane : "text",
+  resp: CAPTURE_RESPONSES.has(x.resp) ? x.resp : "",
+  st: CAPTURE_STATES.has(x.st) ? x.st : "new",
   name: str(x.name, 80),
   phone: str(x.phone, 40),
   email: str(x.email, 80),
@@ -160,7 +184,10 @@ function normCapture(x){
   bytes: Math.max(0, Math.min(CAPTURE_MEDIA_MAX, Number(x.bytes) || 0))
  };
 }
-const normCaptures = v => Array.isArray(v) ? v.map(normCapture).slice(-1000) : [];
+/* Hard ceiling on stored captures. Reaching it REFUSES new records (507)
+   rather than evicting old ones — see captureAdd. */
+const CAPTURE_LIST_MAX = 1000;
+export const normCaptures = v => Array.isArray(v) ? v.map(normCapture).slice(-CAPTURE_LIST_MAX) : [];
 const capMediaKey = id => "capmedia-" + (id || "").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 40);
 
 /* ---- Pre-Crusade Mobilization: church CRM ----
@@ -186,7 +213,7 @@ function normChConn(x){
 function normChurch(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
+  id: idStr(x.id) || uid(),
   name: str(x.name, 120),
   kind: CH_KINDS.has(x.kind) ? x.kind : "church",
   town: str(x.town, 60),
@@ -195,7 +222,7 @@ function normChurch(x){
   address: str(x.address, 160),
   phone: str(x.phone, 40),
   email: str(x.email, 120),
-  website: str(x.website, 200),
+  website: safeUrl(x.website),
   contact: str(x.contact, 80),
   contactRole: str(x.contactRole, 60),
   leader: str(x.leader, 80),
@@ -215,8 +242,8 @@ function normChurch(x){
 function normChLog(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
-  ch: str(x.ch, 40),
+  id: idStr(x.id) || uid(),
+  ch: idStr(x.ch),
   type: CH_LOG_TYPES.has(x.type) ? x.type : "note",
   by: str(x.by || "Ambassador", 40),
   note: str(x.note, 300),
@@ -273,10 +300,10 @@ function mergeStarterChurches(c){
  return added;
 }
 
-function normCheckin(x){
+export function normCheckin(x){
  x = x || {};
  return {
-  id: str(x.id, 40) || uid(),
+  id: idStr(x.id) || uid(),
   name: str(x.name, 40),
   team: str(x.team, 40),
   attested: !!x.attested,
@@ -284,15 +311,38 @@ function normCheckin(x){
  };
 }
 
+/* Leader-added checklist items. The built-in SETUP list is hardcoded in the
+   client, but the season runs across eight very different venues (fairgrounds,
+   ski areas, a speedway), so leaders need per-event extras without a redeploy.
+   Stored with client-generated stable ids and merged at render — same pattern
+   as the starter scripts and the I/O roster. */
+const EXTRA_DAYS = new Set(["fri","sat"]);
+const EXTRA_CATS = new Set(["tech","log","both"]);
+function normExtraItem(x){
+ x = x || {};
+ return {
+  id: idStr(x.id) || uid(),
+  day: EXTRA_DAYS.has(x.day) ? x.day : "sat",
+  cat: EXTRA_CATS.has(x.cat) ? x.cat : "log",
+  text: str(x.text, 180),
+  due: Math.max(0, Math.min(1439, Math.round(Number(x.due) || 0))),
+  by: str(x.by, 40)
+ };
+}
+const normExtras = v => Array.isArray(v) ? v.map(normExtraItem).filter(x => x.text).slice(0, 100) : [];
+
 export function normCore(c){
  c = c || {};
  return {
  checklist: c.checklist || {},
+ extras: normExtras(c.extras),
  notes: normNotes(c.notes),
  announcements: Array.isArray(c.announcements) ? c.announcements.map(normAnn).slice(0, 200) : [],
  feedback: Array.isArray(c.feedback) ? c.feedback.map(normIssue).slice(0, 500) : [],
  praises: Array.isArray(c.praises) ? c.praises.map(normPraiseItem).slice(0, 500) : [],
- event: c.event || { name:"", date:"" },
+ // shift = rain-date offset in days (0 normally, 1 when moved to Sunday)
+ event: { name: str(c.event && c.event.name, 80), date: str(c.event && c.event.date, 40),
+          shift: Math.max(0, Math.min(2, Math.round(Number(c.event && c.event.shift) || 0))) },
  // One-time migration: retire the old 0627 Day PIN in favor of 0711.
  dayPin: (typeof c.dayPin === "string" && c.dayPin !== "0627") ? c.dayPin : DEFAULT_DAY_PIN,
  funding: { pct: clampPct(c.funding && c.funding.pct), needed: ((c.funding && c.funding.needed) || "$60,000").toString().slice(0, 30) }
@@ -319,7 +369,7 @@ export function normPrompter(p){
  // being re-merged on the next read.
  removed: Array.isArray(p.removed) ? p.removed.map(x => str(x, 40)).filter(Boolean).slice(0, 400) : [],
  scripts: scripts.map(sc => ({
- id: (sc.id || "").toString().slice(0, 40),
+ id: idStr(sc.id),
  event: (sc.event || "").toString().slice(0, 60),
  title: (sc.title || "").toString().slice(0, 80),
  due: (sc.due || "").toString().slice(0, 10),
@@ -358,7 +408,29 @@ function normRadios(r){
  return { list: out };
 }
 const normCheckins = v => Array.isArray(v) ? v.map(normCheckin).slice(-2000) : [];
-const normIO = v => ({ list: (v && Array.isArray(v.list)) ? v.list : [] });
+/* Tech I/O roster. Previously stored verbatim from the client — the only blob
+   where a caller controlled both structure and size. Fields are whitelisted and
+   capped like everything else, and ids are id-safe because the client renders
+   them into onclick="ioToggle('<id>','<id>')". */
+function normIORow(r){
+ r = r || {};
+ return {
+  id: idStr(r.id) || uid(),
+  role: str(r.role, 60), gear: str(r.gear, 60), loc: str(r.loc, 60),
+  done: !!r.done, by: str(r.by, 40), t: str(r.t, 12)
+ };
+}
+function normIOPerf(p){
+ p = p || {};
+ return {
+  id: idStr(p.id) || uid(),
+  name: str(p.name, 60), inst: str(p.inst, 60), pack: str(p.pack, 30),
+  color: /^#[0-9a-f]{3,8}$/i.test(str(p.color, 9)) ? str(p.color, 9) : "#c7c2b8",
+  qmix: str(p.qmix, 20), tx: str(p.tx, 60), off: !!p.off,
+  rows: (Array.isArray(p.rows) ? p.rows : []).map(normIORow).slice(0, 60)
+ };
+}
+export const normIO = v => ({ list: (v && Array.isArray(v.list)) ? v.list.map(normIOPerf).slice(0, 80) : [] });
 
 /* ---- PIN brute-force protection ----
    Per-IP sliding window kept in a blob: 15 wrong PIN entries in 10 minutes
@@ -388,28 +460,186 @@ async function pinNoteFail(s, key){
 }
 const pinBlockedResp = () => json({ error:"too many wrong PIN attempts — wait 10 minutes and try again", rateLimited:true }, 429);
 
+/* ---- per-IP write budget ----
+   Even behind the Day PIN, one runaway retry loop (or one bored volunteer)
+   could push enough writes to evict older records from the capped lists. This
+   is a coarse ceiling — far above anything a human does during an event, low
+   enough to stop a script. Media uploads get their own tighter budget because
+   each one costs megabytes. */
+const WRITE_MAX = 400, WRITE_WINDOW_MS = 10 * 60 * 1000;
+const MEDIA_MAX_PER_IP = 40, MEDIA_WINDOW_MS = 60 * 60 * 1000;
+async function rateHit(s, key, windowMs, max){
+ let rec = null;
+ try { rec = await s.get(key, { type:"json" }); } catch(_) {}
+ const cutoff = Date.now() - windowMs;
+ const t = (rec && Array.isArray(rec.t) ? rec.t : []).filter(x => x > cutoff);
+ if(t.length >= max) return false;
+ t.push(Date.now());
+ await s.setJSON(key, { t: t.slice(-max * 2) }).catch(() => {});
+ return true;
+}
+const rateBlockedResp = what => json({ error:"too many " + what + " from this connection — wait a few minutes", rateLimited:true }, 429);
+
 const LEADER_ACTIONS = new Set([
- "toggleCheck","setChecklistNote","addAnnouncement","ackCard","setEvent","setIOList","setDayPin",
+ /* NOTE: ioSetRow (a patch checkmark) is deliberately NOT here — the Tech I/O
+    page is open to every tech behind the Day PIN, same as radios and the head
+    count. Only STRUCTURAL roster edits (setIOList) need the leader PIN. */
+ "toggleCheck","setCheck","setChecklistNote","addChecklistItem","removeChecklistItem","seasonList",
+ "addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin","captureSetState","setCounty",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
- "capturesList","captureMedia","captureDelete","capturePurge",
+ "capturesList","captureMedia","captureDelete","capturePurge","revokeLeaderTokens",
  "churchEdit","churchDelete","churchFlagClear","churchTemplate"
 ]);
 
-function devKey(id){
- id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
- return "count-" + id;
+/* ---------------- per-county scoping (v1.11.0) ----------------
+ Each county event is its own dataset. Day-scoped blobs carry a "~<county>"
+ suffix, so switching the active county in the leader dashboard swaps the whole
+ board — checklists, check-ins, counts, radios, issues, announcements, I/O
+ progress — instead of the team having to reset and lose the last event.
+ Season-long data (church CRM, teleprompter scripts, Quick Captures, season
+ summaries, backups, tokens, rate limits) is NOT scoped, and neither is the
+ Day PIN: those are shared across the whole season.
+ An empty county (nothing selected yet) keeps the original unscoped keys, so
+ existing deployments behave exactly as before until a leader picks a county. */
+/* ---------------- season schedule ----------------
+ The eight Saturday events. This drives BOTH the active county and the Day PIN
+ so neither has to be set by hand:
+   • The Day PIN is simply the event's Saturday as MMDD (Jul 25 → "0725").
+   • An event stays current through its Sunday — the rain date — and the next
+     one takes over on the Monday following.
+ Keep in step with COUNTIES in js/counties.js (same keys); the dates live here
+ because the server is the one that has to be right about them. */
+const SCHEDULE = [
+ { key:"sullivan",   date:"2026-06-13" },
+ { key:"grafton",    date:"2026-06-27" },
+ { key:"strafford",  date:"2026-07-11" },
+ { key:"carroll",    date:"2026-07-25" },
+ { key:"cheshire",   date:"2026-08-15" },
+ { key:"belknap",    date:"2026-08-22" },
+ { key:"coos",       date:"2026-09-05" },
+ { key:"rockingham", date:"2026-10-10" }
+];
+const COUNTY_KEYS = new Set(SCHEDULE.map(e => e.key));
+/* "Today" in New Hampshire, not UTC — otherwise the PIN would roll over at
+   8pm local on the Sunday, mid-teardown. */
+const EVENT_TZ = "America/New_York";
+function todayLocalISO(now){
+ try {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: EVENT_TZ, year:"numeric", month:"2-digit", day:"2-digit" })
+   .format(now || new Date());
+ } catch(_) {
+  return (now || new Date()).toISOString().slice(0, 10);
+ }
 }
-function tallyKey(id){
- id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
- return "tally-" + id;
+const addDaysISO = (iso, n) => {
+ const d = new Date(iso + "T12:00:00Z");
+ d.setUTCDate(d.getUTCDate() + n);
+ return d.toISOString().slice(0, 10);
+};
+/* The event whose window contains `todayISO`: current through its Sunday, then
+   the next one takes over on Monday. Before the season, the first event; after
+   it, the last (the board simply stays put). */
+export function currentEvent(todayISO){
+ const today = todayISO || todayLocalISO();
+ for(const e of SCHEDULE){
+  if(addDaysISO(e.date, 1) >= today) return e;   // still on/through its Sunday
+ }
+ return SCHEDULE[SCHEDULE.length - 1];
 }
-function tal2Key(id){
- id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
- return "tal2-" + id;
+/* Day PIN for an event = its Saturday as MMDD. */
+export const pinForDate = iso => (iso || "").slice(5, 7) + (iso || "").slice(8, 10);
+export const autoDayPin = todayISO => pinForDate(currentEvent(todayISO).date);
+const scopeSuffix = cty => (cty ? "~" + cty : "");
+function mkKeys(cty){
+ const x = scopeSuffix(cty);
+ return {
+  cty,
+  core: "core" + x,
+  checkins: "checkins" + x,
+  io: "io" + x,
+  radios: "radios" + x,
+  agg: "count-agg" + x,
+  decAgg: "dec-agg" + x,
+  epoch: "tallyEpoch" + x,
+  // shard prefixes (per-phone counters)
+  countPre: "count" + x + "-",
+  tallyPre: "tally" + x + "-",
+  tal2Pre: "tal2" + x + "-",
+  dec2Pre: "dec2" + x + "-"
+ };
 }
-async function readEpoch(s){
+const ACTIVE_KEY = "active";
+/* One-time adoption. Before per-county scoping every board lived in unscoped
+   blobs ("core", "checkins", …). The moment scoping switches on, the live
+   county's keys are "core~<county>" — which would be empty, so a board in use
+   would look wiped. This copies the existing unscoped data into whichever
+   county is current the first time we run, then records that it has happened.
+   Safe to call on every request: it is a no-op once `migrated` is set, and it
+   never overwrites a county that already has data. */
+async function ensureScopeReady(s){
+ let a = null;
+ try { a = await s.get(ACTIVE_KEY, { type:"json" }); } catch(_) {}
+ if(a && a.migrated) return;
+ const to = mkKeys(currentEvent().key), from = mkKeys("");
+ const pairs = [
+  [from.core, to.core], [from.checkins, to.checkins], [from.io, to.io],
+  [from.radios, to.radios], [from.agg, to.agg], [from.decAgg, to.decAgg], [from.epoch, to.epoch]
+ ];
+ await Promise.all(pairs.map(async ([src, dst]) => {
+  const [have, already] = await Promise.all([ s.get(src, { type:"json" }), s.get(dst, { type:"json" }) ]);
+  if(have != null && already == null) await s.setJSON(dst, have).catch(() => {});
+ }));
+ await s.setJSON(ACTIVE_KEY, { county: (a && a.county) || "", mode: (a && a.mode) || "auto", migrated: true }).catch(() => {});
+}
+/* Which county's board is live. Default is AUTO: it follows the schedule, so
+   the board moves to the next county on the Monday after each event with
+   nobody touching anything. A leader can pin a county manually (mode:"manual")
+   — e.g. to go back and finish last week's checklist — and switch back to
+   automatic whenever they like. */
+async function readActive(s){
+ let a = null;
+ try { a = await s.get(ACTIVE_KEY, { type:"json" }); } catch(_) {}
+ const stored = idStr((a && a.county) || "", 24);
+ const manual = !!(a && a.mode === "manual");
+ const auto = currentEvent().key;
+ const county = manual ? (COUNTY_KEYS.has(stored) ? stored : "") : auto;
+ return { county, manual, autoCounty: auto, migrated: !!(a && a.migrated) };
+}
+/* The Day PIN is deliberately global — one PIN for the season, not one per
+   county — so it lives in its own blob. Migrated out of core on first read. */
+const DAYPIN_KEY = "daypin";
+/* The Day PIN is the event's Saturday as MMDD, derived automatically unless a
+   leader has explicitly set one. Returns {pin, manual, auto}. */
+async function readDayPinCfg(s){
+ let d = null;
+ try { d = await s.get(DAYPIN_KEY, { type:"json" }); } catch(_) {}
+ const auto = autoDayPin();
+ // A stored record without an explicit mode came from an older client that
+ // only ever set a PIN by hand — honour it as manual.
+ if(d && typeof d.pin === "string" && d.mode !== "auto") return { pin: d.pin, manual: true, auto };
+ return { pin: auto, manual: false, auto };
+}
+async function readDayPin(s, K){ return (await readDayPinCfg(s)).pin; }
+
+function devKey(id, K){
+ id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
+ return (K ? K.countPre : "count-") + id;
+}
+function tallyKey(id, K){
+ id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
+ return (K ? K.tallyPre : "tally-") + id;
+}
+function tal2Key(id, K){
+ id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
+ return (K ? K.tal2Pre : "tal2-") + id;
+}
+function dec2Key(id, K){
+ id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
+ return (K ? K.dec2Pre : "dec2-") + id;
+}
+async function readEpoch(s, K){
  let e = null;
- try { e = await s.get("tallyEpoch", { type:"json" }); } catch(_) {}
+ try { e = await s.get(K.epoch, { type:"json" }); } catch(_) {}
  return (e && typeof e.e === "string") ? e.e : "";
 }
 
@@ -451,21 +681,37 @@ async function compareAndSwap(s, key, normalize, mutate, fallback){
  }
  throw new Error("write conflict: " + key);
 }
-const legacyState = s => async () => (await s.get("state", { type:"json" })) || {};
-const casCore = (s, mutate) => compareAndSwap(s, "core", normCore, mutate, legacyState(s));
+/* ---- pre-destructive-action snapshots (v1.10.0) ----
+   reset and capturePurge copy the data they are about to destroy into a
+   backup-<ms>-<tag> blob first (newest 20 kept; keys sort chronologically).
+   There is no in-app restore: recover by copying a backup's contents back
+   over the live blobs via the Netlify Blobs UI or CLI. Capture MEDIA blobs
+   are not snapshotted (too large) — only the text records. Best-effort by
+   design: a snapshot failure never blocks the action itself. */
+async function snapshot(s, tag, data){
+ try {
+  await s.setJSON("backup-" + Date.now() + "-" + tag, { at: new Date().toISOString(), tag, data });
+  const { blobs } = await s.list({ prefix: "backup-" });
+  const keys = (blobs || []).map(b => b.key).sort();
+  for(const k of keys.slice(0, Math.max(0, keys.length - 20))) await s.delete(k).catch(() => {});
+ } catch(_) {}
+}
 
-async function readAll(s){
+const legacyState = s => async () => (await s.get("state", { type:"json" })) || {};
+const casCore = (s, K, mutate) => compareAndSwap(s, K.core, normCore, mutate, legacyState(s));
+
+async function readAll(s, K){
  const [core, checkins, io, prompter, radios] = await Promise.all([
- s.get("core", { type:"json" }),
- s.get("checkins", { type:"json" }),
- s.get("io", { type:"json" }),
- s.get("prompter", { type:"json" }),
- s.get("radios", { type:"json" })
+ s.get(K.core, { type:"json" }),
+ s.get(K.checkins, { type:"json" }),
+ s.get(K.io, { type:"json" }),
+ s.get("prompter", { type:"json" }),   // season-long, never county-scoped
+ s.get(K.radios, { type:"json" })
  ]);
  return { core, checkins, io, prompter, radios };
 }
 
-async function migrateIfNeeded(s, parts){
+async function migrateIfNeeded(s, K, parts){
  if(parts.core) return parts; // already on split layout
  const old = await s.get("state", { type:"json" });
  const core = normCore(old || {});
@@ -473,29 +719,29 @@ async function migrateIfNeeded(s, parts){
  const io = { list: (old && old.ioList) || [] };
  const prompter = normPrompter(old && old.prompter);
  await Promise.all([
- s.setJSON("core", core),
- s.setJSON("checkins", checkins),
- s.setJSON("io", io),
+ s.setJSON(K.core, core),
+ s.setJSON(K.checkins, checkins),
+ s.setJSON(K.io, io),
  s.setJSON("prompter", prompter),
- (old && old.count) ? s.setJSON(devKey("legacy"), old.count) : Promise.resolve()
+ (old && old.count) ? s.setJSON(devKey("legacy", K), old.count) : Promise.resolve()
  ]);
  // old "state" blob is left in place untouched as a safety net
  return { core, checkins, io, prompter, radios: parts.radios || null };
 }
 
 /* ---- head count aggregation ---- */
-async function sumCounts(s){
+async function sumCounts(s, K){
  let total = 0;
- const { blobs } = await s.list({ prefix: "count-" });
+ const { blobs } = await s.list({ prefix: K.countPre });
  await Promise.all((blobs || []).map(async b => {
  const n = await s.get(b.key, { type:"json" });
  if(typeof n === "number") total += n;
  }));
  return Math.max(0, total);
 }
-async function sumTally(s){
+async function sumTally(s, K){
  let total = 0; const by = {};
- const [t1, t2] = await Promise.all([ s.list({ prefix: "tally-" }), s.list({ prefix: "tal2-" }) ]);
+ const [t1, t2] = await Promise.all([ s.list({ prefix: K.tallyPre }), s.list({ prefix: K.tal2Pre }) ]);
  const blobs = [ ...((t1 && t1.blobs) || []), ...((t2 && t2.blobs) || []) ];
  await Promise.all(blobs.map(async b => {
  const tally = compactTally(await s.get(b.key, { type:"json" }));
@@ -508,7 +754,7 @@ async function sumTally(s){
 
 /* Convert the old growing tap log to one compact per-device summary.
    Each device owns its own key, so 2-3 counters never overwrite each other. */
-function compactTally(value){
+export function compactTally(value){
  const out = { total:0, by:{} };
  if(Array.isArray(value)){
  for(const e of value){
@@ -526,48 +772,103 @@ function compactTally(value){
  return out;
 }
 
+/* ---- decisions aggregate (mirrors count-agg, own namespace) ---- */
+async function rebuildDecAgg(s, K){
+ let total = 0; const by = {};
+ const { blobs } = await s.list({ prefix: K.dec2Pre });
+ await Promise.all((blobs || []).map(async b => {
+  const t = compactTally(await s.get(b.key, { type:"json" }));
+  total += t.total;
+  for(const k of Object.keys(t.by)) by[k] = (by[k] || 0) + t.by[k];
+ }));
+ return { total: Math.max(0, total), by };
+}
+async function readDecAgg(s, K){
+ let agg = await s.get(K.decAgg, { type:"json" });
+ if(!agg || typeof agg.total !== "number" || !agg.by || typeof agg.by !== "object"){
+  agg = await rebuildDecAgg(s, K);
+  await s.setJSON(K.decAgg, agg).catch(() => {});
+ }
+ return agg;
+}
+async function bumpDecAgg(s, K, effTotal, effBy){
+ for(let attempt = 0; attempt < 20; attempt++){
+  if(attempt) await backoff(attempt);
+  let res = null;
+  try { res = await s.getWithMetadata(K.decAgg, { type:"json" }); } catch(_) { res = null; }
+  if(!(res && res.data && typeof res.data.total === "number")){
+   const fresh = await rebuildDecAgg(s, K);
+   let w; try { w = await s.setJSON(K.decAgg, fresh, { onlyIfNew:true }); } catch(_) { w = { modified:false }; }
+   if(w && w.modified) return;
+   continue;
+  }
+  const agg = { total: Math.max(0, (Number(res.data.total) || 0) + (effTotal || 0)), by: { ...res.data.by } };
+  if(effBy) for(const k of Object.keys(effBy)) agg.by[k] = Math.max(0, (Number(agg.by[k]) || 0) + effBy[k]);
+  let w; try { w = await s.setJSON(K.decAgg, agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
+  if(w && w.modified) return;
+ }
+ await s.delete(K.decAgg).catch(() => {});
+}
+
 /* Authoritative rebuild of the head count from every shard (legacy + tally). */
-async function rebuildAgg(s){
- const [cnt, tally] = await Promise.all([sumCounts(s), sumTally(s)]);
+async function rebuildAgg(s, K){
+ const [cnt, tally] = await Promise.all([sumCounts(s, K), sumTally(s, K)]);
  return { total: Math.max(0, cnt + tally.total), by: tally.by };
 }
 /* Fast read: use the cached aggregate; rebuild + seed it if it is missing. */
-async function readAgg(s){
- let agg = await s.get("count-agg", { type:"json" });
+async function readAgg(s, K){
+ let agg = await s.get(K.agg, { type:"json" });
  if(!agg || typeof agg.total !== "number" || !agg.by || typeof agg.by !== "object"){
-  agg = await rebuildAgg(s);
-  await s.setJSON("count-agg", agg).catch(() => {});
+  agg = await rebuildAgg(s, K);
+  await s.setJSON(K.agg, agg).catch(() => {});
  }
  return agg;
 }
 /* Apply an already-persisted shard delta to the cached aggregate under CAS.
    If it drifts or we can't win the race, we delete it so the next read rebuilds
    from the shards (which are the source of truth) — never wrong for long. */
-async function bumpAgg(s, effTotal, effBy){
+async function bumpAgg(s, K, effTotal, effBy){
  for(let attempt = 0; attempt < 20; attempt++){
   if(attempt) await backoff(attempt);
   let res = null;
-  try { res = await s.getWithMetadata("count-agg", { type:"json" }); } catch(_) { res = null; }
+  try { res = await s.getWithMetadata(K.agg, { type:"json" }); } catch(_) { res = null; }
   if(!(res && res.data && typeof res.data.total === "number")){
    // No cache yet — seed it from the shards (which already include this tap).
-   const fresh = await rebuildAgg(s);
-   let w; try { w = await s.setJSON("count-agg", fresh, { onlyIfNew:true }); } catch(_) { w = { modified:false }; }
+   const fresh = await rebuildAgg(s, K);
+   let w; try { w = await s.setJSON(K.agg, fresh, { onlyIfNew:true }); } catch(_) { w = { modified:false }; }
    if(w && w.modified) return;
    continue; // someone else seeded it; loop to apply our delta on top
   }
   const agg = { total: Math.max(0, (Number(res.data.total) || 0) + (effTotal || 0)), by: { ...res.data.by } };
   if(effBy) for(const k of Object.keys(effBy)) agg.by[k] = Math.max(0, (Number(agg.by[k]) || 0) + effBy[k]);
-  let w; try { w = await s.setJSON("count-agg", agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
+  let w; try { w = await s.setJSON(K.agg, agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
   if(w && w.modified) return;
  }
- await s.delete("count-agg").catch(() => {}); // give up cleanly → next read rebuilds
+ await s.delete(K.agg).catch(() => {}); // give up cleanly → next read rebuilds
 }
 
-async function assemble(s){
- let parts = await readAll(s);
- parts = await migrateIfNeeded(s, parts);
+async function assemble(s, K, active, lvl){
+ let parts = await readAll(s, K);
+ parts = await migrateIfNeeded(s, K, parts);
  const core = normCore(parts.core);
- const [agg, tallyEpoch, capturesRaw, churchesRaw] = await Promise.all([ readAgg(s), readEpoch(s), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }) ]);
+ const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, pinCfg] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), readDayPinCfg(s) ]);
+ const dayPin = pinCfg.pin;
+ /* Leaders (and only leaders) get the actual PIN plus when it rolls over, so
+    they can read it out at the huddle and tell people what changes Monday.
+    Volunteer clients still never receive it. */
+ let leaderInfo = {};
+ if(lvl === "leader"){
+  const ev = currentEvent(), i = SCHEDULE.indexOf(ev), nx = SCHEDULE[i + 1] || null;
+  leaderInfo = {
+   dayPin,
+   dayPinManual: pinCfg.manual,
+   dayPinAuto: pinCfg.auto,
+   eventDate: ev.date,
+   pinRollsOver: nx ? addDaysISO(ev.date, 2) : "",   // the Monday after this event
+   nextCounty: nx ? nx.key : "",
+   nextPin: nx ? pinForDate(nx.date) : ""
+  };
+ }
  const captures = normCaptures(capturesRaw);
  // Only the rev + count ride in the main payload; the roster itself is
  // fetched on demand (GET ?part=churches) so polling stays light.
@@ -579,6 +880,7 @@ async function assemble(s){
   p => mergeStarterScripts(p) ? p : undefined, () => ({ scripts: [] }));
  return {
  checklist: core.checklist,
+ extras: core.extras,
  notes: core.notes,
  announcements: core.announcements,
  checkins: normCheckins(parts.checkins),
@@ -586,11 +888,16 @@ async function assemble(s){
  praises: core.praises,
  count: Math.max(0, agg.total),
  tallyBy: agg.by || {},
+ decisions: Math.max(0, decAgg.total),
+ decBy: decAgg.by || {},
  tallyEpoch,
  radios: normRadios(parts.radios).list,
  event: core.event,
  ioList: (parts.io && Array.isArray(parts.io.list)) ? parts.io.list : [],
- dayPinSet: !!core.dayPin, // the PIN itself is never sent to clients
+ dayPinSet: !!dayPin, // the PIN itself is never sent to clients
+ county: K.cty,          // which county's board this is
+ countyAuto: !active.manual,
+ ...leaderInfo,
  funding: core.funding,
  prompter: prompter,
  // Quick Capture records hold seekers' contact info, so the shared payload
@@ -615,16 +922,83 @@ const json = (obj, status=200) => new Response(JSON.stringify(obj), {
  status, headers: { "Content-Type":"application/json", "Cache-Control":"no-store" }
 });
 
+/* ---- access control (v1.10.0) ----
+   Until now the Day PIN was enforced only in the browser: the API itself was
+   open, so anyone with the URL could read every check-in, issue, praise — and
+   the whole church CRM with pastors' names, numbers and private notes — or
+   write to any non-leader action. The gate is now enforced here.
+   Levels: "leader" (leader PIN), "day" (current Day PIN), "none".
+   When no Day PIN is configured the app is intentionally open, exactly as
+   before, so nothing breaks for a site that hasn't set one. */
+/* ---- leader session tokens ----
+   The client used to persist the leader PIN itself and send it with every
+   request, so any XSS could read the PIN out of sessionStorage and use it
+   forever (it unlocks the seekers' contact list). It now stores a random
+   token instead: expires on its own, and a leader can invalidate every
+   outstanding one with revokeLeaderTokens. The PIN still works directly,
+   so older clients keep functioning. */
+const LTOK_TTL_MS = 14 * 60 * 60 * 1000; // one long event day
+const ltokKey = t => "ltok-" + idStr(t, 64);
+async function issueLeaderToken(s){
+ const tok = (uid() + uid() + uid()).replace(/[^a-z0-9]/gi, "").slice(0, 40);
+ await s.setJSON(ltokKey(tok), { exp: Date.now() + LTOK_TTL_MS }).catch(() => {});
+ return tok;
+}
+async function validLeaderToken(s, tok){
+ if(!tok || tok.length < 16) return false;
+ let rec = null;
+ try { rec = await s.get(ltokKey(tok), { type:"json" }); } catch(_) {}
+ if(!rec || !(Number(rec.exp) > Date.now())) return false;
+ return true;
+}
+
+async function authLevel(s, K, req, body){
+ const leader = ((body && body.pin) || req.headers.get("x-leader-pin") || "").toString();
+ if(leader && leader === LEADER_PIN()) return "leader";
+ if(leader && await validLeaderToken(s, leader)) return "leader";
+ let day = ((body && body.dayPin) || req.headers.get("x-day-pin") || "").toString();
+ if(!day){ try { day = new URL(req.url).searchParams.get("dp") || ""; } catch(_) {} }
+ const dayPin = await readDayPin(s, K);
+ if(!dayPin) return "day";                // no Day PIN set → open, as before
+ if(day && day === dayPin) return "day";
+ return "none";
+}
+
+/* Test seam: the suite swaps in an in-memory stand-in for Netlify Blobs so the
+   request handler can be exercised without a network or a Netlify account.
+   Production always takes the getStore() path. */
+let _storeFactory = null;
+export function __setStoreFactory(fn){ _storeFactory = fn; }
+const openStore = () => _storeFactory ? _storeFactory() : getStore(STORE, { consistency: "strong" });
+
 export default async (req, context) => {
- const s = getStore(STORE, { consistency: "strong" });
+ const s = openStore();
+ // Which county's board are we on? Everything day-scoped keys off this.
+ await ensureScopeReady(s);
+ const active = await readActive(s);
+ const K = mkKeys(active.county);
 
  if(req.method === "GET"){
+  const lvl = await authLevel(s, K, req, null);
+  let wantPart = "";
+  try { wantPart = new URL(req.url).searchParams.get("part") || ""; } catch(_) {}
+  if(lvl === "none"){
+   /* Locked. The church roster is refused outright; the main payload returns
+      only what the client needs to draw the Day PIN gate — no event data, no
+      names, no contact info. */
+   if(wantPart === "churches") return json({ error:"day pin required", locked:true }, 403);
+   const body = JSON.stringify({ locked:true, dayPinSet:true });
+   const etag = 'W/"lock-' + hash(body) + '"';
+   if(req.headers.get("if-none-match") === etag){
+    return new Response(null, { status:304, headers:{ "ETag":etag, "Cache-Control":"no-store" } });
+   }
+   return new Response(body, { status:200, headers:{ "Content-Type":"application/json", "Cache-Control":"no-store", "ETag":etag } });
+  }
   /* Church roster is its own endpoint (+ETag) so phones download it only when
      it changed and only when someone is actually on the Mobilization tab.
      The read is also where missing starter churches self-seed (no-op write
      when nothing is missing). */
-  let part = "";
-  try { part = new URL(req.url).searchParams.get("part") || ""; } catch(_) {}
+  const part = wantPart;
   if(part === "churches"){
    const ch = await compareAndSwap(s, "churches", normChurches, c => {
     const merged = mergeStarterChurches(c);
@@ -639,7 +1013,7 @@ export default async (req, context) => {
    }
    return new Response(body, { status:200, headers:{ "Content-Type":"application/json", "Cache-Control":"no-store", "ETag":etag } });
   }
-  const body = JSON.stringify(await assemble(s));
+  const body = JSON.stringify(await assemble(s, K, active, lvl));
   const etag = 'W/"' + hash(body) + '"';
   // Unchanged since the client last saw it? Skip the payload AND the re-render.
   if(req.headers.get("if-none-match") === etag){
@@ -662,34 +1036,62 @@ export default async (req, context) => {
  return pinBlockedResp();
  }
 
+ /* ---- every write needs at least the Day PIN (the two verify actions are
+    how you obtain it, so they stay open) ---- */
+ let lvl = "none";
+ if(action !== "verifyLeaderPin" && action !== "verifyDayPin"){
+ lvl = await authLevel(s, K, req, body);
+ if(lvl === "none"){
+  if(body.dayPin) await pinNoteFail(s, failKey);
+  return json({ error:"day pin required", locked:true }, 403);
+ }
+ /* Read-only leader actions and the tally aren't "writes" worth budgeting;
+    everything that mutates a shared list is. Leaders are exempt — a leader
+    doing bulk work should never be throttled. */
+ if(lvl !== "leader" && action !== "capturesList" && action !== "captureMedia"){
+  if(!await rateHit(s, "wrate-" + pinFailKey(req, context).slice(8), WRITE_WINDOW_MS, WRITE_MAX)){
+   return rateBlockedResp("changes");
+  }
+ }
+ }
+
  /* ---- PIN verification (no state change) ---- */
  if(action === "verifyLeaderPin"){
- if(pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true }); }
+ if(pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, token: await issueLeaderToken(s) }); }
+ // A still-valid session token re-verifies without re-entering the PIN.
+ if(await validLeaderToken(s, pin)) return json({ ok:true, token: pin });
  if(pin) await pinNoteFail(s, failKey);
  return json({ error:"wrong pin" }, 403);
  }
  if(action === "verifyDayPin"){
- if(pin && pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, leader:true }); }
- const core = normCore((await s.get("core", { type:"json" })) || (await s.get("state", { type:"json" })) || {});
- if(core.dayPin && pin === core.dayPin) return json({ ok:true, leader:false });
+ if(pin && pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, leader:true, token: await issueLeaderToken(s) }); }
+ const dayPinNow = await readDayPin(s, K);
+ if(dayPinNow && pin === dayPinNow) return json({ ok:true, leader:false });
  if(pin) await pinNoteFail(s, failKey);
  return json({ error:"wrong pin" }, 403);
  }
 
- /* ---- privileged actions require the leader PIN, verified here ---- */
- if(LEADER_ACTIONS.has(action) && pin !== LEADER_PIN()){
+ /* ---- privileged actions require leader auth (PIN or a valid session
+    token — authLevel resolved both above) ---- */
+ if(LEADER_ACTIONS.has(action) && lvl !== "leader"){
  if(pin) await pinNoteFail(s, failKey);
  return json({ error:"leader pin required" }, 403);
+ }
+ /* Sign every leader out everywhere (lost phone, PIN shared too widely). */
+ if(action === "revokeLeaderTokens"){
+ const { blobs } = await s.list({ prefix: "ltok-" });
+ await Promise.all((blobs || []).map(b => s.delete(b.key).catch(() => {})));
+ return json({ ok:true, revoked: (blobs || []).length });
  }
 
  /* ---- legacy counter: each device writes ONLY its own shard ---- */
  if(action === "bump"){
- const key = devKey(payload.dev);
+ const key = devKey(payload.dev, K);
  const cur = (await s.get(key, { type:"json" })) || 0;
  const before = (typeof cur === "number" ? cur : 0);
  const after = before + (Number(payload.delta) || 0);
  await s.setJSON(key, after);
- await bumpAgg(s, after - before, null);
+ await bumpAgg(s, K, after - before, null);
  return json({ ok:true });
  }
 
@@ -703,22 +1105,22 @@ export default async (req, context) => {
     that already landed changes nothing, and a dropped request just means the
     next push carries the missing taps. The delta vs. the previous shard value
     is folded into the cached aggregate so GET stays O(1). ---- */
- if(action === "tallySet"){
- const epoch = await readEpoch(s);
+ /* ---- decisions counter (v1.10.0) ----
+    Attendance was the only number the app tracked, so the ministry's actual
+    outcome — people responding to the gospel — lived only in praise-wall
+    anecdotes. Same absolute-per-phone shard design as the head count, in its
+    own dec2-/dec-agg namespace, so it inherits the same idempotency. ---- */
+ if(action === "decSet"){
+ const epoch = await readEpoch(s, K);
  if(((payload.epoch || "") + "") !== epoch){
-  // The event was reset while this phone still held a pre-reset tally.
-  // Tell it to clear instead of resurrecting old numbers.
-  const agg = await readAgg(s);
-  return json({ ok:false, epochMismatch:true, epoch, count: Math.max(0, agg.total), tallyBy: agg.by || {} });
+  const dagg = await readDecAgg(s, K);
+  return json({ ok:false, epochMismatch:true, epoch, decisions: Math.max(0, dagg.total), decBy: dagg.by || {} });
  }
  const inc = compactTally({ total: payload.total, by: payload.by });
  const next = { total: Math.min(inc.total, 100000), by: {} };
- for(const k of Object.keys(inc.by).slice(0, 30)){
-  const name = str(k, 40) || "?";
-  next.by[name] = Math.min(inc.by[k], 100000);
- }
+ for(const k of Object.keys(inc.by).slice(0, 30)) next.by[str(k, 40) || "?"] = Math.min(inc.by[k], 100000);
  let prev = { total:0, by:{} };
- await compareAndSwap(s, tal2Key(payload.dev), compactTally, cur => {
+ await compareAndSwap(s, dec2Key(payload.dev, K), compactTally, cur => {
   prev = cur;
   return (JSON.stringify(cur) === JSON.stringify(next)) ? undefined : next;
  }, () => ({ total:0, by:{} }));
@@ -728,13 +1130,43 @@ export default async (req, context) => {
   if(d) effBy[k] = d;
  }
  const effTotal = next.total - prev.total;
- if(effTotal || Object.keys(effBy).length) await bumpAgg(s, effTotal, effBy);
- const agg = await readAgg(s);
+ if(effTotal || Object.keys(effBy).length) await bumpDecAgg(s, K, effTotal, effBy);
+ const dagg = await readDecAgg(s, K);
+ return json({ ok:true, decisions: Math.max(0, dagg.total), decBy: dagg.by || {} });
+ }
+
+ if(action === "tallySet"){
+ const epoch = await readEpoch(s, K);
+ if(((payload.epoch || "") + "") !== epoch){
+  // The event was reset while this phone still held a pre-reset tally.
+  // Tell it to clear instead of resurrecting old numbers.
+  const agg = await readAgg(s, K);
+  return json({ ok:false, epochMismatch:true, epoch, count: Math.max(0, agg.total), tallyBy: agg.by || {} });
+ }
+ const inc = compactTally({ total: payload.total, by: payload.by });
+ const next = { total: Math.min(inc.total, 100000), by: {} };
+ for(const k of Object.keys(inc.by).slice(0, 30)){
+  const name = str(k, 40) || "?";
+  next.by[name] = Math.min(inc.by[k], 100000);
+ }
+ let prev = { total:0, by:{} };
+ await compareAndSwap(s, tal2Key(payload.dev, K), compactTally, cur => {
+  prev = cur;
+  return (JSON.stringify(cur) === JSON.stringify(next)) ? undefined : next;
+ }, () => ({ total:0, by:{} }));
+ const effBy = {};
+ for(const k of new Set([ ...Object.keys(prev.by), ...Object.keys(next.by) ])){
+  const d = (next.by[k] || 0) - (prev.by[k] || 0);
+  if(d) effBy[k] = d;
+ }
+ const effTotal = next.total - prev.total;
+ if(effTotal || Object.keys(effBy).length) await bumpAgg(s, K, effTotal, effBy);
+ const agg = await readAgg(s, K);
  return json({ ok:true, count: Math.max(0, agg.total), tallyBy: agg.by || {} });
  }
 
  if(action === "tallyAdd"){
- const key = tallyKey(payload.dev);
+ const key = tallyKey(payload.dev, K);
  const tally = compactTally(await s.get(key, { type:"json" }));
  const by = (payload.by || "?").toString().slice(0, 40) || "?";
  const delta = Number(payload.delta) || 0;
@@ -742,17 +1174,37 @@ export default async (req, context) => {
  tally.total = Math.max(0, tally.total + delta);
  tally.by[by] = Math.max(0, (tally.by[by] || 0) + delta);
  await s.setJSON(key, tally);
- await bumpAgg(s, tally.total - beforeTotal, { [by]: tally.by[by] - beforeBy });
+ await bumpAgg(s, K, tally.total - beforeTotal, { [by]: tally.by[by] - beforeBy });
  return json({ ok:true });
  }
 
  /* ---- everything else touches exactly one blob, via compare-and-swap ---- */
  // Ensure the split blobs exist (first-run migration off the old single blob).
- await migrateIfNeeded(s, await readAll(s));
+ await migrateIfNeeded(s, K, await readAll(s, K));
 
  switch(action){
+ /* v1.10.0 — idempotent checkmark write for the client's persistent outbox.
+    The payload states the FINAL value ({id, on}) instead of "flip whatever is
+    there", so a retried request that already landed is a no-op — with the old
+    toggleCheck, a retry after a landed-but-unconfirmed write would flip the
+    mark back off. toggleCheck stays below for phones still on the old client. */
+ case "setCheck":
+ await casCore(s, K, core => {
+ const id = str(payload.id, 60);
+ if(!id) return undefined;
+ const cur = core.checklist[id];
+ if(payload.on){
+ if(cur) return undefined; // already checked — keep the first author's stamp
+ core.checklist[id] = { by: str(payload.by, 40), t: str(payload.t, 12), dm: (payload.dm ?? null) };
+ }else{
+ if(!cur) return undefined;
+ delete core.checklist[id];
+ }
+ return core;
+ });
+ break;
  case "toggleCheck":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  const id = payload.id;
  if(id){
  if(core.checklist[id]) delete core.checklist[id];
@@ -761,8 +1213,29 @@ export default async (req, context) => {
  return core;
  });
  break;
+ case "addChecklistItem":
+ await casCore(s, K, core => {
+ const it = normExtraItem(payload);
+ if(!it.text) return undefined;
+ core.extras = normExtras(core.extras);
+ if(core.extras.some(x => x.id === it.id)) return undefined; // idempotent retry
+ if(core.extras.length >= 100) return undefined;
+ core.extras.push(it);
+ return core;
+ });
+ break;
+ case "removeChecklistItem":
+ await casCore(s, K, core => {
+ const id = idStr(payload.id);
+ core.extras = normExtras(core.extras);
+ if(!core.extras.some(x => x.id === id)) return undefined;
+ core.extras = core.extras.filter(x => x.id !== id);
+ delete core.checklist["x-" + id];   // drop its checkmark too
+ return core;
+ });
+ break;
  case "setChecklistNote":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  const id = str(payload.id, 60);
  if(!id) return undefined;
  core.notes = core.notes || {};
@@ -771,37 +1244,64 @@ export default async (req, context) => {
  return core;
  });
  break;
+ /* v1.10.0 — every add is idempotent on the client-generated id, so the
+    client outbox can safely retry a request that may have already landed
+    without creating duplicates. */
  case "addCheckin":
- await compareAndSwap(s, "checkins", normCheckins, list => { list.push(normCheckin(payload)); return list.slice(-2000); }, () => []);
+ await compareAndSwap(s, K.checkins, normCheckins, list => {
+ if(payload.id && list.some(c => c.id === payload.id)) return undefined; // retry of an applied write
+ list.push(normCheckin(payload)); return list.slice(-2000);
+ }, () => []);
  break;
  case "addAnnouncement":
- await casCore(s, core => { core.announcements.unshift(normAnn(payload)); core.announcements = core.announcements.slice(0, 200); return core; });
+ await casCore(s, K, core => {
+ if(payload.id && core.announcements.some(a => a.id === payload.id)) return undefined;
+ core.announcements.unshift(normAnn(payload)); core.announcements = core.announcements.slice(0, 200); return core;
+ });
  break;
  case "addPraise":
- await casCore(s, core => {
+ await casCore(s, K, core => {
+ if(payload.id && core.praises.some(x => x.id === payload.id)) return undefined;
  const it = normPraiseItem(payload); it.hidden = false; it.ackBy = ""; it.ackT = ""; it.comments = [];
  core.praises.unshift(it); core.praises = core.praises.slice(0, 500); return core;
  });
  break;
  case "addFeedback":
- await casCore(s, core => {
+ await casCore(s, K, core => {
+ if(payload.id && core.feedback.some(x => x.id === payload.id)) return undefined;
  const it = normIssue(payload); it.hidden = false; it.ackBy = ""; it.ackT = ""; it.comments = [];
  core.feedback.unshift(it); core.feedback = core.feedback.slice(0, 500); return core;
  });
  break;
  case "addComment":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  const arr = payload.kind === "praise" ? core.praises : (payload.kind === "ann" ? core.announcements : core.feedback);
  const it = arr.find(x => x.id === payload.id);
  if(!it) return undefined; // nothing to update — skip the write
  it.comments = Array.isArray(it.comments) ? it.comments : [];
- it.comments.push({ name: str(payload.name || "Volunteer", 40), text: str(payload.text, 500), t: str(payload.t, 12) });
+ const cid = str(payload.cid, 40);
+ if(cid && it.comments.some(c => c.cid === cid)) return undefined; // retry of an applied write
+ it.comments.push({ cid, name: str(payload.name || "Volunteer", 40), text: str(payload.text, 500), t: str(payload.t, 12) });
  it.comments = it.comments.slice(-100);
  return core;
  });
  break;
+ /* v1.10.0 — explicit-state radio write. The payload carries the radio's
+    FINAL out/in stamps, so a retried request (or two people tapping the same
+    radio at once) sets the same state instead of flipping it back the way
+    radioToggle did. radioToggle stays below for phones on the old client. */
+ case "setRadio":
+ await compareAndSwap(s, K.radios, normRadios, rad => {
+ const n = Number(payload.n);
+ if(!(n >= 1 && n <= 10)) return undefined;
+ const next = { n, out: normStamp(payload.out), in: normStamp(payload.in) };
+ if(JSON.stringify(rad.list[n-1]) === JSON.stringify(next)) return undefined; // already there
+ rad.list[n-1] = next;
+ return rad;
+ }, () => ({ list: defaultRadios() }));
+ break;
  case "radioToggle":
- await compareAndSwap(s, "radios", normRadios, rad => {
+ await compareAndSwap(s, K.radios, normRadios, rad => {
  const n = Number(payload.n);
  if(!(n >= 1 && n <= 10)) return undefined;
  const r = rad.list[n-1];
@@ -812,20 +1312,65 @@ export default async (req, context) => {
  }, () => ({ list: defaultRadios() }));
  break;
  case "setEvent":
- await casCore(s, core => { core.event = { name: payload.name || "", date: payload.date || "" }; return core; });
+ await casCore(s, K, core => { core.event = { name: str(payload.name, 80), date: str(payload.date, 40), shift: Math.max(0, Math.min(2, Math.round(Number(payload.shift) || 0))) }; return core; });
  break;
  case "setIOList":
+ /* Wholesale roster replacement — now used ONLY for structural edits (edit
+    list / reload defaults). Patch checkmark taps go through ioSetRow below
+    so concurrent techs can't clobber each other's progress. */
  if(!Array.isArray(payload.list)) break;
- await compareAndSwap(s, "io", normIO, io => { io.list = payload.list; return io; }, () => ({ list: [] }));
+ await compareAndSwap(s, K.io, normIO, io => { io.list = payload.list; return io; }, () => ({ list: [] }));
  break;
+ /* v1.10.0 — per-row patch checkmark, merged server-side. Idempotent: a
+    retried request that already landed is a no-op, and two techs checking
+    DIFFERENT rows at the same time both stick (the old full-list setIOList
+    was last-write-wins across the whole roster). `seed` carries the client's
+    full roster only for the first-ever write, when the server list is empty. */
+ case "ioSetRow": {
+ await compareAndSwap(s, K.io, normIO, io => {
+ if(!io.list.length && Array.isArray(payload.seed) && payload.seed.length) io.list = payload.seed;
+ let hit = null;
+ for(const p of io.list) if(p && p.id === payload.pid) for(const r of (p.rows || [])) if(r && r.id === payload.rid) hit = r;
+ if(!hit) return undefined;
+ const done = !!payload.done;
+ if(!!hit.done === done) return undefined; // already in the desired state (keep the first author's stamp)
+ hit.done = done;
+ hit.by = done ? str(payload.by, 40) : "";
+ hit.t = done ? str(payload.t, 12) : "";
+ return io;
+ }, () => ({ list: [] }));
+ break;
+ }
  case "setDayPin":
- await casCore(s, core => { core.dayPin = (payload.pin || "").toString().trim().slice(0, 10); return core; });
+ /* Global, not county-scoped. payload.auto returns it to following the
+    schedule (event Saturday as MMDD); otherwise the leader's PIN is pinned
+    until they turn automatic back on. */
+ if(payload.auto) await s.setJSON(DAYPIN_KEY, { mode:"auto", pin:"" });
+ else await s.setJSON(DAYPIN_KEY, { mode:"manual", pin: (payload.pin || "").toString().trim().slice(0, 10) });
  break;
  case "setFunding":
- await casCore(s, core => { core.funding = { pct: clampPct(payload.pct), needed: (payload.needed || "").toString().slice(0, 30) || core.funding.needed }; return core; });
+ await casCore(s, K, core => { core.funding = { pct: clampPct(payload.pct), needed: (payload.needed || "").toString().slice(0, 30) || core.funding.needed }; return core; });
+ break;
+ /* v1.10.0 — idempotent acknowledge/hide, same treatment as setCheck. The
+    payload states the FINAL hidden value instead of toggling, so a retried
+    request or two leaders acking the same card at once can't flip it back to
+    visible (the "acknowledge & hide didn't actually hide it" bug). ackCard
+    stays below for phones still on the old client. */
+ case "setAck":
+ await casCore(s, K, core => {
+ const arr = payload.kind === "praise" ? core.praises : core.feedback;
+ const it = arr.find(x => x.id === payload.id);
+ if(!it) return undefined;
+ const hide = !!payload.hidden;
+ if(it.hidden === hide) return undefined; // already in the desired state — no-op
+ it.hidden = hide;
+ it.ackBy = hide ? str(payload.by, 40) : "";
+ it.ackT = hide ? str(payload.t, 12) : "";
+ return core;
+ });
  break;
  case "ackCard":
- await casCore(s, core => {
+ await casCore(s, K, core => {
  const arr = payload.kind === "praise" ? core.praises : core.feedback;
  const it = arr.find(x => x.id === payload.id);
  if(!it) return undefined;
@@ -837,26 +1382,66 @@ export default async (req, context) => {
  });
  break;
  case "reset": {
- /* ISSUES AND PRAISES SURVIVE THE RESET, per leadership — the praise wall is
-    a lasting testimony record, not a day-scoped list (this also fixes reports
-    of praise "disappearing" / being un-postable after an end-of-day reset).
-    Clears checklists, check-ins, counts (legacy + tally), announcements &
-    radios. Keeps event info, Day PIN, funding, I/O roster (progress cleared),
-    the Recording Studio scripts, issues and praises. Quick Captures also
-    SURVIVE the reset — they are seekers' contact info headed for the CRM,
-    never day-scoped throwaway data (leaders delete them individually once
-    they're in Planning Center). The Mobilization church CRM ("churches" blob)
-    also survives — it's a season-long relationship record. */
- await casCore(s, core => ({ ...EMPTY_CORE, event: core.event, dayPin: core.dayPin, funding: core.funding, feedback: core.feedback, praises: core.praises }));
- await compareAndSwap(s, "io", normIO, io => { io.list = ioListClearProgress(io.list); return io; }, () => ({ list: [] }));
- const [c1, c2, c3] = await Promise.all([ s.list({ prefix: "count-" }), s.list({ prefix: "tally-" }), s.list({ prefix: "tal2-" }) ]);
- const doomed = [ ...((c1 && c1.blobs) || []), ...((c2 && c2.blobs) || []), ...((c3 && c3.blobs) || []) ]
-  .filter(b => b.key !== "count-agg"); // rewritten below, not deleted (racy otherwise)
+ /* PRAISES SURVIVE THE RESET, per leadership — the praise wall is a lasting
+    testimony record, not a day-scoped list. Issues are CLEARED (leadership,
+    Jul 2026 — they are day-scoped punch-list items, and the pre-reset
+    snapshot below keeps them recoverable). Clears checklists, check-ins,
+    counts (legacy + tally), announcements, radios and issues. Keeps event
+    info, Day PIN, funding, I/O roster (progress cleared), the Recording
+    Studio scripts and praises. Quick Captures also SURVIVE the reset — they
+    are seekers' contact info headed for the CRM, never day-scoped throwaway
+    data (leaders delete them individually once they're in Planning Center).
+    The Mobilization church CRM ("churches" blob) also survives — it's a
+    season-long relationship record. */
+ {
+ const [curCore, curCheckins, curIO, curRadios] = await Promise.all([
+  s.get(K.core, { type:"json" }), s.get(K.checkins, { type:"json" }),
+  s.get(K.io, { type:"json" }), s.get(K.radios, { type:"json" })
+ ]);
+ await snapshot(s, "reset", { core: curCore, checkins: curCheckins, io: curIO, radios: curRadios });
+ /* Season roll-up: reset is the ONLY moment this event's numbers still
+    exist, so close the event out into a tiny per-event summary before
+    clearing. Eight counties of these are what let leadership answer
+    "how did the season go?" in October. */
+ {
+ const core2 = normCore(curCore);
+ const [agg2, dec2, caps2] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), s.get("captures", { type:"json" }) ]);
+ const checkins2 = normCheckins(curCheckins);
+ const io2 = normIO(curIO);
+ let ioDone = 0, ioTotal = 0;
+ for(const p of io2.list){ if(p.off) continue; for(const r of (p.rows || [])){ ioTotal++; if(r.done) ioDone++; } }
+ const entry = {
+  at: new Date().toISOString(),
+  county: K.cty,
+  event: core2.event,
+  attendance: Math.max(0, agg2.total),
+  decisions: Math.max(0, dec2.total),
+  decBy: dec2.by || {},
+  volunteers: checkins2.length,
+  teams: [...new Set(checkins2.map(c => c.team).filter(Boolean))].length,
+  captures: normCaptures(caps2).length,
+  issues: core2.feedback.length,
+  praises: core2.praises.length,
+  checklistDone: Object.keys(core2.checklist || {}).length,
+  ioDone, ioTotal
+ };
+ await compareAndSwap(s, "season", v => ({ events: Array.isArray(v && v.events) ? v.events : [] }),
+  seasonV => { seasonV.events.push(entry); seasonV.events = seasonV.events.slice(-40); return seasonV; },
+  () => ({ events: [] })).catch(() => {});
+ }
+ }
+ // The rain-date shift is day-specific — the next event starts unshifted.
+ await casCore(s, K, core => ({ ...EMPTY_CORE, event: { ...core.event, shift: 0 }, dayPin: core.dayPin, funding: core.funding, praises: core.praises }));
+ await compareAndSwap(s, K.io, normIO, io => { io.list = ioListClearProgress(io.list); return io; }, () => ({ list: [] }));
+ const [c1, c2, c3, c4] = await Promise.all([ s.list({ prefix: K.countPre }), s.list({ prefix: K.tallyPre }), s.list({ prefix: K.tal2Pre }), s.list({ prefix: K.dec2Pre }) ]);
+ const doomed = [ ...((c1 && c1.blobs) || []), ...((c2 && c2.blobs) || []), ...((c3 && c3.blobs) || []), ...((c4 && c4.blobs) || []) ]
+  .filter(b => b.key !== K.agg); // rewritten below, not deleted (racy otherwise)
  await Promise.all([
- s.setJSON("checkins", []),
- s.setJSON("radios", { list: defaultRadios() }),
- s.setJSON("count-agg", { total:0, by:{} }),
- s.setJSON("tallyEpoch", { e: uid() }), // stale phones clear instead of re-pushing old tallies
+ s.setJSON(K.checkins, []),
+ s.setJSON(K.radios, { list: defaultRadios() }),
+ s.setJSON(K.agg, { total:0, by:{} }),
+ s.setJSON(K.decAgg, { total:0, by:{} }),
+ s.setJSON(K.epoch, { e: uid() }), // stale phones clear instead of re-pushing old tallies
  ...doomed.map(b => s.delete(b.key))
  ]);
  break;
@@ -910,8 +1495,21 @@ export default async (req, context) => {
  // record never points at media that failed to store.
  const rec = normCapture(payload);
  rec.bytes = 0;
+ /* Records are irreplaceable (a seeker's contact info), so when the list is
+    at its cap we REFUSE the new one instead of letting slice() evict the
+    oldest. Losing the newest is recoverable — the ambassador still has the
+    card in hand and gets told — while silently dropping the oldest is not. */
+ {
+ const existing = normCaptures(await s.get("captures", { type:"json" }));
+ if(existing.length >= CAPTURE_LIST_MAX && !existing.some(c => c.id === rec.id)){
+  return json({ error:"capture list is full — export to Planning Center and purge before capturing more", full:true }, 507);
+ }
+ }
  const media = payload.media || null;
  if(media && typeof media.dataUrl === "string" && media.dataUrl.startsWith("data:") && media.dataUrl.length <= CAPTURE_MEDIA_MAX){
+ if(!await rateHit(s, "mrate-" + pinFailKey(req, context).slice(8), MEDIA_WINDOW_MS, MEDIA_MAX_PER_IP)){
+  return rateBlockedResp("photo/voice uploads");
+ }
  // Enforce the storage budget: when it's full, keep the typed record (never
  // lose the contact) but refuse the media and say so in the notes.
  const existing = normCaptures(await s.get("captures", { type:"json" }));
@@ -927,17 +1525,53 @@ export default async (req, context) => {
  } else { rec.hasMedia = false; rec.mediaKind = ""; }
  await compareAndSwap(s, "captures", normCaptures, list => {
  if(list.some(c => c.id === rec.id)) return undefined; // idempotent retry
+ if(list.length >= CAPTURE_LIST_MAX) return undefined; // full (re-checked under CAS)
  list.push(rec);
- return list.slice(-1000);
+ return list;
  }, () => []);
  break;
  }
+ /* Switch the whole board to another county (v1.11.0). Day-scoped blobs are
+    namespaced per county, so this swaps checklists, check-ins, counts, radios,
+    issues, announcements and I/O progress in one write — no reset, and the
+    previous county's work stays exactly where it was.
+    The FIRST switch adopts whatever is currently in the unscoped blobs as that
+    county's data, so a board already in use isn't stranded. */
+ case "setCounty": {
+ /* payload.auto = follow the schedule again (the default behaviour). */
+ if(payload.auto){
+  await s.setJSON(ACTIVE_KEY, { county:"", mode:"auto", migrated:true });
+  return json({ ok:true, county: currentEvent().key, manual:false });
+ }
+ const want = idStr(payload.county, 24);
+ if(payload.county && !COUNTY_KEYS.has(want)) return json({ error:"unknown county" }, 400);
+ const cur = await readActive(s);
+ if(cur.manual && cur.county === want) return json({ ok:true, county: want, manual:true });
+ await s.setJSON(ACTIVE_KEY, { county: want, mode:"manual", migrated: true });
+ /* Rotate the target county's tally epoch so phones holding another county's
+    tally clear it instead of pushing those taps onto this board. */
+ const target = mkKeys(want);
+ await s.setJSON(target.epoch, { e: uid() });
+ return json({ ok:true, county: want });
+ }
+ case "seasonList":
+ return json(await compareAndSwap(s, "season", v => ({ events: Array.isArray(v && v.events) ? v.events : [] }), () => undefined, () => ({ events: [] })));
  case "capturesList":
  return json({ captures: normCaptures(await s.get("captures", { type:"json" })) });
  case "captureMedia": {
  const dataUrl = await s.get(capMediaKey(payload.id));
  return json({ id: str(payload.id, 40), dataUrl: (typeof dataUrl === "string" && dataUrl.startsWith("data:")) ? dataUrl : "" });
  }
+ case "captureSetState":
+ await compareAndSwap(s, "captures", normCaptures, list => {
+ const id = idStr(payload.id);
+ const st = CAPTURE_STATES.has(payload.st) ? payload.st : "new";
+ const it = list.find(c => c.id === id);
+ if(!it || it.st === st) return undefined;
+ it.st = st;
+ return list;
+ }, () => []);
+ break;
  case "captureDelete":
  await compareAndSwap(s, "captures", normCaptures, list => {
  const id = str(payload.id, 40);
@@ -1078,9 +1712,20 @@ export default async (req, context) => {
  break;
  }
  case "capturePurge": {
+ /* Refuse while anything is still unfiled — the button's whole premise is
+    "these are all in Planning Center now". */
+ {
+ const list = normCaptures(await s.get("captures", { type:"json" }));
+ const pending = list.filter(c => c.st !== "entered" && c.st !== "done").length;
+ if(pending && !payload.force){
+  return json({ error:"still unfiled", pending, needsForce:true }, 409);
+ }
+ }
  /* Wholesale cleanup once everything is in Planning Center Online: clears
     the capture list AND every capmedia- blob (listing by prefix also sweeps
-    up any orphaned media whose record was already gone). */
+    up any orphaned media whose record was already gone). Text records are
+    snapshotted first (media is not — too large). */
+ await snapshot(s, "purge", { captures: await s.get("captures", { type:"json" }) });
  const { blobs } = await s.list({ prefix: "capmedia-" });
  await Promise.all((blobs || []).map(b => s.delete(b.key).catch(() => {})));
  await s.setJSON("captures", []);

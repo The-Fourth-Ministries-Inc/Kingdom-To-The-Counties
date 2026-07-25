@@ -38,8 +38,8 @@ CRM push is a later build). Privacy & resilience:
   double-submit). The "Captured from this phone" list shows sent/waiting state.
 - Photos are downscaled client-side (≤1400 px JPEG) and voice notes cap at 3
   minutes so submissions stay field-signal friendly.
-- Captures **survive the end-of-day reset** — like issues, they're not
-  day-scoped data.
+- Captures **survive the end-of-day reset** — like praises, they're not
+  day-scoped data. (Issues are day-scoped and DO clear on reset as of v1.10.0.)
 - **Storage meter + purge (v1.7.1):** the Leader Dashboard shows a live
   "Quick Capture storage" bar — the backend tracks exactly how many bytes
   capture media is using against a budget (default **1 GB**, override with a
@@ -47,7 +47,9 @@ CRM push is a later build). Privacy & resilience:
   appears in the dashboard; at **95%** it goes mission-critical, and once the
   budget is full new photo/voice attachments are refused server-side (typed
   info still saves, with a note flagging the dropped media). A **🧹 Purge all
-  exported captures** button — behind the reset password *and* the leader PIN
+  exported captures** button — behind a type-PURGE confirmation *and* the
+  leader PIN (the confirmation is a speed bump in the browser; the leader PIN
+  is the real gate and is verified server-side)
   — permanently deletes every capture record and media blob once leadership
   confirms it has all been entered into Planning Center Online.
 
@@ -144,6 +146,60 @@ automatically on deploy.
   retrying on a conflict. Two leaders toggling different checkmarks at the same
   instant both stick (the pre-v20 last-write-wins was the cause of checkmarks
   that "only occasionally" saved).
+- **Every tap-frequency write goes through a persistent outbox (v1.10.0).**
+  Checkmarks, item notes, acknowledge-&-hide, Tech I/O patch rows, radio
+  checkouts, check-ins, praise posts, issue reports, announcements and
+  comments are queued in `localStorage` and retried with backoff until the
+  server confirms — a failed request delays the write instead of silently
+  dropping it, and the queue survives a reload or closed tab. Queued writes
+  are re-applied on top of every incoming poll, so the background sync can
+  never visually "undo" work that hasn't flushed yet (the bug behind
+  volunteers' checkmarks disappearing — and acknowledged issues reappearing —
+  even on a working connection). The sync pill shows how many changes are
+  still waiting to send.
+- **Every queued action is idempotent, so retries are safe.** Set-style writes
+  (`setCheck`, `setAck`, `setRadio`, `ioSetRow`) carry the explicit FINAL
+  state — a retry that already landed, or two people doing the same thing at
+  once, is a no-op rather than a re-toggle. Add-style writes (check-ins,
+  praise, issues, announcements, comments) carry a client-generated id the
+  server dedupes on, so a retry can't create duplicates. (The old
+  toggle-style `toggleCheck`/`ackCard`/`radioToggle` actions remain server-side
+  for phones still running an older client.)
+- **Tech I/O patch checkmarks are merged per-row (v1.10.0).** A checkbox tap
+  sends just that row's state (`ioSetRow`) and the server merges it into the
+  stored roster — the previous design uploaded the whole roster per tap
+  (last-write-wins), so two techs patching simultaneously erased each other's
+  checkmarks. Wholesale `setIOList` is still used for structural edits
+  (edit list / reload defaults), which are single-leader operations.
+- **The Day PIN and the active county follow the schedule (v1.11.0).** The Day
+  PIN is simply the event's Saturday as `MMDD` (Jul 25 → `0725`). An event stays
+  current **through its Sunday** — so a rain-date Sunday keeps the same PIN and
+  the same board — and the next county takes over on the **Monday following**.
+  Nobody has to set anything between events. Dates live in `SCHEDULE` in
+  `data.mjs` (keep in step with `COUNTIES` in `js/counties.js`) and roll over on
+  New Hampshire time, not UTC, so the change never lands mid-teardown. Leaders
+  see the live PIN and exactly when it rolls over in the dashboard; volunteers
+  never receive it. Either can be pinned by hand and switched back to automatic.
+- **Each county is its own board (v1.11.0).** A leader picks the current county
+  in the dashboard; every day-scoped blob is namespaced per county
+  (`core~carroll`, `checkins~carroll`, `count-agg~carroll`, per-phone tally and
+  decision shards, …). Switching counties swaps checklists, check-ins, counts,
+  decisions, radios, issues, announcements and I/O progress in one write — so
+  **reset is no longer needed between events**, and the previous county's work
+  stays exactly where it was. Season-long data (church CRM, teleprompter
+  scripts, Quick Captures, season summaries, backups) is deliberately NOT
+  scoped, and neither is the **Day PIN** — one PIN for the whole season, stored
+  in its own blob. With no county selected, the original unscoped keys are used,
+  so existing deployments behave exactly as before; the first county switch
+  adopts that in-progress board as the chosen county's data rather than
+  stranding it.
+- **Destructive actions snapshot first (v1.10.0).** Reset and capture-purge
+  copy the data they're about to destroy into a `backup-<timestamp>-<tag>`
+  blob (newest 20 kept) before clearing anything. There's no in-app restore;
+  recovery is copying a backup's contents back over the live blobs via the
+  Netlify Blobs UI or CLI. Reset clears checklists, check-ins, counts,
+  announcements, radios **and issues** (praises, captures, the church CRM,
+  event info, Day PIN, funding and the I/O roster structure survive).
 - **The head count is O(1) to read.** Taps still land in per-phone shards (never
   lost), but a cached `count-agg` blob is kept in sync incrementally, so a `GET`
   reads one blob instead of listing + fetching every device shard. It rebuilds
@@ -157,6 +213,21 @@ automatically on deploy.
   (Legacy `count-`/`tally-` delta shards from older clients still sum in.)
 - **Polls are cheap.** `GET` returns a weak `ETag`; clients send `If-None-Match`
   and get a bodyless `304` (and skip re-rendering) whenever nothing changed.
+- **The Day PIN is enforced server-side (v1.10.0).** Every request carries the
+  Day PIN (or a leader credential); without one, `GET` returns only enough to
+  draw the lock screen, `?part=churches` is refused, and every write is
+  rejected. Before this the PIN only gated the browser UI — the API itself was
+  open to anyone with the URL. Sites that have not set a Day PIN stay open, as
+  before.
+- **Leaders hold a revocable session token, not the PIN.** `verifyLeaderPin`
+  issues a random token (14h TTL) that the phone stores and sends; the PIN
+  itself is never persisted. `revokeLeaderTokens` signs every leader out at
+  once (lost phone, PIN shared too widely).
+- **Per-IP write budgets.** Non-leader writes are capped (400 / 10 min) and
+  media uploads more tightly (40 / hour), reusing the PIN-throttle blob
+  pattern. Captures at the 1000-record ceiling are **refused** (HTTP 507) so
+  the oldest irreplaceable contacts are never silently evicted; the phone
+  keeps the record queued and says storage is full.
 - **User-submitted content is normalized server-side** — feedback, praise,
   announcements, check-ins and comments have their fields whitelisted, lengths
   capped, and `priority`/`pri` validated against a fixed set. Clients can't
@@ -190,6 +261,44 @@ Requires [Node.js](https://nodejs.org). Then:
 npm install
 npx netlify dev
 ```
+
+### Code layout
+
+The app still has **no build step** — the browser loads plain ES5 scripts in
+order, all sharing globals, exactly as when everything lived inline. The three
+big script blocks were split out of `index.html` so each is editable on its own:
+
+| File | What's in it |
+| --- | --- |
+| `js/app-core.js` | sync layer & outbox, checklists, counters, radios, Tech I/O, boards, dashboard, Quick Capture |
+| `js/counties.js` | shared county roster + Recording Studio / teleprompter |
+| `js/mobilize.js` | Pre-Crusade Mobilization church CRM |
+
+Order matters (`app-core` → `counties` → `mobilize`); they are listed at the
+bottom of `index.html` and precached in `sw.js`. When adding a file, add it to
+both.
+
+### Tests
+
+```bash
+npm test
+```
+
+Runs two things, neither needing a network or a Netlify account:
+
+1. **`npm run check:syntax`** — parses every shipped script (`js/*.js`,
+   `netlify/functions/*.mjs`, `scripts/*.mjs`, `sw.js`), every inline block in
+   `index.html`, and verifies each `<script src>` the page references exists.
+   With no build step this is the only thing standing between a typo and a
+   phone in a field.
+2. **`node --test test/`** — unit tests over the server-side normalizers plus
+   an integration test that drives the real request handler against an
+   in-memory blob store (per-county isolation, shared Day PIN, season-long
+   data, reset scoping). Normalizer coverage: id
+   sanitization, URL scheme filtering, field whitelisting, clamping, tombstones
+   and the legacy tally conversion. These encode rules the rest of the app
+   relies on — e.g. if `idStr` stopped stripping quotes, the `onclick`
+   handlers in the client would become injectable again.
 
 ## Contributing
 

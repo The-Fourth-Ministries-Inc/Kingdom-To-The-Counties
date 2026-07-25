@@ -4,3 +4,16 @@
 
 [functions]
   node_bundler = "esbuild"
+
+# Security headers. The app uses inline event handlers and inline <style>, so
+# 'unsafe-inline' is required for script/style — but connect-src 'self' means an
+# injected script still can't POST stolen data to another host, and object-src
+# /base-uri/frame-ancestors close the usual escape hatches.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "same-origin"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "geolocation=(), interest-cohort=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
