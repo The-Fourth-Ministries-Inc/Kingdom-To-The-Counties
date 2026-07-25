@@ -159,11 +159,18 @@ function captureUsage(list){
  for(const c of (list || [])) bytes += (c.bytes > 0 ? c.bytes : (c.hasMedia ? CAPTURE_BYTES_FALLBACK : 0));
  return bytes;
 }
+/* The counselor booklet requires the response type on every encounter, and the
+   leader pipeline needs per-record follow-up state so "purge, it's all in
+   Planning Center" can be verified rather than trusted. */
+const CAPTURE_RESPONSES = new Set(["", "salvation", "dedication", "rededication", "prayer"]);
+const CAPTURE_STATES = new Set(["new", "entered", "done"]);
 function normCapture(x){
  x = x || {};
  return {
   id: idStr(x.id) || uid(),
   lane: CAPTURE_LANES.has(x.lane) ? x.lane : "text",
+  resp: CAPTURE_RESPONSES.has(x.resp) ? x.resp : "",
+  st: CAPTURE_STATES.has(x.st) ? x.st : "new",
   name: str(x.name, 80),
   phone: str(x.phone, 40),
   email: str(x.email, 80),
@@ -304,15 +311,38 @@ function normCheckin(x){
  };
 }
 
+/* Leader-added checklist items. The built-in SETUP list is hardcoded in the
+   client, but the season runs across eight very different venues (fairgrounds,
+   ski areas, a speedway), so leaders need per-event extras without a redeploy.
+   Stored with client-generated stable ids and merged at render — same pattern
+   as the starter scripts and the I/O roster. */
+const EXTRA_DAYS = new Set(["fri","sat"]);
+const EXTRA_CATS = new Set(["tech","log","both"]);
+function normExtraItem(x){
+ x = x || {};
+ return {
+  id: idStr(x.id) || uid(),
+  day: EXTRA_DAYS.has(x.day) ? x.day : "sat",
+  cat: EXTRA_CATS.has(x.cat) ? x.cat : "log",
+  text: str(x.text, 180),
+  due: Math.max(0, Math.min(1439, Math.round(Number(x.due) || 0))),
+  by: str(x.by, 40)
+ };
+}
+const normExtras = v => Array.isArray(v) ? v.map(normExtraItem).filter(x => x.text).slice(0, 100) : [];
+
 export function normCore(c){
  c = c || {};
  return {
  checklist: c.checklist || {},
+ extras: normExtras(c.extras),
  notes: normNotes(c.notes),
  announcements: Array.isArray(c.announcements) ? c.announcements.map(normAnn).slice(0, 200) : [],
  feedback: Array.isArray(c.feedback) ? c.feedback.map(normIssue).slice(0, 500) : [],
  praises: Array.isArray(c.praises) ? c.praises.map(normPraiseItem).slice(0, 500) : [],
- event: c.event || { name:"", date:"" },
+ // shift = rain-date offset in days (0 normally, 1 when moved to Sunday)
+ event: { name: str(c.event && c.event.name, 80), date: str(c.event && c.event.date, 40),
+          shift: Math.max(0, Math.min(2, Math.round(Number(c.event && c.event.shift) || 0))) },
  // One-time migration: retire the old 0627 Day PIN in favor of 0711.
  dayPin: (typeof c.dayPin === "string" && c.dayPin !== "0627") ? c.dayPin : DEFAULT_DAY_PIN,
  funding: { pct: clampPct(c.funding && c.funding.pct), needed: ((c.funding && c.funding.needed) || "$60,000").toString().slice(0, 30) }
@@ -454,7 +484,8 @@ const LEADER_ACTIONS = new Set([
  /* NOTE: ioSetRow (a patch checkmark) is deliberately NOT here — the Tech I/O
     page is open to every tech behind the Day PIN, same as radios and the head
     count. Only STRUCTURAL roster edits (setIOList) need the leader PIN. */
- "toggleCheck","setCheck","setChecklistNote","addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin",
+ "toggleCheck","setCheck","setChecklistNote","addChecklistItem","removeChecklistItem","seasonList",
+ "addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin","captureSetState",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
  "capturesList","captureMedia","captureDelete","capturePurge","revokeLeaderTokens",
  "churchEdit","churchDelete","churchFlagClear","churchTemplate"
@@ -471,6 +502,10 @@ function tallyKey(id){
 function tal2Key(id){
  id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
  return "tal2-" + id;
+}
+function dec2Key(id){
+ id = (id || "anon").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "anon";
+ return "dec2-" + id;
 }
 async function readEpoch(s){
  let e = null;
@@ -607,6 +642,44 @@ function compactTally(value){
  return out;
 }
 
+/* ---- decisions aggregate (mirrors count-agg, own namespace) ---- */
+async function rebuildDecAgg(s){
+ let total = 0; const by = {};
+ const { blobs } = await s.list({ prefix: "dec2-" });
+ await Promise.all((blobs || []).map(async b => {
+  const t = compactTally(await s.get(b.key, { type:"json" }));
+  total += t.total;
+  for(const k of Object.keys(t.by)) by[k] = (by[k] || 0) + t.by[k];
+ }));
+ return { total: Math.max(0, total), by };
+}
+async function readDecAgg(s){
+ let agg = await s.get("dec-agg", { type:"json" });
+ if(!agg || typeof agg.total !== "number" || !agg.by || typeof agg.by !== "object"){
+  agg = await rebuildDecAgg(s);
+  await s.setJSON("dec-agg", agg).catch(() => {});
+ }
+ return agg;
+}
+async function bumpDecAgg(s, effTotal, effBy){
+ for(let attempt = 0; attempt < 20; attempt++){
+  if(attempt) await backoff(attempt);
+  let res = null;
+  try { res = await s.getWithMetadata("dec-agg", { type:"json" }); } catch(_) { res = null; }
+  if(!(res && res.data && typeof res.data.total === "number")){
+   const fresh = await rebuildDecAgg(s);
+   let w; try { w = await s.setJSON("dec-agg", fresh, { onlyIfNew:true }); } catch(_) { w = { modified:false }; }
+   if(w && w.modified) return;
+   continue;
+  }
+  const agg = { total: Math.max(0, (Number(res.data.total) || 0) + (effTotal || 0)), by: { ...res.data.by } };
+  if(effBy) for(const k of Object.keys(effBy)) agg.by[k] = Math.max(0, (Number(agg.by[k]) || 0) + effBy[k]);
+  let w; try { w = await s.setJSON("dec-agg", agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
+  if(w && w.modified) return;
+ }
+ await s.delete("dec-agg").catch(() => {});
+}
+
 /* Authoritative rebuild of the head count from every shard (legacy + tally). */
 async function rebuildAgg(s){
  const [cnt, tally] = await Promise.all([sumCounts(s), sumTally(s)]);
@@ -648,7 +721,7 @@ async function assemble(s){
  let parts = await readAll(s);
  parts = await migrateIfNeeded(s, parts);
  const core = normCore(parts.core);
- const [agg, tallyEpoch, capturesRaw, churchesRaw] = await Promise.all([ readAgg(s), readEpoch(s), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }) ]);
+ const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw] = await Promise.all([ readAgg(s), readDecAgg(s), readEpoch(s), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }) ]);
  const captures = normCaptures(capturesRaw);
  // Only the rev + count ride in the main payload; the roster itself is
  // fetched on demand (GET ?part=churches) so polling stays light.
@@ -660,6 +733,7 @@ async function assemble(s){
   p => mergeStarterScripts(p) ? p : undefined, () => ({ scripts: [] }));
  return {
  checklist: core.checklist,
+ extras: core.extras,
  notes: core.notes,
  announcements: core.announcements,
  checkins: normCheckins(parts.checkins),
@@ -667,6 +741,8 @@ async function assemble(s){
  praises: core.praises,
  count: Math.max(0, agg.total),
  tallyBy: agg.by || {},
+ decisions: Math.max(0, decAgg.total),
+ decBy: decAgg.by || {},
  tallyEpoch,
  radios: normRadios(parts.radios).list,
  event: core.event,
@@ -868,6 +944,36 @@ export default async (req, context) => {
     that already landed changes nothing, and a dropped request just means the
     next push carries the missing taps. The delta vs. the previous shard value
     is folded into the cached aggregate so GET stays O(1). ---- */
+ /* ---- decisions counter (v1.10.0) ----
+    Attendance was the only number the app tracked, so the ministry's actual
+    outcome — people responding to the gospel — lived only in praise-wall
+    anecdotes. Same absolute-per-phone shard design as the head count, in its
+    own dec2-/dec-agg namespace, so it inherits the same idempotency. ---- */
+ if(action === "decSet"){
+ const epoch = await readEpoch(s);
+ if(((payload.epoch || "") + "") !== epoch){
+  const dagg = await readDecAgg(s);
+  return json({ ok:false, epochMismatch:true, epoch, decisions: Math.max(0, dagg.total), decBy: dagg.by || {} });
+ }
+ const inc = compactTally({ total: payload.total, by: payload.by });
+ const next = { total: Math.min(inc.total, 100000), by: {} };
+ for(const k of Object.keys(inc.by).slice(0, 30)) next.by[str(k, 40) || "?"] = Math.min(inc.by[k], 100000);
+ let prev = { total:0, by:{} };
+ await compareAndSwap(s, dec2Key(payload.dev), compactTally, cur => {
+  prev = cur;
+  return (JSON.stringify(cur) === JSON.stringify(next)) ? undefined : next;
+ }, () => ({ total:0, by:{} }));
+ const effBy = {};
+ for(const k of new Set([ ...Object.keys(prev.by), ...Object.keys(next.by) ])){
+  const d = (next.by[k] || 0) - (prev.by[k] || 0);
+  if(d) effBy[k] = d;
+ }
+ const effTotal = next.total - prev.total;
+ if(effTotal || Object.keys(effBy).length) await bumpDecAgg(s, effTotal, effBy);
+ const dagg = await readDecAgg(s);
+ return json({ ok:true, decisions: Math.max(0, dagg.total), decBy: dagg.by || {} });
+ }
+
  if(action === "tallySet"){
  const epoch = await readEpoch(s);
  if(((payload.epoch || "") + "") !== epoch){
@@ -943,6 +1049,27 @@ export default async (req, context) => {
  if(core.checklist[id]) delete core.checklist[id];
  else core.checklist[id] = { by: str(payload.by, 40), t: str(payload.t, 12), dm: (payload.dm ?? null) };
  }
+ return core;
+ });
+ break;
+ case "addChecklistItem":
+ await casCore(s, core => {
+ const it = normExtraItem(payload);
+ if(!it.text) return undefined;
+ core.extras = normExtras(core.extras);
+ if(core.extras.some(x => x.id === it.id)) return undefined; // idempotent retry
+ if(core.extras.length >= 100) return undefined;
+ core.extras.push(it);
+ return core;
+ });
+ break;
+ case "removeChecklistItem":
+ await casCore(s, core => {
+ const id = idStr(payload.id);
+ core.extras = normExtras(core.extras);
+ if(!core.extras.some(x => x.id === id)) return undefined;
+ core.extras = core.extras.filter(x => x.id !== id);
+ delete core.checklist["x-" + id];   // drop its checkmark too
  return core;
  });
  break;
@@ -1024,7 +1151,7 @@ export default async (req, context) => {
  }, () => ({ list: defaultRadios() }));
  break;
  case "setEvent":
- await casCore(s, core => { core.event = { name: payload.name || "", date: payload.date || "" }; return core; });
+ await casCore(s, core => { core.event = { name: str(payload.name, 80), date: str(payload.date, 40), shift: Math.max(0, Math.min(2, Math.round(Number(payload.shift) || 0))) }; return core; });
  break;
  case "setIOList":
  /* Wholesale roster replacement — now used ONLY for structural edits (edit
@@ -1107,16 +1234,47 @@ export default async (req, context) => {
   s.get("io", { type:"json" }), s.get("radios", { type:"json" })
  ]);
  await snapshot(s, "reset", { core: curCore, checkins: curCheckins, io: curIO, radios: curRadios });
+ /* Season roll-up: reset is the ONLY moment this event's numbers still
+    exist, so close the event out into a tiny per-event summary before
+    clearing. Eight counties of these are what let leadership answer
+    "how did the season go?" in October. */
+ {
+ const core2 = normCore(curCore);
+ const [agg2, dec2, caps2] = await Promise.all([ readAgg(s), readDecAgg(s), s.get("captures", { type:"json" }) ]);
+ const checkins2 = normCheckins(curCheckins);
+ const io2 = normIO(curIO);
+ let ioDone = 0, ioTotal = 0;
+ for(const p of io2.list){ if(p.off) continue; for(const r of (p.rows || [])){ ioTotal++; if(r.done) ioDone++; } }
+ const entry = {
+  at: new Date().toISOString(),
+  event: core2.event,
+  attendance: Math.max(0, agg2.total),
+  decisions: Math.max(0, dec2.total),
+  decBy: dec2.by || {},
+  volunteers: checkins2.length,
+  teams: [...new Set(checkins2.map(c => c.team).filter(Boolean))].length,
+  captures: normCaptures(caps2).length,
+  issues: core2.feedback.length,
+  praises: core2.praises.length,
+  checklistDone: Object.keys(core2.checklist || {}).length,
+  ioDone, ioTotal
+ };
+ await compareAndSwap(s, "season", v => ({ events: Array.isArray(v && v.events) ? v.events : [] }),
+  seasonV => { seasonV.events.push(entry); seasonV.events = seasonV.events.slice(-40); return seasonV; },
+  () => ({ events: [] })).catch(() => {});
  }
- await casCore(s, core => ({ ...EMPTY_CORE, event: core.event, dayPin: core.dayPin, funding: core.funding, praises: core.praises }));
+ }
+ // The rain-date shift is day-specific — the next event starts unshifted.
+ await casCore(s, core => ({ ...EMPTY_CORE, event: { ...core.event, shift: 0 }, dayPin: core.dayPin, funding: core.funding, praises: core.praises }));
  await compareAndSwap(s, "io", normIO, io => { io.list = ioListClearProgress(io.list); return io; }, () => ({ list: [] }));
- const [c1, c2, c3] = await Promise.all([ s.list({ prefix: "count-" }), s.list({ prefix: "tally-" }), s.list({ prefix: "tal2-" }) ]);
- const doomed = [ ...((c1 && c1.blobs) || []), ...((c2 && c2.blobs) || []), ...((c3 && c3.blobs) || []) ]
+ const [c1, c2, c3, c4] = await Promise.all([ s.list({ prefix: "count-" }), s.list({ prefix: "tally-" }), s.list({ prefix: "tal2-" }), s.list({ prefix: "dec2-" }) ]);
+ const doomed = [ ...((c1 && c1.blobs) || []), ...((c2 && c2.blobs) || []), ...((c3 && c3.blobs) || []), ...((c4 && c4.blobs) || []) ]
   .filter(b => b.key !== "count-agg"); // rewritten below, not deleted (racy otherwise)
  await Promise.all([
  s.setJSON("checkins", []),
  s.setJSON("radios", { list: defaultRadios() }),
  s.setJSON("count-agg", { total:0, by:{} }),
+ s.setJSON("dec-agg", { total:0, by:{} }),
  s.setJSON("tallyEpoch", { e: uid() }), // stale phones clear instead of re-pushing old tallies
  ...doomed.map(b => s.delete(b.key))
  ]);
@@ -1207,12 +1365,24 @@ export default async (req, context) => {
  }, () => []);
  break;
  }
+ case "seasonList":
+ return json(await compareAndSwap(s, "season", v => ({ events: Array.isArray(v && v.events) ? v.events : [] }), () => undefined, () => ({ events: [] })));
  case "capturesList":
  return json({ captures: normCaptures(await s.get("captures", { type:"json" })) });
  case "captureMedia": {
  const dataUrl = await s.get(capMediaKey(payload.id));
  return json({ id: str(payload.id, 40), dataUrl: (typeof dataUrl === "string" && dataUrl.startsWith("data:")) ? dataUrl : "" });
  }
+ case "captureSetState":
+ await compareAndSwap(s, "captures", normCaptures, list => {
+ const id = idStr(payload.id);
+ const st = CAPTURE_STATES.has(payload.st) ? payload.st : "new";
+ const it = list.find(c => c.id === id);
+ if(!it || it.st === st) return undefined;
+ it.st = st;
+ return list;
+ }, () => []);
+ break;
  case "captureDelete":
  await compareAndSwap(s, "captures", normCaptures, list => {
  const id = str(payload.id, 40);
@@ -1353,6 +1523,15 @@ export default async (req, context) => {
  break;
  }
  case "capturePurge": {
+ /* Refuse while anything is still unfiled — the button's whole premise is
+    "these are all in Planning Center now". */
+ {
+ const list = normCaptures(await s.get("captures", { type:"json" }));
+ const pending = list.filter(c => c.st !== "entered" && c.st !== "done").length;
+ if(pending && !payload.force){
+  return json({ error:"still unfiled", pending, needsForce:true }, 409);
+ }
+ }
  /* Wholesale cleanup once everything is in Planning Center Online: clears
     the capture list AND every capmedia- blob (listing by prefix also sweeps
     up any orphaned media whose record was already gone). Text records are

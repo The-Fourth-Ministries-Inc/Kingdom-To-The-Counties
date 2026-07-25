@@ -336,6 +336,16 @@ textarea, select { font-size: 16px !important; }
   .hidebar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:12.5px}
   .hidebar span{color:var(--muted)}
   .hidebar button{background:none;border:none;color:var(--rust);font-weight:700;font-size:12.5px;cursor:pointer;padding:0}
+  .caplabel{font-size:12px;font-weight:700;color:var(--muted);margin:8px 0 5px;text-transform:uppercase;letter-spacing:.4px}
+  .capresp{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+  .capresp button{flex:1 1 46%;min-height:44px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;font-size:13.5px;font-weight:700;font-family:var(--sans);cursor:pointer}
+  .capresp button.on{background:var(--wine);color:#fff;border-color:var(--wine)}
+  .capstate{display:flex;flex-wrap:wrap;gap:5px;margin:7px 0}
+  .capstate button{flex:1 1 30%;min-height:38px;border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:9px;font-size:11.5px;font-weight:700;font-family:var(--sans);cursor:pointer}
+  .capstate button.on{background:var(--ink);color:var(--cream);border-color:var(--ink)}
+  .counter.dec .big{color:var(--wine)}
+  .rainrow{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin:2px 0 8px;cursor:pointer}
+  .rainrow input{flex:none;width:20px;height:20px}
   .chk.hidden{display:none}
   /* Read-only for non-leaders: still legible, visibly not a control. */
   .chk.ro{cursor:default}
@@ -797,7 +807,9 @@ textarea, select { font-size: 16px !important; }
       <div class="eventedit"><div class="ttl">📍 This event</div>
         <input id="evName" placeholder="Event name (e.g. Sullivan County)" />
         <input id="evDate" placeholder="Date (e.g. Sat, June 13)" />
-        <button class="btn ghost" id="evSave">Save event info</button></div>
+        <label class="rainrow"><input type="checkbox" id="evShift" /> ☔ <b>Rain date</b> — event moved to Sunday (shifts every setup time by a day)</label>
+        <button class="btn ghost" id="evSave">Save event info</button>
+        <p class="hint" id="evDateWarn" style="display:none">⚠️ No event date set — setup due-times stay neutral until you set one.</p></div>
       <div class="eventedit"><div class="ttl">🔒 Day PIN — locks the whole app</div>
         <input id="dayPinEdit" inputmode="numeric" maxlength="10" placeholder="New Day PIN (kept secret — never shown here)" />
         <button class="btn ghost" id="dayPinSave">Save Day PIN</button>
@@ -812,7 +824,9 @@ textarea, select { font-size: 16px !important; }
       <div class="dashrow"><div class="t"><span>Setup readiness</span><span class="v" id="dSetup">0 / 0 · 0%</span></div><div class="pbar"><i id="dSetupBar"></i></div></div>
       <div class="dashrow"><div class="t"><span>Tech I/O patched</span><span class="v" id="dIo">0 / 0 · 0%</span></div><div class="pbar"><i id="dIoBar"></i></div></div>
       <div class="dashrow"><div class="t"><span>Overdue setup items</span><span class="v" id="dOver">0</span></div></div>
+      <div class="dashrow"><div class="t"><span>✝️ Decisions today</span><span class="v" id="dDecisions">0</span></div><div id="dDecBreak" style="margin-top:6px"><p class="hint">No decisions logged yet.</p></div></div>
       <div class="dashrow"><div class="t"><span>👥 Attendees by counter</span></div><div id="dTally" style="margin-top:6px"><p class="hint">No counts logged yet.</p></div></div>
+      <div class="dashrow"><div class="t"><span>🗓 Season so far</span><button class="iobtn" onclick="seasonLoad()">Refresh</button></div><div id="dSeason" style="margin-top:6px"><p class="hint">Tap Refresh to load past events. Each event is summarised automatically when you reset.</p></div></div>
       <div class="dashrow"><div class="t"><span>📻 Radios out</span><span class="v" id="dRadios">0</span></div><div id="dRadioList" style="margin-top:6px"></div></div>
       <div class="dashrow"><div class="t"><span>📇 Quick Capture storage</span><span class="v" id="dCapStore">—</span></div><div class="pbar"><i id="dCapStoreBar"></i></div>
         <div class="overdue" id="dCapStoreWarn" style="margin:10px 0 0"></div>
@@ -848,6 +862,14 @@ textarea, select { font-size: 16px !important; }
     <p class="hint" id="ctMine" style="display:none"></p>
     <div class="card" id="ctBreakWrap" style="display:none"><h3>👥 Counted by</h3><div id="ctBreak"></div></div>
     <p class="hint">Set your name first — every tap is logged to you, so several people can count at once and leaders see who counted what. Use −1 for corrections. Everyone sees the same live total.</p>
+    <div class="card" style="margin-top:16px">
+      <h3>✝️ Decisions</h3>
+      <p class="hint" style="margin-top:0">Count every person who responded — salvation, rededication, or a prayer decision. This is the number leadership reports for the season, so count carefully and only once per person.</p>
+      <div class="counter dec"><div class="big" id="decBig">0</div><div class="cl">Responses today · whole team</div></div>
+      <div class="cbtns"><button class="minus" id="decMinus">−1</button><button class="plus" id="decPlus">+1</button></div>
+      <p class="hint" id="decMine" style="display:none"></p>
+      <div id="decBreakWrap" style="display:none;margin-top:8px"><h3 style="font-size:14px">Counted by</h3><div id="decBreak"></div></div>
+    </div>
   </section>
   <section class="page" id="page-radios">
     <button class="back" onclick="show('crew')">‹ Specialists</button>
@@ -873,6 +895,7 @@ textarea, select { font-size: 16px !important; }
       <button class="daytab on" id="dtFri" onclick="setDay('fri')">🔨 FRIDAY<small>Build day</small></button>
       <button class="daytab" id="dtSat" onclick="setDay('sat')">🎤 SATURDAY<small>Event day</small></button>
     </div>
+    <div class="callout alert" id="rainBanner" style="display:none">☔ <strong>Rain date in effect</strong> — the event moved to Sunday. All setup due-times below have shifted by a day.</div>
     <div class="daybanner fri" id="dayBanner"></div>
     <div class="cattabs" id="catTabs"><button class="on" data-cat="all" onclick="setCat('all')">All</button><button data-cat="tech" onclick="setCat('tech')">🔧 Tech / Worship</button><button data-cat="log" onclick="setCat('log')">📦 Logistics / GS / Ambassadors</button></div>
     <div class="friplan" id="friPlan">
@@ -883,7 +906,7 @@ textarea, select { font-size: 16px !important; }
       <div class="row"><b>2:30</b><span>🔄 Logistics/GS/Amb finish their list, shift to help Tech/Worship</span></div>
       <div class="row"><b>5:00–5:15</b><span>Closing prayer (all)</span></div>
     </div>
-    <div class="hidebar"><span id="doneCount">0 completed</span><button id="toggleHide" onclick="toggleHideCompleted()">Show completed</button></div>
+    <div class="hidebar"><span id="doneCount">0 completed</span><button id="addChkBtn" onclick="addChecklistItem()" style="display:none">➕ Add item</button><button id="toggleHide" onclick="toggleHideCompleted()">Show completed</button></div>
     <div id="lock-su"></div>
     <div class="namebar" id="namebar-su"></div>
     <div class="overdue" id="overdue-su"></div>
@@ -968,6 +991,14 @@ textarea, select { font-size: 16px !important; }
       <input id="capName" maxlength="80" placeholder="Their name" autocomplete="off" />
       <div class="twocol"><input id="capPhone" maxlength="40" inputmode="tel" placeholder="Phone" autocomplete="off" /><input id="capEmail" maxlength="80" inputmode="email" placeholder="Email" autocomplete="off" /></div>
       <select id="capCounty"></select>
+      <!-- The counselor booklet requires the response type on every encounter. -->
+      <div class="caplabel">What was their response?</div>
+      <div class="capresp" id="capResp">
+        <button type="button" data-r="salvation">✝️ Salvation</button>
+        <button type="button" data-r="rededication">🔥 Rededication</button>
+        <button type="button" data-r="dedication">🕊️ Dedication</button>
+        <button type="button" data-r="prayer">🙏 Prayer</button>
+      </div>
       <textarea id="capNotes" rows="4" maxlength="4000" placeholder="Notes on the encounter — what happened, prayer needs, decision made, next step…"></textarea>
       <button class="btn rust" id="capSubmit" onclick="capSubmit()">📤 Capture &amp; move on</button>
       <p class="hint" id="capLaneHint"></p>
@@ -2330,11 +2361,12 @@ var remoteDirty=false;
    waiting to be pushed, which can persist across a whole outage — gating the
    poll loop on it stopped phones from ever reconnecting. The count/tallyBy
    fields are protected separately in adoptCounts(). */
-function settled(){return inflight===0&&!countSending;}
+function settled(){return inflight===0&&!countSending&&!decSending;}
 /* Keep our own un-pushed tally from being overwritten by a server payload that
    doesn't include it yet. */
-function adoptCounts(s,prevCount,prevBy){
+function adoptCounts(s,prevCount,prevBy,prevDec,prevDecBy){
   if(typeof TALLY!=="undefined"&&TALLY.dirty){s.count=prevCount;s.tallyBy=prevBy;}
+  if(typeof DEC!=="undefined"&&DEC.dirty){s.decisions=prevDec;s.decBy=prevDecBy;}
   return s;
 }
 var API="/.netlify/functions/data";
@@ -2346,11 +2378,11 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
    onclick="fn('...')" handlers all over this file, so a lone ' would break out
    of the JS string literal inside the attribute. */
 function esc(s){return(s||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
-function normalize(s){return{checklist:s.checklist||{},notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],count:s.count||0,event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
+function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
 function toast(msg){var el=document.getElementById("toastEl");if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}el.textContent=msg;el.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function vibr(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(_){}}
 function hasFullState(s){return !!(s&&("checklist" in s||"announcements" in s||"count" in s));}
-function reconcileResponse(s){if(hasFullState(s)){var pc=STATE.count,pb=STATE.tallyBy;STATE=adoptCounts(applyPending(normalize(s)),pc,pb);}}
+function reconcileResponse(s){if(hasFullState(s)){var pc=STATE.count,pb=STATE.tallyBy,pd=STATE.decisions,pdb=STATE.decBy;STATE=adoptCounts(applyPending(normalize(s)),pc,pb,pd,pdb);}}
 function userEditing(){
   var e=document.activeElement;
   return !!(e&&(e.matches("input,textarea,[contenteditable=true]")||e.closest(".cmtform")));
@@ -2388,8 +2420,8 @@ function refreshFromServer(){
   return apiGet().then(function(s){
     if(s&&s.__nomod)return;
     lastSyncAt=Date.now();everSynced=true;if(!LIVE){LIVE=true;}
-    var pc=STATE.count,pb=STATE.tallyBy;
-    STATE=adoptCounts(applyPending(normalize(s)),pc,pb);adoptTallyEpoch(s);maybeDayGate();renderDynamic();updateSync();
+    var pc=STATE.count,pb=STATE.tallyBy,pd=STATE.decisions,pdb=STATE.decBy;
+    STATE=adoptCounts(applyPending(normalize(s)),pc,pb,pd,pdb);adoptTallyEpoch(s);adoptDecEpoch(s);maybeDayGate();renderDynamic();updateSync();
   }).catch(function(){});
 }
 var LEADERPIN=sessionStorage.getItem("k2c_lpin")||"";
@@ -2564,6 +2596,14 @@ function applyPending(st){
       st.event={name:p.name||"",date:p.date||""};
     }else if(op.a==="setFunding"){
       st.funding={pct:p.pct,needed:p.needed||(st.funding&&st.funding.needed)||""};
+    }else if(op.a==="addChecklistItem"){
+      st.extras=(st.extras||[]);
+      if(!st.extras.some(function(x){return x.id===p.id;}))st.extras.push(p);
+    }else if(op.a==="removeChecklistItem"){
+      st.extras=(st.extras||[]).filter(function(x){return x.id!==p.id;});
+      delete st.checklist["x-"+p.id];
+    }else if(op.a==="captureSetState"){
+      /* capAll is a separate leader-only fetch; nothing to overlay here. */
     }else if(op.a==="churchLog"){
       /* CH is its own cache; nothing to overlay on the main payload. */
     }else if(op.a==="addComment"){
@@ -2636,19 +2676,25 @@ function parseEventSaturday(){
   return null;
 }
 function setupDayLabel(day){return day==="fri"?"Fri":"Sat";}
+/* Rain date. The playbook promises "leadership decides Friday evening to move
+   the main event to Sunday" — but every clock here was pinned to Saturday, so
+   on a rain Sunday the whole checklist read "Overdue" and every radio flagged
+   late. A leader sets event.shift (days) and all timing moves with it. */
+function eventShift(){var n=Number(STATE.event&&STATE.event.shift);return Number.isFinite(n)?Math.max(0,Math.min(2,Math.round(n))):0;}
 function setupTimingContext(day){
   var sat=parseEventSaturday(),today=stripDate(new Date());
   if(sat){
     var target=new Date(sat.getTime());
+    target.setDate(target.getDate()+eventShift());
     if(day==="fri")target.setDate(target.getDate()-1);
     var diff=Math.round((today-target)/86400000);
     if(diff<0)return{phase:"before",day:day};
     if(diff>0)return{phase:"after",now:99999};
     return{phase:"live",now:nowMinutes()};
   }
-  var dow=today.getDay();
-  if((day==="fri"&&dow===5)||(day==="sat"&&dow===6))return{phase:"live",now:nowMinutes()};
-  if((day==="fri"&&dow===6)||(day==="sat"&&dow===0))return{phase:"after",now:99999};
+  /* No usable event date. The old fallback treated EVERY Friday/Saturday as
+     live, so ordinary off-weekends showed false "Overdue" alarms all day.
+     Stay neutral instead and nudge a leader to set the date. */
   return{phase:"before",day:day};
 }
 function itemStatus(due,rec,day){
@@ -2670,18 +2716,48 @@ var curDay="fri",hideCompleted=true,curCat="all";
 function curSetup(){
   var out=[],k=0;
   SETUP.forEach(function(sec){if(sec.day===curDay){sec._si=k++;out.push(sec);}});
+  /* Leader-added extras for this day become one extra section at the end.
+     They carry their own stable ids (prefix "x-"), so they are independent of
+     the positional ids the built-in sections use. */
+  var ex=(STATE.extras||[]).filter(function(x){return x.day===curDay;});
+  if(ex.length){
+    out.push({day:curDay,ord:99,cat:"both",team:"➕ Added by leadership",lead:"",_si:k++,_extra:true,
+      items:ex.map(function(x){return [x.text,x.due,"x-"+x.id,x.cat];})});
+  }
   out=out.filter(function(sec){return curCat==="all"||sec.cat===curCat||sec.cat==="both";});
   out.sort(function(a,b){return (a.ord!=null?a.ord:a._si)-(b.ord!=null?b.ord:b._si);});
   return out;
+}
+/* Leaders can add venue-specific items without a redeploy — eight very
+   different sites across the season (fairgrounds, ski areas, a speedway). */
+function addChecklistItem(){
+  if(!LEADER){askPin(function(){addChecklistItem();});return;}
+  var text=(prompt("New checklist item for "+(curDay==="fri"?"FRIDAY":"SATURDAY")+":")||"").trim();
+  if(!text)return;
+  var tm=(prompt("Due time (24h, e.g. 14:30). Leave blank for end of day:","")||"").trim();
+  var due=1439,mm=tm.match(/^(\d{1,2}):?(\d{2})?$/);
+  if(mm)due=Math.max(0,Math.min(1439,(+mm[1])*60+(+(mm[2]||0))));
+  var rec={id:uid(),day:curDay,cat:"both",text:text.slice(0,180),due:due,by:myTag()||"Leadership"};
+  queueWrite("addChecklistItem",rec,function(){STATE.extras=(STATE.extras||[]).concat([rec]);},function(){refreshChecklists();});
+  toast("➕ Item added for the whole team");
+}
+function removeChecklistItem(id){
+  if(!LEADER){askPin(function(){removeChecklistItem(id);});return;}
+  if(!confirm("Remove this added item for everyone?"))return;
+  queueWrite("removeChecklistItem",{id:id},function(){
+    STATE.extras=(STATE.extras||[]).filter(function(x){return x.id!==id;});
+    delete STATE.checklist["x-"+id];
+  },function(){refreshChecklists();});
 }
 function setCat(c){curCat=c;var btns=document.querySelectorAll("#catTabs button");for(var i=0;i<btns.length;i++)btns[i].classList.toggle("on",btns[i].getAttribute("data-cat")===c);refreshChecklists();}
 function setDay(d){curDay=d;document.getElementById("dtFri").classList.toggle("on",d==="fri");document.getElementById("dtSat").classList.toggle("on",d==="sat");var fp=document.getElementById("friPlan");if(fp)fp.style.display=d==="fri"?"block":"none";renderDayBanner();refreshChecklists();}
 function renderDayBanner(){
   var db=document.getElementById("dayBanner");if(!db)return;
   db.className="daybanner "+curDay;
-  db.innerHTML=curDay==="fri"
+  var rain=eventShift()>0?' <small>· ☔ running on the rain date</small>':'';
+  db.innerHTML=(curDay==="fri"
     ?'🔨 Viewing <b>FRIDAY — Build Day</b> <small>· optional crew · 12:00 PM arrival</small>'
-    :'🎤 Viewing <b>SATURDAY — Event Day</b> <small>· all hands · setup 8 AM · doors 1 PM</small>';
+    :'🎤 Viewing <b>SATURDAY — Event Day</b> <small>· all hands · setup 8 AM · doors 1 PM</small>')+rain;
 }
 renderDayBanner();
 function toggleHideCompleted(){hideCompleted=!hideCompleted;document.getElementById("toggleHide").textContent=hideCompleted?"Show completed":"Hide completed";refreshChecklists();}
@@ -2714,7 +2790,13 @@ function renderChecklist(mountId,data,key,overallId,overallBarId,overdueId){
     var dept='<span class="deptchip '+(DEPT_CLS[sec.cat]||"dlog")+'">'+(DEPT_LABEL[sec.cat]||sec.cat)+'</span>';
     var secDone=0,secTotal=sec.items.length;
     var rows=sec.items.map(function(it,ii){
-      var label=it[0],due=it[1],idx=(it.length>2&&it[2]!=null)?it[2]:ii,id=key+"-"+curDay+"-"+(sec._si!=null?sec._si:si)+"-"+idx;total++;
+      var label=it[0],due=it[1];
+      /* Built-in items key off their array position; leader-added ones carry a
+         stable "x-<id>" of their own so they don't depend on position at all. */
+      var raw=(it.length>2&&it[2]!=null)?it[2]:ii;
+      var isExtra=(typeof raw==="string"&&raw.slice(0,2)==="x-");
+      var id=isExtra?raw:(key+"-"+curDay+"-"+(sec._si!=null?sec._si:si)+"-"+raw);
+      total++;
       var rec=STATE.checklist[id];if(rec){done++;secDone++;}
       if(!rec&&ctx.phase==="live"&&(due-ctx.now)<0)overdue++;
       var stamp=rec?("✓ "+esc(rec.by)+(rec.t?(" · "+esc(rec.t)):"")):"";
@@ -2723,11 +2805,12 @@ function renderChecklist(mountId,data,key,overallId,overallBarId,overdueId){
       if(rec){var st=itemStatus(due,rec,curDay);chip='<span class="duechip '+st.cls+'">'+st.txt+'</span>';}
       else{chip='<span class="duechip good" data-live="1" data-due="'+due+'" data-setup-day="'+curDay+'">due in —</span>';}
       var note=(STATE.notes&&STATE.notes[id])||"";
-      var noteBtn=LEADER?'<button class="chknotebtn" onclick="event.stopPropagation();chkNote(\''+id+'\')" title="'+(note?"Edit note":"Add note")+'">📝</button>':'';
+      var noteBtn=LEADER?'<button class="chknotebtn" onclick="event.stopPropagation();chkNote(\''+esc(id)+'\')" title="'+(note?"Edit note":"Add note")+'">📝</button>':'';
+      if(LEADER&&isExtra)noteBtn+='<button class="chknotebtn" onclick="event.stopPropagation();removeChecklistItem(\''+esc(raw.slice(2))+'\')" title="Remove this added item">🗑</button>';
       var noteHtml=note?'<div class="chknote" onclick="event.stopPropagation()">📝 '+esc(note)+'</div>':'';
       /* Non-leaders get a read-only row (and a plain explanation on tap)
          instead of a checkbox that silently throws up a PIN modal. */
-      return '<div class="chk dept-'+(sec.cat||"log")+(rec?" done":"")+(hide?" hidden":"")+(LEADER?"":" ro")+'" data-id="'+id+'" role="button" tabindex="0" aria-pressed="'+(rec?"true":"false")+'" aria-label="'+esc(label)+'"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg></span><span class="lab"><span class="txt">'+label+'</span><span class="sub2">'+dept+chip+'<span class="stamp">'+stamp+'</span>'+noteBtn+'</span>'+noteHtml+'</span></div>';
+      return '<div class="chk dept-'+(sec.cat||"log")+(rec?" done":"")+(hide?" hidden":"")+(LEADER?"":" ro")+'" data-id="'+id+'" role="button" tabindex="0" aria-pressed="'+(rec?"true":"false")+'" aria-label="'+esc(label)+'"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg></span><span class="lab"><span class="txt">'+esc(label)+'</span><span class="sub2">'+dept+chip+'<span class="stamp">'+stamp+'</span>'+noteBtn+'</span>'+noteHtml+'</span></div>';
     }).join("");
     var secHidden=hideCompleted&&secDone===secTotal;
     var secPct=secTotal?Math.round(secDone/secTotal*100):0;
@@ -2748,6 +2831,7 @@ function refreshChecklists(){
   renderLockbars();
 }
 function renderLockbars(){
+  var ab=document.getElementById("addChkBtn");if(ab)ab.style.display=LEADER?"inline-block":"none";
   ["su"].forEach(function(k){
     var el=document.getElementById("lock-"+k),nb=document.getElementById("namebar-"+k);
     if(LEADER){el.innerHTML="";if(nb)nb.style.display="flex";}
@@ -2885,7 +2969,7 @@ function renderRoster(){
   var r=document.getElementById("ciRoster");
   r.innerHTML=list.length?list.slice().reverse().map(function(c){return '<div class="listrow"><span class="av">'+esc((c.name||"?").trim().charAt(0).toUpperCase())+'</span><span class="nm">'+esc(c.name)+'<small>'+esc(c.team||"Volunteer")+'</small></span><span class="tm">'+esc(c.t)+'</span></div>';}).join(""):'<div class="empty">No one checked in yet. Tap "Check me in" above. 🙋</div>';
 }
-function renderCount(){renderCountFast();}
+function renderCount(){renderCountFast();renderDecFast();}
 function defaultRadiosLocal(){var a=[];for(var i=1;i<=10;i++)a.push({n:i,out:null,in:null});return a;}
 function renderRadios(){
   var mt=document.getElementById("radioMount");if(!mt)return;
@@ -2923,7 +3007,35 @@ function renderFunding(){var f=STATE.funding||{};var p=document.getElementById("
   var fp=document.getElementById("fundPctEdit"),fn=document.getElementById("fundNeedEdit");
   if(fp&&document.activeElement!==fp)fp.value=(f.pct!=null?f.pct:64);
   if(fn&&document.activeElement!==fn)fn.value=f.needed||"";}
-function renderEvent(){var ev=STATE.event||{},tag=document.getElementById("eventTag");if(ev.name||ev.date){tag.style.display="block";tag.textContent="📍 "+[ev.name,ev.date].filter(Boolean).join(" · ");}else{tag.style.display="none";}}
+function renderEvent(){
+  var ev=STATE.event||{},tag=document.getElementById("eventTag");
+  var shifted=eventShift()>0;
+  if(ev.name||ev.date){tag.style.display="block";tag.textContent="📍 "+[ev.name,ev.date].filter(Boolean).join(" · ")+(shifted?" · ☔ RAIN DATE (+"+eventShift()+"d)":"");}
+  else{tag.style.display="none";}
+  var cb=document.getElementById("evShift");if(cb&&document.activeElement!==cb)cb.checked=shifted;
+  var warn=document.getElementById("evDateWarn");if(warn)warn.style.display=parseEventSaturday()?"none":"block";
+  var rb=document.getElementById("rainBanner");
+  if(rb)rb.style.display=shifted?"block":"none";
+}
+/* ---- season roll-up (v1.10.0) ----
+   Reset used to be the end of the story: each event's numbers were wiped and
+   nothing accumulated, so by October nobody could say what the season did.
+   The server now writes a small summary per event at reset; this reads them. */
+function seasonLoad(){
+  var el=document.getElementById("dSeason");if(!el)return;
+  el.innerHTML='<p class="hint">Loading…</p>';
+  apiPost("seasonList",{}).then(function(d){
+    var evs=(d&&Array.isArray(d.events))?d.events:[];
+    if(!evs.length){el.innerHTML='<p class="hint">No completed events yet. Each event is summarised here automatically when a leader resets at the end of the day.</p>';return;}
+    var tA=0,tD=0,tV=0,tC=0;
+    var rows=evs.slice().reverse().map(function(e){
+      tA+=e.attendance||0;tD+=e.decisions||0;tV+=e.volunteers||0;tC+=e.captures||0;
+      var nm=(e.event&&(e.event.name||e.event.date))||"Event";
+      return '<div class="tallyrow"><span>'+esc(nm)+'<small style="display:block;color:var(--muted)">'+(e.attendance||0)+' attendees · '+(e.volunteers||0)+' volunteers · '+(e.captures||0)+' captures</small></span><b>'+(e.decisions||0)+' ✝️</b></div>';
+    }).join("");
+    el.innerHTML=rows+'<div class="tallyrow" style="border-top:2px solid var(--line);margin-top:6px;padding-top:6px"><span><b>Season total</b><small style="display:block;color:var(--muted)">'+tA+' attendees · '+tV+' volunteer check-ins · '+tC+' captures</small></span><b>'+tD+' ✝️</b></div>';
+  }).catch(function(){el.innerHTML='<p class="hint">Couldn\'t load the season summary — check your connection.</p>';});
+}
 function renderDashboard(){
   document.getElementById("dVols").textContent=STATE.checkins.length;
   document.getElementById("dHeads").textContent=STATE.count;
@@ -3185,6 +3297,73 @@ function bumpCount(delta){
   renderCountFast();
   scheduleFlush(300);
 }
+/* ---- decisions counter (v1.10.0) ----
+   Same absolute-per-phone design as the head count, in its own namespace, so
+   retries and dropped requests can't double-count or lose responses. */
+var DEC=(function(){
+  try{var v=JSON.parse(localStorage.getItem("k2c_dec")||"null");
+    if(v&&typeof v.total==="number"&&v.by&&typeof v.by==="object")return{total:Math.max(0,v.total),by:v.by,epoch:(v.epoch||"")+"",dirty:!!v.dirty};
+  }catch(_){}
+  return{total:0,by:{},epoch:"",dirty:false};
+})();
+var decSerial=0,decSending=false,decFlushT=null;
+function saveDec(){try{localStorage.setItem("k2c_dec",JSON.stringify(DEC));}catch(_){}}
+function adoptDecEpoch(s){
+  if(!s||s.tallyEpoch==null)return;
+  var e=s.tallyEpoch+"";
+  if(e===DEC.epoch)return;
+  DEC={total:0,by:{},epoch:e,dirty:false};decSerial++;saveDec();
+}
+function scheduleDecFlush(ms){clearTimeout(decFlushT);decFlushT=setTimeout(flushDec,ms);}
+function flushDec(){
+  decFlushT=null;
+  if(!DEC.dirty||decSending)return;
+  var sent=decSerial;
+  var snap={dev:DEV,total:DEC.total,by:{},epoch:DEC.epoch};
+  for(var k in DEC.by)if(DEC.by[k]>0)snap.by[k]=DEC.by[k];
+  decSending=true;inflight++;
+  apiPost("decSet",snap).then(function(s){
+    decSending=false;inflight=Math.max(0,inflight-1);
+    if(!LIVE){LIVE=true;updateSync();}
+    if(s&&s.epochMismatch){
+      DEC={total:0,by:{},epoch:(s.epoch||"")+"",dirty:false};decSerial++;saveDec();
+      if(typeof s.decisions==="number"){STATE.decisions=s.decisions;STATE.decBy=s.decBy||{};}
+      renderDecFast();return;
+    }
+    if(decSerial===sent){
+      DEC.dirty=false;saveDec();
+      if(typeof s.decisions==="number"){STATE.decisions=s.decisions;STATE.decBy=s.decBy||{};renderDecFast();}
+    }else{scheduleDecFlush(120);}
+  }).catch(function(){
+    decSending=false;inflight=Math.max(0,inflight-1);
+    if(LIVE){LIVE=false;updateSync();}
+    scheduleDecFlush(2500);
+  });
+}
+function renderDecFast(){
+  var b=document.getElementById("decBig");if(b)b.textContent=STATE.decisions||0;
+  var d=document.getElementById("dDecisions");if(d)d.textContent=STATE.decisions||0;
+  var init=myTag(),mn=document.getElementById("decMine");
+  if(mn){mn.style.display=init?"block":"none";if(init)mn.innerHTML="Your count (<b>"+esc(init)+"</b>): <b>"+((STATE.decBy||{})[init]||0)+"</b>";}
+  var by=STATE.decBy||{},ks=Object.keys(by).filter(function(k){return by[k]>0;}).sort(function(a,b2){return by[b2]-by[a];});
+  var w=document.getElementById("decBreakWrap"),el=document.getElementById("decBreak");
+  if(w)w.style.display=ks.length?"block":"none";
+  if(el)el.innerHTML=ks.map(function(k){return '<div class="tallyrow"><span>'+esc(k)+'</span><b>'+by[k]+'</b></div>';}).join("");
+  var dd=document.getElementById("dDecBreak");
+  if(dd)dd.innerHTML=ks.length?ks.map(function(k){return '<div class="tallyrow"><span>'+esc(k)+'</span><b>'+by[k]+'</b></div>';}).join(""):'<p class="hint">No decisions logged yet.</p>';
+}
+function bumpDec(delta){
+  var init=myTag();
+  if(!init){askName(function(){bumpDec(delta);});return;}
+  vibr(delta>0?[18,30,18]:12);
+  STATE.decisions=Math.max(0,(STATE.decisions||0)+delta);
+  STATE.decBy=STATE.decBy||{};STATE.decBy[init]=Math.max(0,(STATE.decBy[init]||0)+delta);
+  DEC.total=Math.max(0,DEC.total+delta);
+  DEC.by[init]=Math.max(0,(DEC.by[init]||0)+delta);
+  DEC.dirty=true;decSerial++;saveDec();
+  renderDecFast();
+  scheduleDecFlush(300);
+}
 function scheduleFlush(ms){if(countFlushT)clearTimeout(countFlushT);countFlushT=setTimeout(flushCount,ms);}
 var DEV=(function(){try{var v=localStorage.getItem("k2c_dev");if(!v){v=uid();localStorage.setItem("k2c_dev",v);}return v;}catch(_){return uid();}})();
 function flushCount(){
@@ -3219,20 +3398,22 @@ function flushCount(){
 }
 // pointerdown (not click) = fires instantly on touch, immune to the
 // double-tap-zoom delay that was eating rapid taps on iOS.
-function bindCounterBtn(id,delta){
-  var el=document.getElementById(id);
-  el.addEventListener("pointerdown",function(e){e.preventDefault();bumpCount(delta);});
-  el.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" ")bumpCount(delta);});
+function bindCounterBtn(id,delta,fn){
+  var el=document.getElementById(id);if(!el)return;
+  fn=fn||bumpCount;
+  el.addEventListener("pointerdown",function(e){e.preventDefault();fn(delta);});
+  el.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" ")fn(delta);});
   el.addEventListener("click",function(e){e.preventDefault();}); // swallow the ghost click
 }
 bindCounterBtn("countPlus",1);bindCounterBtn("countMinus",-1);
-document.addEventListener("visibilitychange",function(){if(document.visibilityState!=="visible")flushCount();});
+bindCounterBtn("decPlus",1,bumpDec);bindCounterBtn("decMinus",-1,bumpDec);
+document.addEventListener("visibilitychange",function(){if(document.visibilityState!=="visible"){flushCount();flushDec();}});
 document.getElementById("fundSave").addEventListener("click",function(){
   var pct=parseInt(document.getElementById("fundPctEdit").value,10),need=document.getElementById("fundNeedEdit").value.trim();
   if(isNaN(pct)||pct<0||pct>100){flash("fundPctEdit");return;}
   queueWrite("setFunding",{pct:pct,needed:need},function(){STATE.funding={pct:pct,needed:need||STATE.funding.needed};},function(){renderFunding();});
 });
-document.getElementById("evSave").addEventListener("click",function(){var name=document.getElementById("evName").value.trim(),date=document.getElementById("evDate").value.trim();queueWrite("setEvent",{name:name,date:date},function(){STATE.event={name:name,date:date};},function(){renderEvent();refreshChecklists();});});
+document.getElementById("evSave").addEventListener("click",function(){var name=document.getElementById("evName").value.trim(),date=document.getElementById("evDate").value.trim();var sh=document.getElementById("evShift").checked?1:0;queueWrite("setEvent",{name:name,date:date,shift:sh},function(){STATE.event={name:name,date:date,shift:sh};},function(){renderEvent();refreshChecklists();renderDayBanner();});});
 /* v1.2.0 — one-tap CSV export of the day's data (leaders) */
 function csvCell(v){v=String(v==null?"":v);return '"'+v.replace(/"/g,'""')+'"';}
 document.getElementById("csvBtn").addEventListener("click",function(){
@@ -3264,14 +3445,26 @@ document.getElementById("capPurgeBtn").addEventListener("click",function(){
   if(pw==null)return;
   if((pw||"").trim().toUpperCase()!=="PURGE"){alert("Not purged — you must type PURGE exactly.");return;}
   if(!confirm("⚠️ BEFORE YOU PURGE — has EVERY capture been properly entered into Planning Center Online?\n\nThis permanently deletes ALL Quick Captures for everyone — names, contact info, notes, card photos AND voice notes. It cannot be undone.\n\nOnly continue if all of this data is safely in Planning Center."))return;
-  apiPost("capturePurge",{}).then(function(){
+  capPurgeSend(false);
+});
+/* The server refuses (409) while any capture is still marked "not yet entered",
+   so the claim behind the button — everything is in Planning Center — has to
+   be true before the data is destroyed. A leader can still override. */
+function capPurgeSend(force){
+  apiPost("capturePurge",force?{force:true}:{}).then(function(){
     STATE.captureCount=0;STATE.captureBytes=0;
     if(typeof capAll!=="undefined"&&capAll)capAll=[];
     updateBadges();renderCapStorage();
     if(typeof renderCapLeader==="function")renderCapLeader();
     toast("🧹 All captures purged — storage cleared");
-  }).catch(function(e){if(e!==403)toast("Purge failed — check your signal and try again");});
-});
+  }).catch(function(e){
+    if(e===409){
+      if(confirm("Some captures are still marked \"Not yet entered\" in the list below.\n\nMark them as entered first, or purge anyway?\n\nOK = purge anyway (contact info will be lost)\nCancel = go back and check"))capPurgeSend(true);
+      return;
+    }
+    if(e!==403)toast("Purge failed — check your signal and try again");
+  });
+}
 document.getElementById("resetBtn").addEventListener("click",function(){
   /* Speed bump only — browser-side. The leader PIN (server-verified) is the
      actual gate on `reset`. */
@@ -3546,7 +3739,7 @@ window.addEventListener("resize",function(){if(guideIdx>=0)guideShow();});
 function boot(){
   renderIOList();renderLeaders();
   if(LEADERPIN){verifyPin("verifyLeaderPin",LEADERPIN).then(function(res){if(res&&res.ok){LEADER=true;if(res.token)LEADERPIN=res.token;setDayOK();applyLeaderUI();renderDynamic();obFlush();}else{LEADERPIN="";sessionStorage.removeItem("k2c_lpin");}}).catch(function(){});}
-  apiGet().then(function(s){STATE=applyPending(normalize(s));LIVE=true;adoptTallyEpoch(s);finishBoot();if(TALLY.dirty)scheduleFlush(500);})
+  apiGet().then(function(s){STATE=applyPending(normalize(s));LIVE=true;adoptTallyEpoch(s);adoptDecEpoch(s);finishBoot();if(TALLY.dirty)scheduleFlush(500);})
   .catch(function(){
     /* NEVER show fabricated data on a real deployment. A phone that booted in
        a dead zone used to get seedDemo() — complete with an "Urgent" crane
@@ -3584,8 +3777,8 @@ function finishBoot(){
           if(OUTBOX.length)obFlush();
           if(s&&s.__nomod)return;   // 304 — skip re-serialize and re-render entirely
           var snap=JSON.stringify(s),changed=snap!==lastSnap;lastSnap=snap;
-          var pc=STATE.count,pb=STATE.tallyBy;
-          STATE=adoptCounts(applyPending(normalize(s)),pc,pb);adoptTallyEpoch(s);maybeDayGate();
+          var pc=STATE.count,pb=STATE.tallyBy,pd=STATE.decisions,pdb=STATE.decBy;
+          STATE=adoptCounts(applyPending(normalize(s)),pc,pb,pd,pdb);adoptTallyEpoch(s);adoptDecEpoch(s);maybeDayGate();
           if(!s.locked)saveCache(s);cacheAge=0;
           if(changed){if(userEditing())remoteDirty=true;else renderDynamic();}
         }
@@ -3774,6 +3967,7 @@ function capDoSend(){
     phone:document.getElementById("capPhone").value.trim(),
     email:document.getElementById("capEmail").value.trim(),
     county:document.getElementById("capCounty").value,
+    resp:capRespCur,
     notes:document.getElementById("capNotes").value.trim(),
     by:myTag()||"Ambassador",t:nowLabel(),d:dateKey(new Date())
   };
@@ -3791,8 +3985,20 @@ function capDoSend(){
     capEnqueue(payload);toast("📡 Offline — saved on this phone, it'll send when you're back online");renderCapMine();
   }
 }
+var capRespCur="";
+function capSetResp(r){
+  capRespCur=(capRespCur===r)?"":r;
+  var btns=document.querySelectorAll("#capResp button");
+  for(var i=0;i<btns.length;i++)btns[i].classList.toggle("on",btns[i].getAttribute("data-r")===capRespCur);
+}
+document.addEventListener("click",function(e){
+  var b=e.target&&e.target.closest&&e.target.closest("#capResp button");
+  if(b)capSetResp(b.getAttribute("data-r"));
+});
 function capFormReset(){
   ["capName","capPhone","capEmail","capNotes"].forEach(function(id){document.getElementById(id).value="";});
+  capSetResp(capRespCur); // clear selection
+  capRespCur="";var rb=document.querySelectorAll("#capResp button");for(var i=0;i<rb.length;i++)rb[i].classList.remove("on");
   capPhotoData=null;capAudioData=null;
   document.getElementById("capPhotoPrev").style.display="none";
   document.getElementById("capShotBtn").style.display="block";
@@ -3872,6 +4078,22 @@ function capLoadAll(){
   if(!LIVE){toast("Demo mode — captures load on the deployed site");return;}
   apiPost("capturesList",{}).then(function(r){capAll=(r&&r.captures)||[];renderCapLeader();}).catch(function(e){if(e!==403)toast("Couldn't load captures — check your signal");});
 }
+var CAP_RESP_LABEL={salvation:"✝️ Salvation",rededication:"🔥 Rededication",dedication:"🕊️ Dedication",prayer:"🙏 Prayer"};
+var CAP_STATE_LABEL={new:"🆕 Not yet entered",entered:"📥 In Planning Center",done:"✅ Follow-up done"};
+/* Per-record follow-up state, so "purge — it's all in Planning Center" can be
+   verified instead of trusted (the server refuses to purge while any record
+   is still unfiled). */
+function capStateRow(c){
+  var st=c.st||"new";
+  return '<div class="capstate">'+["new","entered","done"].map(function(k){
+    return '<button class="'+(st===k?"on":"")+'" onclick="capSetState(\''+esc(c.id)+'\',\''+k+'\')">'+CAP_STATE_LABEL[k]+'</button>';
+  }).join("")+'</div>';
+}
+function capSetState(id,st){
+  var c=capAll.filter(function(x){return x.id===id;})[0];
+  if(!c||c.st===st)return;
+  queueWrite("captureSetState",{id:id,st:st},function(){c.st=st;},function(){renderCapAll();});
+}
 function renderCapAll(){
   var mt=document.getElementById("capAllMount");if(!mt)return;
   if(!capAll.length){mt.innerHTML='<div class="empty">No captures submitted yet. 📇</div>';return;}
@@ -3880,8 +4102,10 @@ function renderCapAll(){
     return '<div class="caprow"><div class="hd"><b>'+esc(c.name||"(no name typed)")+'</b><span class="ln">'+(CAP_LANE_ICON[c.lane]||"")+' '+esc((c.d||"")+(c.t?(" · "+c.t):""))+'</span></div>'
       +(contact?'<div class="ct">'+esc(contact)+'</div>':'<div class="ct" style="color:var(--warn)">no typed contact — check the '+(c.mediaKind||"notes")+'</div>')
       +(c.county?'<div class="by2">📍 '+esc(c.county)+'</div>':'')
+      +(c.resp?'<div class="by2">'+CAP_RESP_LABEL[c.resp]+'</div>':'')
       +(c.notes?'<div class="nt">'+esc(c.notes)+'</div>':'')
       +'<div class="by2">by '+esc(c.by||"Ambassador")+'</div>'
+      +capStateRow(c)
       +'<div class="acts2">'+(c.hasMedia?'<button onclick="capViewMedia(\''+esc(c.id)+'\',\''+esc(c.mediaKind)+'\')">'+(c.mediaKind==="photo"?"🖼️ View card photo":"🔊 Play voice note")+'</button>':'')
       +'<button class="del" onclick="capDelOne(\''+esc(c.id)+'\')">🗑 Delete</button></div></div>';
   }).join("");
