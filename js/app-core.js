@@ -344,7 +344,7 @@ var SETUP=[
   ]}
 ];
 var TEARDOWN=[];
-var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],count:0,event:{name:"",date:""},ioList:[],dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
+var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],miracles:[],count:0,event:{name:"",date:""},ioList:[],dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
 var LIVE=false,LEADER=false,seenAnn=0,seenIssue=0,inflight=0,countFlushT=null,countSending=false;
 /* Which announcement the volunteer closed (id, or "checkin"), and the last
    urgent one we alerted for — see renderAnnouncements. */
@@ -373,7 +373,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
    onclick="fn('...')" handlers all over this file, so a lone ' would break out
    of the JS string literal inside the attribute. */
 function esc(s){return(s||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
-function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
+function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],miracles:Array.isArray(s.miracles)?s.miracles:[],witnessMin:s.witnessMin||2,county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
 function toast(msg){var el=document.getElementById("toastEl");if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}el.textContent=msg;el.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function vibr(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(_){}}
 function hasFullState(s){return !!(s&&("checklist" in s||"announcements" in s||"count" in s));}
@@ -489,7 +489,7 @@ var OB_KEY={
 };
 /* Actions the server gates behind the leader PIN — held in the queue (not
    sent, not dropped) whenever this session has no PIN, e.g. after a reload. */
-var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,setEvent:1,setFunding:1};
+var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,setEvent:1,setFunding:1,miracleDelete:1};
 var OUTBOX=[];
 try{OUTBOX=JSON.parse(localStorage.getItem("k2c_outbox")||"[]");}catch(_){OUTBOX=[];}
 if(!Array.isArray(OUTBOX))OUTBOX=[];
@@ -585,6 +585,17 @@ function applyPending(st){
       if(!st.praises.some(function(x){return x.id===p.id;}))st.praises.unshift(p);
     }else if(op.a==="addFeedback"){
       if(!st.feedback.some(function(x){return x.id===p.id;}))st.feedback.unshift(p);
+    }else if(op.a==="miracleAdd"){
+      st.miracles=st.miracles||[];
+      if(!st.miracles.some(function(x){return x.id===p.id;}))st.miracles.unshift(p);
+    }else if(op.a==="miracleWitness"){
+      var mm=(st.miracles||[]).filter(function(x){return x.id===p.id;})[0];
+      if(mm){
+        mm.witnesses=Array.isArray(mm.witnesses)?mm.witnesses:[];
+        if(!mm.witnesses.some(function(w){return w.wid===p.wid;}))mm.witnesses.push({wid:p.wid,name:p.name,note:p.note||"",dev:p.dev,t:p.t,d:p.d});
+      }
+    }else if(op.a==="miracleDelete"){
+      st.miracles=(st.miracles||[]).filter(function(x){return x.id!==p.id;});
     }else if(op.a==="setIOList"){
       if(Array.isArray(p.list))st.ioList=p.list;
     }else if(op.a==="setEvent"){
@@ -920,6 +931,94 @@ function renderIssues(){
   if(acked.length)html+='<details class="ackedwrap"><summary>✓ Acknowledged ('+acked.length+')</summary>'+acked.map(issueCard).join("")+'</details>';
   f.innerHTML=html;
 }
+/* ---- Miracle Tracker (v1.12.0) ----
+   Season-long shared record of salvations, rededications & healings. Anybody
+   can report one (with an OPTIONAL name); it only joins the tracker once two
+   distinct witnesses confirm it — the biblical standard (Deut 19:15,
+   2 Cor 13:1). The client mirrors the server's counting rule for instant
+   feedback, but the server is authoritative: the reporter, a duplicate name,
+   or the reporting phone never counts as a witness. */
+var MIR_TYPES=[["salvation","✝️","Salvation","Salvations"],["rededication","🔁","Rededication","Rededications"],["healing","🙌","Healing","Healings"],["other","✨","Other miracle","Other miracles"]];
+function mirTypeInfo(t){for(var i=0;i<MIR_TYPES.length;i++)if(MIR_TYPES[i][0]===t)return MIR_TYPES[i];return MIR_TYPES[3];}
+function mirWitnessCount(m){
+  var reporter=((m&&m.by)||"").trim().toLowerCase(),seen={},n=0;
+  ((m&&m.witnesses)||[]).forEach(function(w){
+    var nm=((w&&w.name)||"").trim().toLowerCase();
+    if(!nm||nm===reporter)return;
+    if(w.dev&&m.dev&&w.dev===m.dev)return;
+    if(!seen[nm]){seen[nm]=1;n++;}
+  });
+  return n;
+}
+function mirConfirmed(m){return mirWitnessCount(m)>=(STATE.witnessMin||2);}
+function mirCountyLabel(m){
+  if(!m.county)return "";
+  var c=(typeof countyByKey==="function")?countyByKey(m.county):null;
+  return (c&&c.county)||m.county;
+}
+function miracleCard(m){
+  var ti=mirTypeInfo(m.type),n=mirWitnessCount(m),min=STATE.witnessMin||2,conf=n>=min;
+  var me=(myTag()||"").toLowerCase();
+  var ws=Array.isArray(m.witnesses)?m.witnesses:[];
+  var wl=ws.length?'<div class="witwrap">'+ws.map(function(w){return '<div class="witrow">🤝 <b>'+esc(w.name)+'</b>'+(w.note?' · '+esc(w.note):'')+'<span class="wt">'+esc(w.t||"")+'</span></div>';}).join("")+'</div>':'';
+  var isReporter=me&&me===((m.by||"").trim().toLowerCase());
+  var already=me&&ws.some(function(w){return ((w.name||"").trim().toLowerCase())===me;});
+  var btn=(isReporter||already)?'':'<button class="witbtn" onclick="miracleWitness(\''+esc(m.id)+'\')">🤝 I witnessed this too</button>';
+  var status=conf
+    ?'<div class="mirconfmeta">✅ Confirmed · '+n+' witnesses</div>'
+    :'<div class="mirneed">⏳ '+n+' of '+min+' witnesses — needs '+(min-n)+' more to count in the tracker</div>';
+  var meta=[m.t,mirCountyLabel(m)].filter(Boolean).join(" · ");
+  return '<div class="item '+(conf?'miracle':'mirpend')+'"><div class="top"><span class="pri">'+ti[1]+' '+ti[2]+'</span><span class="meta">'+esc(meta)+'</span></div>'
+    +(m.name?'<h4>'+esc(m.name)+'</h4>':'')
+    +'<p>'+esc(m.note)+'</p><div class="by">— reported by '+esc(m.by)+'</div>'
+    +status+wl+btn
+    +(LEADER?'<button class="ackbtn" onclick="miracleDelete(\''+esc(m.id)+'\')">🗑 Remove (leader)</button>':'')
+    +'</div>';
+}
+function renderMiracles(){
+  var f=document.getElementById("mirFeed");if(!f)return;
+  var list=STATE.miracles||[],min=STATE.witnessMin||2;
+  var conf=[],pend=[],byType={};
+  list.forEach(function(m){
+    if(mirWitnessCount(m)>=min){conf.push(m);byType[m.type]=(byType[m.type]||0)+1;}
+    else pend.push(m);
+  });
+  var e=document.getElementById("mirConf");if(e)e.textContent=conf.length;
+  e=document.getElementById("mirPend");if(e)e.textContent=pend.length;
+  e=document.getElementById("mirTypes");
+  if(e)e.innerHTML=MIR_TYPES.map(function(ti){return '<div class="mirtype">'+ti[1]+' '+esc(ti[3])+'<small>confirmed</small><b>'+(byType[ti[0]]||0)+'</b></div>';}).join("");
+  var html="";
+  if(pend.length)html+='<div class="mirsect">⏳ Awaiting witnesses ('+pend.length+')</div>'+pend.map(miracleCard).join("");
+  if(conf.length)html+='<div class="mirsect">✅ On the record ('+conf.length+')</div>'+conf.map(miracleCard).join("");
+  f.innerHTML=html||'<div class="empty">Nothing reported yet this season. Seen God move? Report it above — then grab two witnesses. 🙌</div>';
+  /* Leader dashboard row rides along (it may not be mounted — guard). */
+  var dm=document.getElementById("dMir");
+  if(dm)dm.textContent=conf.length+" confirmed"+(pend.length?(" · "+pend.length+" pending"):"");
+  var db=document.getElementById("dMirBreak");
+  if(db){
+    var rows=MIR_TYPES.map(function(ti){var nn=byType[ti[0]]||0;return nn?'<div class="tallyrow"><span>'+ti[1]+' '+esc(ti[3])+'</span><b>'+nn+'</b></div>':'';}).join("");
+    db.innerHTML=rows||'<p class="hint">Reports appear on the Miracle Tracker and count here once two witnesses confirm them.</p>';
+  }
+}
+function miracleWitness(id){
+  var m=(STATE.miracles||[]).filter(function(x){return x.id===id;})[0];if(!m)return;
+  var me=myTag();
+  if(!me){askName(function(){miracleWitness(id);});return;}
+  if(me.toLowerCase()===((m.by||"").trim().toLowerCase())){toast("You reported this one — it needs two OTHER witnesses to be confirmed.");return;}
+  if(m.dev&&m.dev===DEV){toast("This phone sent the report — each witness confirms from their own phone.");return;}
+  if((m.witnesses||[]).some(function(w){return ((w.name||"").trim().toLowerCase())===me.toLowerCase();})){toast("You've already confirmed this one 🤝");return;}
+  var w={id:id,wid:uid(),name:me,dev:DEV,t:nowLabel(),d:dateKey(new Date())};
+  queueWrite("miracleWitness",w,function(){
+    m.witnesses=Array.isArray(m.witnesses)?m.witnesses:[];
+    m.witnesses.push({wid:w.wid,name:w.name,note:"",dev:w.dev,t:w.t,d:w.d});
+  },function(){renderDynamic();});
+  toast(mirConfirmed(m)?"✅ Confirmed — it's on the record!":"🤝 Witness added — "+Math.max(0,(STATE.witnessMin||2)-mirWitnessCount(m))+" more needed");
+}
+function miracleDelete(id){
+  if(!LEADER){askPin(function(){miracleDelete(id);});return;}
+  if(!confirm("Remove this miracle report for everyone?\n\nThis deletes the report and its witnesses and can't be undone."))return;
+  queueWrite("miracleDelete",{id:id},function(){STATE.miracles=(STATE.miracles||[]).filter(function(x){return x.id!==id;});},function(){renderDynamic();});
+}
 function cmtBlock(kind,x){
   var cs=Array.isArray(x.comments)?x.comments:[];
   var html='<div class="cmts">'+cs.map(function(c){return '<div class="cmt"><b>'+esc(c.name)+'</b><span class="ct2">'+esc(c.t)+'</span><p>'+esc(c.text)+'</p></div>';}).join("");
@@ -1179,12 +1278,13 @@ function restoreComments(snaps){
     else if(s.focused==="ct"&&ct){ct.focus();try{ct.setSelectionRange(s.selS,s.selE);}catch(_){}}
   }
 }
-function renderDynamic(){var _cs=snapshotComments();refreshChecklists();renderAnnouncements();renderAnnGate();renderSimGate();renderPraise();renderIssues();renderRoster();renderCount();renderRadios();renderEvent();renderFunding();renderDashboard();updateBadges();if(!ioEditing)renderIOList();restoreComments(_cs);if(typeof chMaybeSync==="function")chMaybeSync();}
+function renderDynamic(){var _cs=snapshotComments();refreshChecklists();renderAnnouncements();renderAnnGate();renderSimGate();renderPraise();renderMiracles();renderIssues();renderRoster();renderCount();renderRadios();renderEvent();renderFunding();renderDashboard();updateBadges();if(!ioEditing)renderIOList();restoreComments(_cs);if(typeof chMaybeSync==="function")chMaybeSync();}
 function updateBadges(){
   function set(id,n){var e=document.getElementById(id);if(!e)return;e.textContent=n;e.style.display=n?"flex":"none";}
   set("crewCheckinPill",STATE.checkins.length);set("crewCountPill",STATE.count);
   set("capPill",(STATE.captureCount||0)+(typeof capQueue==="function"?capQueue().length:0));
   set("boardAnnPill",STATE.announcements.length);set("boardPraisePill",visCount(STATE.praises));set("boardIssuePill",visCount(STATE.feedback));
+  set("boardMirPill",(STATE.miracles||[]).filter(mirConfirmed).length);
   var u=Math.max(0,(STATE.announcements.length-seenAnn)+(visCount(STATE.feedback)-seenIssue));
   var b=document.getElementById("boardBadge");b.textContent=u;b.style.display=u?"flex":"none";
 }
@@ -1288,7 +1388,7 @@ document.getElementById("dayPinSave").addEventListener("click",function(){
   alert(v?("Day PIN set to "+v+" ✔ (no longer automatic)"):"Day PIN lock removed.");
 });
 function pre(id,val){var e=document.getElementById(id);if(e&&!e.value&&val)e.value=val;}
-function prefillNames(){pre("ciName",MY.name);pre("aName",MY.name);pre("pName",MY.name);pre("fName",MY.name);}
+function prefillNames(){pre("ciName",MY.name);pre("aName",MY.name);pre("pName",MY.name);pre("fName",MY.name);pre("mirMyName",MY.name);}
 /* Remember the volunteer's name across reloads so they don't have to retype it
    everywhere (requested by the team). Ignores the placeholder defaults so an
    anonymous post doesn't overwrite a real saved name. v1.5.2 — the full NAME
@@ -1322,6 +1422,7 @@ function renderNameBars(){
 document.getElementById("ciBtn").addEventListener("click",function(){var name=document.getElementById("ciName").value.trim(),team=document.getElementById("ciTeam").value;if(!name){flash("ciName");return;}if(!document.getElementById("ciAttest").checked){document.getElementById("ciAttestMsg").classList.add("show");document.getElementById("ciAttestRow").classList.add("nudge");setTimeout(function(){document.getElementById("ciAttestRow").classList.remove("nudge");},600);return;}rememberName(name);var rec={id:uid(),name:name,team:team,attested:true,t:nowLabel()};queueWrite("addCheckin",rec,function(){STATE.checkins.push(rec);},function(){renderDynamic();});document.getElementById("ciName").value="";document.getElementById("ciAttest").checked=false;document.getElementById("ciAttestMsg").classList.remove("show");prefillNames();toast(tourDone()?"✅ Checked in!":"✅ Checked in! New to the app? Take the 2-min App Tour under Resources 🧭");});
 document.getElementById("aBtn").addEventListener("click",function(){if(!LEADER){askPin(function(){});return;}var by=document.getElementById("aName").value.trim()||"Leadership",title=document.getElementById("aTitle").value.trim(),body=document.getElementById("aBody").value.trim(),pri=document.getElementById("aPri").value;if(!title||!body){flash(title?"aBody":"aTitle");return;}rememberName(by);var rec={id:uid(),pri:pri,title:title,body:body,by:by,t:nowLabel()};annBarDismissedId="";queueWrite("addAnnouncement",rec,function(){STATE.announcements.unshift(rec);},function(){renderDynamic();});document.getElementById("aTitle").value="";document.getElementById("aBody").value="";prefillNames();});
 document.getElementById("pBtn").addEventListener("click",function(){var name=document.getElementById("pName").value.trim()||"Anonymous",body=document.getElementById("pBody").value.trim();if(!body){flash("pBody");return;}rememberName(name);var rec={id:uid(),name:name,body:body,t:nowLabel()};queueWrite("addPraise",rec,function(){STATE.praises.unshift(rec);},function(){renderDynamic();});document.getElementById("pBody").value="";prefillNames();toast("🎉 Praise posted!");});
+document.getElementById("mirBtn").addEventListener("click",function(){var name=document.getElementById("mirMyName").value.trim()||MY.name,type=document.getElementById("mirType").value,who=document.getElementById("mirWho").value.trim(),body=document.getElementById("mirBody").value.trim();if(!body){flash("mirBody");return;}if(!name){flash("mirMyName");return;}rememberName(name);var rec={id:uid(),type:type,name:who,note:body,county:STATE.county||"",by:name,dev:DEV,t:nowLabel(),d:dateKey(new Date()),witnesses:[]};queueWrite("miracleAdd",rec,function(){STATE.miracles=STATE.miracles||[];STATE.miracles.unshift(rec);},function(){renderDynamic();});document.getElementById("mirWho").value="";document.getElementById("mirBody").value="";prefillNames();toast("🙌 Reported — now it needs two witnesses to confirm it");});
 document.getElementById("fBtn").addEventListener("click",function(){var by=document.getElementById("fName").value.trim()||"Volunteer",title=document.getElementById("fTitle").value.trim(),body=document.getElementById("fBody").value.trim(),priority=document.getElementById("fPri").value;if(!title){flash("fTitle");return;}rememberName(by);var rec={id:uid(),priority:priority,title:title,body:body,by:by,t:nowLabel()};queueWrite("addFeedback",rec,function(){STATE.feedback.unshift(rec);},function(){renderDynamic();});document.getElementById("fTitle").value="";document.getElementById("fBody").value="";prefillNames();toast("✅ Sent to leadership");});
 function flash(id){var e=document.getElementById(id);if(e){e.style.borderColor="#B86239";e.focus();setTimeout(function(){e.style.borderColor="";},1200);}}
 /* Attendance counter (v1.6.1): every tap lands in a per-phone ABSOLUTE tally

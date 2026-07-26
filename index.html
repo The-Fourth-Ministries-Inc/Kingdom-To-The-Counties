@@ -666,6 +666,22 @@ textarea, select { font-size: 16px !important; }
   .ackmeta{font-size:11px;font-weight:700;color:var(--good);margin-top:8px}
   .item.acked{opacity:.6}
   .item.acked .pri{text-decoration:line-through}
+  /* Miracle Tracker (v1.12.0) */
+  .item.miracle{border-left-color:var(--good)}
+  .item.miracle .pri{background:#e3ecdf;color:#3f6a3c}
+  .item.mirpend{border-left-color:#caa24a}
+  .item.mirpend .pri{background:#f3e7c8;color:#8a6d1f}
+  .mirtypes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .mirtype{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700}
+  .mirtype small{font-weight:600;color:var(--muted);font-size:10.5px}
+  .mirtype b{margin-left:auto;font-family:var(--serif);font-size:17px;color:var(--rust)}
+  .mirsect{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;font-weight:800;color:var(--muted);margin:16px 2px 8px}
+  .witwrap{margin-top:9px}
+  .witrow{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:5px 0;border-top:1px dashed var(--line)}
+  .witrow .wt{margin-left:auto;font-size:11px;color:var(--muted);flex:none}
+  .witbtn{margin-top:9px;border:1px solid var(--rust);background:var(--card);color:var(--rust);font-weight:700;font-size:12.5px;padding:8px 13px;border-radius:9px;cursor:pointer;min-height:44px}
+  .mirneed{font-size:11.5px;font-weight:700;color:#8a6d1f;margin-top:8px}
+  .mirconfmeta{font-size:11.5px;font-weight:800;color:var(--good);margin-top:8px}
   /* Day PIN gate — locks the whole app */
   .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:center;justify-content:center;padding:24px}
   .daygate.show{display:flex}
@@ -811,6 +827,7 @@ textarea, select { font-size: 16px !important; }
         <button onclick="show('announcements')">📣 Announce</button>
         <button onclick="show('issue')">🧩 Issues</button>
         <button onclick="show('praise')">🎉 Praise</button>
+        <button onclick="show('miracles')">🙌 Miracles</button>
         <button onclick="show('mobilize')">⛪ Churches</button>
       </div>
       <div class="eventedit"><div class="ttl">📍 This event</div>
@@ -842,6 +859,7 @@ textarea, select { font-size: 16px !important; }
       <div class="dashrow"><div class="t"><span>Tech I/O patched</span><span class="v" id="dIo">0 / 0 · 0%</span></div><div class="pbar"><i id="dIoBar"></i></div></div>
       <div class="dashrow"><div class="t"><span>Overdue setup items</span><span class="v" id="dOver">0</span></div></div>
       <div class="dashrow"><div class="t"><span>✝️ Decisions today</span><span class="v" id="dDecisions">0</span></div><div id="dDecBreak" style="margin-top:6px"><p class="hint">No decisions logged yet.</p></div></div>
+      <div class="dashrow"><div class="t"><span>🙌 Miracles this season</span><span class="v" id="dMir">0 confirmed</span></div><div id="dMirBreak" style="margin-top:6px"><p class="hint">Reports appear on the Miracle Tracker and count here once two witnesses confirm them.</p></div></div>
       <div class="dashrow"><div class="t"><span>👥 Attendees by counter</span></div><div id="dTally" style="margin-top:6px"><p class="hint">No counts logged yet.</p></div></div>
       <div class="dashrow"><div class="t"><span>🗓 Season so far</span><button class="iobtn" onclick="seasonLoad()">Refresh</button></div><div id="dSeason" style="margin-top:6px"><p class="hint">Tap Refresh to load past events. Each event is summarised automatically when you reset.</p></div></div>
       <div class="dashrow"><div class="t"><span>📻 Radios out</span><span class="v" id="dRadios">0</span></div><div id="dRadioList" style="margin-top:6px"></div></div>
@@ -938,9 +956,10 @@ textarea, select { font-size: 16px !important; }
     <div id="ioMount"></div>
   </section>
   <section class="page" id="page-board">
-    <p class="eyebrow">Communication</p><h1 class="title">Post</h1><p class="sub">Praise, issues & announcements.</p>
+    <p class="eyebrow">Communication</p><h1 class="title">Post</h1><p class="sub">Praise, miracles, issues & announcements.</p>
     <div class="hub">
       <button class="hubcard" onclick="show('praise')"><span class="ic">🎉</span><span class="tx"><b>Praise Wall</b><span>Celebrate God moments & great volunteers</span></span><span class="pill" id="boardPraisePill">0</span></button>
+      <button class="hubcard" onclick="show('miracles')"><span class="ic">🙌</span><span class="tx"><b>Miracle Tracker</b><span>Salvations, rededications & healings — season record, confirmed by two witnesses</span></span><span class="pill" id="boardMirPill">0</span></button>
       <button class="hubcard slate" onclick="show('issue')"><span class="ic">⚠️</span><span class="tx"><b>Report an Issue</b><span>Something's wrong? Flag leadership fast</span></span><span class="pill" id="boardIssuePill">0</span></button>
       <button class="hubcard wine" onclick="show('announcements')"><span class="ic">📣</span><span class="tx"><b>Announcements</b><span>Updates from leadership</span></span><span class="pill" id="boardAnnPill">0</span></button>
     </div>
@@ -966,6 +985,22 @@ textarea, select { font-size: 16px !important; }
       <textarea id="pBody" rows="3" placeholder="What's worth celebrating? A salvation, a kind volunteer, an answered prayer…"></textarea>
       <button class="btn rust" id="pBtn">Post praise</button></div>
     <div id="praiseFeed"></div>
+  </section>
+  <section class="page" id="page-miracles">
+    <button class="back" onclick="show('board')">‹ Post</button>
+    <p class="eyebrow">Season Record</p><h1 class="title">Miracle Tracker</h1>
+    <span class="syncpill" id="sp-mir"><span class="d"></span>Demo mode</span>
+    <p class="sub">One shared record of what God is doing across all eight counties — salvations, rededications, healings. A report joins the official tally once <b>two witnesses</b> confirm it: <i>“by the testimony of two or three witnesses every matter shall be established.”</i> (Deut 19:15 · 2 Cor 13:1)</p>
+    <div class="stat"><div class="box"><div class="n" id="mirConf">0</div><div class="l">Confirmed Miracles</div></div><div class="box alt"><div class="n" id="mirPend">0</div><div class="l">Awaiting Witnesses</div></div></div>
+    <div class="mirtypes" id="mirTypes"></div>
+    <div class="form"><div class="ttl">🙌 Report a miracle</div>
+      <select id="mirType"><option value="salvation">✝️ Salvation</option><option value="rededication">🔁 Rededication</option><option value="healing">🙌 Healing</option><option value="other">✨ Other miracle</option></select>
+      <input id="mirWho" maxlength="80" placeholder="Their name (optional — first name is fine)" />
+      <textarea id="mirBody" rows="3" maxlength="1000" placeholder="What happened? Where on the field, roughly when, who else was there…"></textarea>
+      <input id="mirMyName" maxlength="40" placeholder="Your name (the reporter)" />
+      <button class="btn rust" id="mirBtn">Report it</button>
+      <p class="hint">The name is optional on purpose — never pressure someone to be named. Your report is the testimony; it becomes <b>confirmed</b> when two <b>other</b> people who saw it (teammates or leaders) tap “I witnessed this too” — each from their own phone.</p></div>
+    <div id="mirFeed"></div>
   </section>
   <section class="page" id="page-issue">
     <button class="back" onclick="show('board')">‹ Post</button>

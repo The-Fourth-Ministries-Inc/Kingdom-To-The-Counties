@@ -24,6 +24,15 @@ const LEADER_PIN = () => process.env.LEADER_PIN || "2026";
  prompter  — Recording Studio scripts
  radios    — 10-radio checkout board (initials + times)
  captures  — Ambassador Quick Capture contact records (text fields only)
+ miracles  — season-long Miracle Tracker: {list}. Every report (salvation,
+             rededication, healing…) is one record with an OPTIONAL name, the
+             reporter, and its witness confirmations. A miracle only counts in
+             the tracker once at least two DISTINCT witnesses (Deuteronomy
+             19:15 / 2 Corinthians 13:1 — "by the testimony of two or three
+             witnesses every matter shall be established") have confirmed it —
+             the reporter's own testimony is the report, not a witness, and
+             one phone can't stack confirmations. Survives reset: it is the
+             season's testimony record, not day-scoped data.
  churches  — Pre-Crusade Mobilization church CRM: {rev, removed, list, log, tpl}.
              tpl = leader-edited master outreach templates {subject, email, sms};
              empty strings mean "use the client's built-in default".
@@ -189,6 +198,66 @@ export function normCapture(x){
 const CAPTURE_LIST_MAX = 1000;
 export const normCaptures = v => Array.isArray(v) ? v.map(normCapture).slice(-CAPTURE_LIST_MAX) : [];
 const capMediaKey = id => "capmedia-" + (id || "").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 40);
+
+/* ---- Miracle Tracker (v1.12.0) ----
+   One season-long blob ("miracles") holds every reported miracle — salvations,
+   rededications, healings — with an OPTIONAL name for the person, the
+   reporter, and the witnesses who have confirmed it. The validation standard
+   is the biblical one: "by the testimony of two or three witnesses every
+   matter shall be established" (Deuteronomy 19:15, 2 Corinthians 13:1) — so a
+   report needs at least WITNESS_MIN distinct confirmations before it counts
+   in the tracker. What makes a confirmation count is enforced here, not in
+   the browser: the reporter can't witness their own report, the same person
+   (name, case-insensitive) counts once, and the reporting phone's device id
+   counts for nobody. */
+export const WITNESS_MIN = 2;
+const MIRACLE_TYPES = new Set(["salvation","rededication","healing","other"]);
+function normWitness(x){
+ x = x || {};
+ return {
+  wid: idStr(x.wid) || uid(), // client-generated so a retried confirmation can't duplicate
+  name: str(x.name, 40),
+  note: str(x.note, 200),
+  dev: idStr(x.dev, 24),
+  t: str(x.t, 12), d: str(x.d, 10)
+ };
+}
+export function normMiracle(x){
+ x = x || {};
+ return {
+  id: idStr(x.id) || uid(),
+  type: MIRACLE_TYPES.has(x.type) ? x.type : "other",
+  name: str(x.name, 80),   // optional — who the Lord touched, if they're comfortable sharing
+  note: str(x.note, 1000),
+  county: idStr(x.county, 24),
+  by: str(x.by || "Ambassador", 40),
+  dev: idStr(x.dev, 24),
+  t: str(x.t, 12), d: str(x.d, 10),
+  witnesses: Array.isArray(x.witnesses) ? x.witnesses.map(normWitness).filter(w => w.name).slice(0, 20) : []
+ };
+}
+const MIRACLE_LIST_MAX = 500;
+export function normMiracles(v){
+ v = v || {};
+ return { list: Array.isArray(v.list) ? v.list.map(normMiracle).slice(0, MIRACLE_LIST_MAX) : [] };
+}
+/* How many confirmations actually count. Applied on READ (not just on write)
+   so a record that predates a rule — or was written by an older client —
+   can never validate on junk witnesses. */
+export function miracleWitnessCount(m){
+ m = m || {};
+ const reporter = (m.by || "").trim().toLowerCase();
+ const seen = new Set();
+ for(const w of (m.witnesses || [])){
+  const nm = (w.name || "").trim().toLowerCase();
+  if(!nm) continue;
+  if(nm === reporter) continue;                  // your report is your testimony, not a witness
+  if(w.dev && m.dev && w.dev === m.dev) continue; // the reporting phone can't confirm itself
+  seen.add(nm);
+ }
+ return seen.size;
+}
+export const miracleConfirmed = m => miracleWitnessCount(m) >= WITNESS_MIN;
 
 /* ---- Pre-Crusade Mobilization: church CRM ----
    One blob ("churches") holds the roster + a global activity log. Every entry
@@ -488,7 +557,7 @@ const LEADER_ACTIONS = new Set([
  "addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin","captureSetState","setCounty",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
  "capturesList","captureMedia","captureDelete","capturePurge","revokeLeaderTokens",
- "churchEdit","churchDelete","churchFlagClear","churchTemplate"
+ "churchEdit","churchDelete","churchFlagClear","churchTemplate","miracleDelete"
 ]);
 
 /* ---------------- per-county scoping (v1.11.0) ----------------
@@ -851,7 +920,7 @@ async function assemble(s, K, active, lvl){
  let parts = await readAll(s, K);
  parts = await migrateIfNeeded(s, K, parts);
  const core = normCore(parts.core);
- const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, pinCfg] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), readDayPinCfg(s) ]);
+ const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, miraclesRaw, pinCfg] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), s.get("miracles", { type:"json" }), readDayPinCfg(s) ]);
  const dayPin = pinCfg.pin;
  /* Leaders (and only leaders) get the actual PIN plus when it rolls over, so
     they can read it out at the huddle and tell people what changes Monday.
@@ -906,6 +975,10 @@ async function assemble(s, K, active, lvl){
  captureCount: captures.length,
  captureBytes: captureUsage(captures),
  captureBudget: CAPTURE_BUDGET(),
+ // Season-long, shared with everyone behind the Day PIN — like praises, the
+ // whole point is one centralized record the whole team can see and confirm.
+ miracles: normMiracles(miraclesRaw).list,
+ witnessMin: WITNESS_MIN,
  churchesRev,
  churchCount
  };
@@ -1392,7 +1465,9 @@ export default async (req, context) => {
     are seekers' contact info headed for the CRM, never day-scoped throwaway
     data (leaders delete them individually once they're in Planning Center).
     The Mobilization church CRM ("churches" blob) also survives — it's a
-    season-long relationship record. */
+    season-long relationship record. So does the Miracle Tracker ("miracles"
+    blob) — it's the season's testimony record, and half-confirmed reports
+    must not lose their witnesses to an end-of-day reset. */
  {
  const [curCore, curCheckins, curIO, curRadios] = await Promise.all([
   s.get(K.core, { type:"json" }), s.get(K.checkins, { type:"json" }),
@@ -1579,6 +1654,48 @@ export default async (req, context) => {
  return list.filter(c => c.id !== id);
  }, () => []);
  await s.delete(capMediaKey(payload.id)).catch(() => {});
+ break;
+ /* ---- Miracle Tracker ----
+    Reporting and witnessing are open to everyone behind the Day PIN — the
+    centralized record only works if anybody can put a miracle in and any
+    leader or teammate can confirm it. What COUNTS is decided server-side
+    (see miracleWitnessCount): a report validates only once WITNESS_MIN
+    distinct witnesses — not the reporter, not the reporting phone — have
+    confirmed it. Deleting a record is leader-PIN only. */
+ case "miracleAdd":
+ await compareAndSwap(s, "miracles", normMiracles, mr => {
+ if(payload.id && mr.list.some(x => x.id === payload.id)) return undefined; // idempotent retry
+ const rec = normMiracle({ ...payload, county: idStr(payload.county, 24) || K.cty, witnesses: [] });
+ if(!rec.note) return undefined; // a report with no testimony is nothing to witness
+ if(mr.list.length >= MIRACLE_LIST_MAX) return undefined;
+ mr.list.unshift(rec);
+ return mr;
+ }, () => ({ list: [] }));
+ break;
+ case "miracleWitness": {
+ const w = normWitness(payload);
+ if(!w.name) break;
+ await compareAndSwap(s, "miracles", normMiracles, mr => {
+ const it = mr.list.find(x => x.id === idStr(payload.id));
+ if(!it) return undefined;
+ if(it.witnesses.some(x => x.wid === w.wid)) return undefined; // retry of an applied write
+ const nm = w.name.trim().toLowerCase();
+ if(nm === (it.by || "").trim().toLowerCase()) return undefined; // reporter can't witness their own report
+ if(w.dev && it.dev && w.dev === it.dev) return undefined;       // …nor can the reporter's phone under another name
+ if(it.witnesses.some(x => (x.name || "").trim().toLowerCase() === nm)) return undefined; // one confirmation per person
+ if(w.dev && it.witnesses.some(x => x.dev && x.dev === w.dev)) return undefined;          // one confirmation per phone
+ it.witnesses.push(w); it.witnesses = it.witnesses.slice(0, 20);
+ return mr;
+ }, () => ({ list: [] }));
+ break;
+ }
+ case "miracleDelete":
+ await compareAndSwap(s, "miracles", normMiracles, mr => {
+ const id = idStr(payload.id);
+ if(!mr.list.some(x => x.id === id)) return undefined;
+ mr.list = mr.list.filter(x => x.id !== id);
+ return mr;
+ }, () => ({ list: [] }));
  break;
  /* ---- Pre-Crusade Mobilization (church CRM) ----
     Open to everyone behind the Day PIN: adding a church, logging outreach,

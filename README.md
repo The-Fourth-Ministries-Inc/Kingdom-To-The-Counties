@@ -94,6 +94,35 @@ ask) from the research doc.
   tombstoned (same pattern as starter scripts). The CRM **survives the
   end-of-day reset** — it's season-long relationship data.
 
+## Miracle Tracker (v1.12.0)
+
+Under **Post → 🙌 Miracle Tracker**: one centralized, season-long record of
+what God is doing across all eight counties — **salvations, rededications,
+healings**, and anything else — that anybody behind the Day PIN can feed and
+everybody can see live.
+
+- **Reporting is frictionless:** pick the type, optionally add the person's
+  name (optional *on purpose* — nobody is pressured to be named), describe
+  what happened, sign it as the reporter. Reports queue offline through the
+  same persistent outbox as everything else.
+- **Validation is the biblical standard** — *"by the testimony of two or three
+  witnesses every matter shall be established"* (Deuteronomy 19:15,
+  2 Corinthians 13:1). A report sits in **⏳ Awaiting witnesses** until **two
+  other people** tap "🤝 I witnessed this too"; only then does it join the
+  confirmed tally, the per-type season counts, and the leader dashboard.
+- **What counts as a witness is enforced server-side**, not in the browser:
+  the reporter's own name never counts (their report *is* their testimony),
+  the same person counts once no matter the casing, and the reporting phone's
+  device id counts for nobody — so two confirmations really are two different
+  people on two different phones. Any teammate or leader can validate;
+  multiple leaders naturally can.
+- **Season-long by design:** the `miracles` blob is not county-scoped and
+  survives the end-of-day reset, so half-confirmed reports keep their
+  witnesses and October's "what did God do this season?" has one answer in
+  one place. Each report is stamped with the county it happened in.
+- **Removing a report is leader-PIN only** (server-enforced), so a stray
+  thumb can't erase a testimony.
+
 ## Recording Studio (Teleprompter)
 
 Under **Ambassador Resources → 🎬 Recording Studio**: invite-video scripts for
