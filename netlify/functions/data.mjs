@@ -33,6 +33,13 @@ const LEADER_PIN = () => process.env.LEADER_PIN || "2026";
              the reporter's own testimony is the report, not a witness, and
              one phone can't stack confirmations. Survives reset: it is the
              season's testimony record, not day-scoped data.
+ binnotes  — Trailer Load List packing FYIs: {list}. Volunteers can't edit bin
+             contents, but anyone can pin a quick note to a bin ("couldn't
+             find the 50ft XLR", "extra patch cable tossed in 002-007") so
+             the leaders hear about it WITHOUT being interrupted mid-pack.
+             Leaders acknowledge & hide them once handled, like issues.
+             Survives reset — the note describes the physical trailer, and
+             the trailer is the same trailer next week.
  churches  — Pre-Crusade Mobilization church CRM: {rev, removed, list, log, tpl}.
              tpl = leader-edited master outreach templates {subject, email, sms};
              empty strings mean "use the client's built-in default".
@@ -198,6 +205,29 @@ export function normCapture(x){
 const CAPTURE_LIST_MAX = 1000;
 export const normCaptures = v => Array.isArray(v) ? v.map(normCapture).slice(-CAPTURE_LIST_MAX) : [];
 const capMediaKey = id => "capmedia-" + (id || "").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 40);
+
+/* ---- Trailer Load List packing FYIs (v1.12.0) ----
+   The bin roster itself stays read-only for volunteers; this is the "throw in
+   a thought as you pack" channel. A note is pinned to a bin id ("001-014") or
+   is general ("GEN"), and carries the same acknowledge-&-hide state as issues
+   so leaders can mark it handled without deleting the record. */
+export function normBinNote(x){
+ x = x || {};
+ return {
+  id: idStr(x.id) || uid(),
+  bin: idStr(x.bin, 12) || "GEN",
+  text: str(x.text, 500),
+  by: str(x.by || "Volunteer", 40),
+  t: str(x.t, 12), d: str(x.d, 10),
+  hidden: !!x.hidden,
+  ackBy: str(x.ackBy, 40), ackT: str(x.ackT, 12)
+ };
+}
+const BINNOTE_LIST_MAX = 400;
+export function normBinNotes(v){
+ v = v || {};
+ return { list: Array.isArray(v.list) ? v.list.map(normBinNote).filter(n => n.text).slice(-BINNOTE_LIST_MAX) : [] };
+}
 
 /* ---- Miracle Tracker (v1.12.0) ----
    One season-long blob ("miracles") holds every reported miracle — salvations,
@@ -557,7 +587,7 @@ const LEADER_ACTIONS = new Set([
  "addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin","captureSetState","setCounty",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
  "capturesList","captureMedia","captureDelete","capturePurge","revokeLeaderTokens",
- "churchEdit","churchDelete","churchFlagClear","churchTemplate","miracleDelete"
+ "churchEdit","churchDelete","churchFlagClear","churchTemplate","miracleDelete","binNoteAck"
 ]);
 
 /* ---------------- per-county scoping (v1.11.0) ----------------
@@ -920,7 +950,7 @@ async function assemble(s, K, active, lvl){
  let parts = await readAll(s, K);
  parts = await migrateIfNeeded(s, K, parts);
  const core = normCore(parts.core);
- const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, miraclesRaw, pinCfg] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), s.get("miracles", { type:"json" }), readDayPinCfg(s) ]);
+ const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, miraclesRaw, binNotesRaw, pinCfg] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), s.get("miracles", { type:"json" }), s.get("binnotes", { type:"json" }), readDayPinCfg(s) ]);
  const dayPin = pinCfg.pin;
  /* Leaders (and only leaders) get the actual PIN plus when it rolls over, so
     they can read it out at the huddle and tell people what changes Monday.
@@ -979,6 +1009,7 @@ async function assemble(s, K, active, lvl){
  // whole point is one centralized record the whole team can see and confirm.
  miracles: normMiracles(miraclesRaw).list,
  witnessMin: WITNESS_MIN,
+ binNotes: normBinNotes(binNotesRaw).list,
  churchesRev,
  churchCount
  };
@@ -1467,7 +1498,9 @@ export default async (req, context) => {
     The Mobilization church CRM ("churches" blob) also survives — it's a
     season-long relationship record. So does the Miracle Tracker ("miracles"
     blob) — it's the season's testimony record, and half-confirmed reports
-    must not lose their witnesses to an end-of-day reset. */
+    must not lose their witnesses to an end-of-day reset. Trailer packing
+    FYIs ("binnotes") survive too: a note describes the physical bin, and
+    it's the same bin at the next county. */
  {
  const [curCore, curCheckins, curIO, curRadios] = await Promise.all([
   s.get(K.core, { type:"json" }), s.get(K.checkins, { type:"json" }),
@@ -1654,6 +1687,33 @@ export default async (req, context) => {
  return list.filter(c => c.id !== id);
  }, () => []);
  await s.delete(capMediaKey(payload.id)).catch(() => {});
+ break;
+ /* ---- Trailer Load List packing FYIs ----
+    Adding a note is open to everyone behind the Day PIN — the whole point is
+    that a packer can flag "extra patch cable went into 002-007" without
+    stopping a leader mid-load. Acknowledge-&-hide is leader-PIN only
+    (final-state write, same shape as setAck). */
+ case "binNoteAdd":
+ await compareAndSwap(s, "binnotes", normBinNotes, bn => {
+ if(payload.id && bn.list.some(x => x.id === payload.id)) return undefined; // idempotent retry
+ const rec = normBinNote(payload);
+ rec.hidden = false; rec.ackBy = ""; rec.ackT = "";
+ if(!rec.text) return undefined;
+ bn.list.push(rec); bn.list = bn.list.slice(-BINNOTE_LIST_MAX);
+ return bn;
+ }, () => ({ list: [] }));
+ break;
+ case "binNoteAck":
+ await compareAndSwap(s, "binnotes", normBinNotes, bn => {
+ const it = bn.list.find(x => x.id === idStr(payload.id));
+ if(!it) return undefined;
+ const hide = !!payload.hidden;
+ if(it.hidden === hide) return undefined; // already in the desired state — no-op
+ it.hidden = hide;
+ it.ackBy = hide ? str(payload.by, 40) : "";
+ it.ackT = hide ? str(payload.t, 12) : "";
+ return bn;
+ }, () => ({ list: [] }));
  break;
  /* ---- Miracle Tracker ----
     Reporting and witnessing are open to everyone behind the Day PIN — the

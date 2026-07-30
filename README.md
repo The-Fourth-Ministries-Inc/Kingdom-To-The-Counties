@@ -94,6 +94,27 @@ ask) from the research doc.
   tombstoned (same pattern as starter scripts). The CRM **survives the
   end-of-day reset** — it's season-long relationship data.
 
+## Trailer Load List — Packing FYIs (v1.12.0)
+
+The bin roster on **Specialists → 📦 Trailer Load List** stays read-only for
+volunteers — but packing always surfaces things worth saying ("couldn't find
+the 50ft XLRs", "someone brought an extra patch cable, it went into 002-007").
+The **Packing FYIs** board is the way to say them **without stopping the
+leaders mid-load**:
+
+- **Anyone** behind the Day PIN can add an FYI — from the board at the top of
+  the page (with an optional bin #), or straight from any bin's pop-up, where
+  the FYI box sits at the bottom. Contents stay untouched; the note is a
+  side-channel, not an edit.
+- Bins with open FYIs show a **count bubble** on their chip, every note shows
+  up in the shared board for the whole team, and the Trailer Load List card
+  shows how many are open.
+- **Leaders mark a note ✓ handled** (leader-PIN, server-enforced, reversible)
+  — same acknowledge-&-hide flow as issues, so nothing is deleted, just
+  filed.
+- FYIs are **not county-scoped and survive the reset**: the note describes
+  the physical trailer, and it's the same trailer at the next county.
+
 ## Miracle Tracker (v1.12.0)
 
 Under **Post → 🙌 Miracle Tracker**: one centralized, season-long record of

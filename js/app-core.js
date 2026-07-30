@@ -344,7 +344,7 @@ var SETUP=[
   ]}
 ];
 var TEARDOWN=[];
-var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],miracles:[],count:0,event:{name:"",date:""},ioList:[],dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
+var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],miracles:[],binNotes:[],count:0,event:{name:"",date:""},ioList:[],dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
 var LIVE=false,LEADER=false,seenAnn=0,seenIssue=0,inflight=0,countFlushT=null,countSending=false;
 /* Which announcement the volunteer closed (id, or "checkin"), and the last
    urgent one we alerted for — see renderAnnouncements. */
@@ -373,7 +373,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
    onclick="fn('...')" handlers all over this file, so a lone ' would break out
    of the JS string literal inside the attribute. */
 function esc(s){return(s||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
-function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],miracles:Array.isArray(s.miracles)?s.miracles:[],witnessMin:s.witnessMin||2,county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
+function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],miracles:Array.isArray(s.miracles)?s.miracles:[],witnessMin:s.witnessMin||2,binNotes:Array.isArray(s.binNotes)?s.binNotes:[],county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
 function toast(msg){var el=document.getElementById("toastEl");if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}el.textContent=msg;el.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function vibr(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(_){}}
 function hasFullState(s){return !!(s&&("checklist" in s||"announcements" in s||"count" in s));}
@@ -489,7 +489,7 @@ var OB_KEY={
 };
 /* Actions the server gates behind the leader PIN — held in the queue (not
    sent, not dropped) whenever this session has no PIN, e.g. after a reload. */
-var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,setEvent:1,setFunding:1,miracleDelete:1};
+var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,setEvent:1,setFunding:1,miracleDelete:1,binNoteAck:1};
 var OUTBOX=[];
 try{OUTBOX=JSON.parse(localStorage.getItem("k2c_outbox")||"[]");}catch(_){OUTBOX=[];}
 if(!Array.isArray(OUTBOX))OUTBOX=[];
@@ -596,6 +596,12 @@ function applyPending(st){
       }
     }else if(op.a==="miracleDelete"){
       st.miracles=(st.miracles||[]).filter(function(x){return x.id!==p.id;});
+    }else if(op.a==="binNoteAdd"){
+      st.binNotes=st.binNotes||[];
+      if(!st.binNotes.some(function(x){return x.id===p.id;}))st.binNotes.push(p);
+    }else if(op.a==="binNoteAck"){
+      var bn=(st.binNotes||[]).filter(function(x){return x.id===p.id;})[0];
+      if(bn){bn.hidden=!!p.hidden;bn.ackBy=p.hidden?p.by:"";bn.ackT=p.hidden?p.t:"";}
     }else if(op.a==="setIOList"){
       if(Array.isArray(p.list))st.ioList=p.list;
     }else if(op.a==="setEvent"){
@@ -1278,13 +1284,14 @@ function restoreComments(snaps){
     else if(s.focused==="ct"&&ct){ct.focus();try{ct.setSelectionRange(s.selS,s.selE);}catch(_){}}
   }
 }
-function renderDynamic(){var _cs=snapshotComments();refreshChecklists();renderAnnouncements();renderAnnGate();renderSimGate();renderPraise();renderMiracles();renderIssues();renderRoster();renderCount();renderRadios();renderEvent();renderFunding();renderDashboard();updateBadges();if(!ioEditing)renderIOList();restoreComments(_cs);if(typeof chMaybeSync==="function")chMaybeSync();}
+function renderDynamic(){var _cs=snapshotComments();refreshChecklists();renderAnnouncements();renderAnnGate();renderSimGate();renderPraise();renderMiracles();renderInvNotes();renderIssues();renderRoster();renderCount();renderRadios();renderEvent();renderFunding();renderDashboard();updateBadges();if(!ioEditing)renderIOList();restoreComments(_cs);if(typeof chMaybeSync==="function")chMaybeSync();}
 function updateBadges(){
   function set(id,n){var e=document.getElementById(id);if(!e)return;e.textContent=n;e.style.display=n?"flex":"none";}
   set("crewCheckinPill",STATE.checkins.length);set("crewCountPill",STATE.count);
   set("capPill",(STATE.captureCount||0)+(typeof capQueue==="function"?capQueue().length:0));
   set("boardAnnPill",STATE.announcements.length);set("boardPraisePill",visCount(STATE.praises));set("boardIssuePill",visCount(STATE.feedback));
   set("boardMirPill",(STATE.miracles||[]).filter(mirConfirmed).length);
+  set("crewInvPill",binNotesOpen().length);
   var u=Math.max(0,(STATE.announcements.length-seenAnn)+(visCount(STATE.feedback)-seenIssue));
   var b=document.getElementById("boardBadge");b.textContent=u;b.style.display=u?"flex":"none";
 }
@@ -1388,7 +1395,7 @@ document.getElementById("dayPinSave").addEventListener("click",function(){
   alert(v?("Day PIN set to "+v+" ✔ (no longer automatic)"):"Day PIN lock removed.");
 });
 function pre(id,val){var e=document.getElementById(id);if(e&&!e.value&&val)e.value=val;}
-function prefillNames(){pre("ciName",MY.name);pre("aName",MY.name);pre("pName",MY.name);pre("fName",MY.name);pre("mirMyName",MY.name);}
+function prefillNames(){pre("ciName",MY.name);pre("aName",MY.name);pre("pName",MY.name);pre("fName",MY.name);pre("mirMyName",MY.name);pre("bnName",MY.name);}
 /* Remember the volunteer's name across reloads so they don't have to retype it
    everywhere (requested by the team). Ignores the placeholder defaults so an
    anonymous post doesn't overwrite a real saved name. v1.5.2 — the full NAME
@@ -1422,6 +1429,7 @@ function renderNameBars(){
 document.getElementById("ciBtn").addEventListener("click",function(){var name=document.getElementById("ciName").value.trim(),team=document.getElementById("ciTeam").value;if(!name){flash("ciName");return;}if(!document.getElementById("ciAttest").checked){document.getElementById("ciAttestMsg").classList.add("show");document.getElementById("ciAttestRow").classList.add("nudge");setTimeout(function(){document.getElementById("ciAttestRow").classList.remove("nudge");},600);return;}rememberName(name);var rec={id:uid(),name:name,team:team,attested:true,t:nowLabel()};queueWrite("addCheckin",rec,function(){STATE.checkins.push(rec);},function(){renderDynamic();});document.getElementById("ciName").value="";document.getElementById("ciAttest").checked=false;document.getElementById("ciAttestMsg").classList.remove("show");prefillNames();toast(tourDone()?"✅ Checked in!":"✅ Checked in! New to the app? Take the 2-min App Tour under Resources 🧭");});
 document.getElementById("aBtn").addEventListener("click",function(){if(!LEADER){askPin(function(){});return;}var by=document.getElementById("aName").value.trim()||"Leadership",title=document.getElementById("aTitle").value.trim(),body=document.getElementById("aBody").value.trim(),pri=document.getElementById("aPri").value;if(!title||!body){flash(title?"aBody":"aTitle");return;}rememberName(by);var rec={id:uid(),pri:pri,title:title,body:body,by:by,t:nowLabel()};annBarDismissedId="";queueWrite("addAnnouncement",rec,function(){STATE.announcements.unshift(rec);},function(){renderDynamic();});document.getElementById("aTitle").value="";document.getElementById("aBody").value="";prefillNames();});
 document.getElementById("pBtn").addEventListener("click",function(){var name=document.getElementById("pName").value.trim()||"Anonymous",body=document.getElementById("pBody").value.trim();if(!body){flash("pBody");return;}rememberName(name);var rec={id:uid(),name:name,body:body,t:nowLabel()};queueWrite("addPraise",rec,function(){STATE.praises.unshift(rec);},function(){renderDynamic();});document.getElementById("pBody").value="";prefillNames();toast("🎉 Praise posted!");});
+document.getElementById("bnBtn").addEventListener("click",function(){var txt=document.getElementById("bnText").value.trim();if(!txt){flash("bnText");return;}var name=document.getElementById("bnName").value.trim()||MY.name||"Volunteer";var bin=(document.getElementById("bnBin").value||"").trim().toUpperCase().replace(/[^A-Z0-9-]/g,"").slice(0,12);rememberName(name);binNotePush(bin||"GEN",txt,name);document.getElementById("bnText").value="";document.getElementById("bnBin").value="";prefillNames();toast("📝 FYI added — leaders will see it");});
 document.getElementById("mirBtn").addEventListener("click",function(){var name=document.getElementById("mirMyName").value.trim()||MY.name,type=document.getElementById("mirType").value,who=document.getElementById("mirWho").value.trim(),body=document.getElementById("mirBody").value.trim();if(!body){flash("mirBody");return;}if(!name){flash("mirMyName");return;}rememberName(name);var rec={id:uid(),type:type,name:who,note:body,county:STATE.county||"",by:name,dev:DEV,t:nowLabel(),d:dateKey(new Date()),witnesses:[]};queueWrite("miracleAdd",rec,function(){STATE.miracles=STATE.miracles||[];STATE.miracles.unshift(rec);},function(){renderDynamic();});document.getElementById("mirWho").value="";document.getElementById("mirBody").value="";prefillNames();toast("🙌 Reported — now it needs two witnesses to confirm it");});
 document.getElementById("fBtn").addEventListener("click",function(){var by=document.getElementById("fName").value.trim()||"Volunteer",title=document.getElementById("fTitle").value.trim(),body=document.getElementById("fBody").value.trim(),priority=document.getElementById("fPri").value;if(!title){flash("fTitle");return;}rememberName(by);var rec={id:uid(),priority:priority,title:title,body:body,by:by,t:nowLabel()};queueWrite("addFeedback",rec,function(){STATE.feedback.unshift(rec);},function(){renderDynamic();});document.getElementById("fTitle").value="";document.getElementById("fBody").value="";prefillNames();toast("✅ Sent to leadership");});
 function flash(id){var e=document.getElementById(id);if(e){e.style.borderColor="#B86239";e.focus();setTimeout(function(){e.style.borderColor="";},1200);}}
@@ -1682,7 +1690,7 @@ function show(id){
   if(id==="announcements"||id==="issue"){seenAnn=STATE.announcements.length;seenIssue=visCount(STATE.feedback);updateBadges();}
   if(id==="tour")tourSeen();
   if(id==="radios")renderRadios();
-  if(id==="inventory")renderInventory();
+  if(id==="inventory"){renderInventory();renderInvNotes();}
   if(id==="shareapp")renderShareQR();
   if(id==="capture"&&typeof renderCapture==="function")renderCapture();
   if(id==="mobilize"&&typeof renderMobilize==="function"){renderMobilize();chFetch();}
@@ -1831,6 +1839,56 @@ var TRAILERS=[
  ]}
 ];
 function binId(prefix,n){return prefix+"-"+String(n).padStart(3,"0");}
+/* ---- Packing FYIs (v1.12.0) ----
+   The bin roster stays read-only for volunteers; this is the "throw in a
+   thought while you pack" channel — a missing cable, an extra tossed into a
+   bin, something moved without a heads-up — so leaders hear about it without
+   being flagged down mid-load. Notes sync like everything else and survive
+   the reset (the trailer is the same trailer next week); leaders mark them
+   ✓ handled, same flow as issues. */
+function binNotesFor(bin){return (STATE.binNotes||[]).filter(function(n){return n.bin===bin;});}
+function binNotesOpen(){return (STATE.binNotes||[]).filter(function(n){return !n.hidden;});}
+function fyiRow(n,showBin){
+  var ref=showBin?'<span class="bref">'+(n.bin&&n.bin!=="GEN"?esc(n.bin):"GENERAL")+'</span>':'';
+  return '<div class="fyirow'+(n.hidden?' done':'')+'">'+ref+esc(n.text)
+    +'<span class="fb">— '+esc(n.by)+(n.t?' · '+esc(n.t):'')+((n.hidden&&n.ackBy)?' · ✓ handled by '+esc(n.ackBy):'')+'</span>'
+    +(LEADER?'<button class="ackbtn'+(n.hidden?' un':'')+'" onclick="binNoteAck(\''+esc(n.id)+'\')" style="margin-top:6px">'+(n.hidden?'↩ Reopen':'✓ Handled — hide')+'</button>':'')
+    +'</div>';
+}
+function renderInvNotes(){
+  var m=document.getElementById("invNotesMount");if(!m)return;
+  var open=binNotesOpen(),done=(STATE.binNotes||[]).filter(function(n){return n.hidden;});
+  var html=open.length?open.slice().reverse().map(function(n){return fyiRow(n,true);}).join(""):'<p class="hint" style="margin:0 0 4px">Nothing flagged. The team\'s notes will show up here for everyone.</p>';
+  if(done.length)html+='<details class="ackedwrap"><summary>✓ Handled ('+done.length+')</summary>'+done.slice().reverse().map(function(n){return fyiRow(n,true);}).join("")+'</details>';
+  m.innerHTML=html;
+  /* Keep the bin-chip bubbles in step when the page is on screen. */
+  var pg=document.getElementById("page-inventory");
+  if(pg&&pg.classList.contains("active"))renderInventory();
+}
+function binNotePush(bin,txt,name){
+  var rec={id:uid(),bin:bin,text:txt,by:name,t:nowLabel(),d:dateKey(new Date()),hidden:false,ackBy:"",ackT:""};
+  queueWrite("binNoteAdd",rec,function(){STATE.binNotes=STATE.binNotes||[];STATE.binNotes.push(rec);},function(){renderInvNotes();updateBadges();});
+}
+function binNoteAck(id){
+  if(!LEADER){askPin(function(){binNoteAck(id);});return;}
+  var by=myTag();
+  if(!by){askName(function(){binNoteAck(id);});return;}
+  var it=(STATE.binNotes||[]).filter(function(x){return x.id===id;})[0];if(!it)return;
+  var hide=!it.hidden,t=nowLabel();
+  queueWrite("binNoteAck",{id:id,hidden:hide,by:by,t:t},function(){
+    it.hidden=hide;it.ackBy=hide?by:"";it.ackT=hide?t:"";
+  },function(){renderInvNotes();updateBadges();});
+}
+function binNoteSend(ti,bi){
+  var tr=TRAILERS[ti],b=tr.bins[bi],bid=binId(tr.prefix,b[0]);
+  var txtEl=document.getElementById("bnMText"),txt=(txtEl?txtEl.value:"").trim();
+  if(!txt){flash("bnMText");return;}
+  var name=(document.getElementById("bnMName").value||"").trim()||MY.name||"Volunteer";
+  rememberName(name);
+  binNotePush(bid,txt,name);
+  binOpen(ti,bi); // redraw the modal with the new note in place
+  toast("📝 FYI on "+bid+" — leaders will see it");
+}
 function renderInventory(){
   var lg=document.getElementById("priLegend");
   if(lg)lg.innerHTML=[1,2,3,4,5].map(function(p){var pr=LOAD_PRI[p];return '<span class="prikey"><i style="background:'+pr.c+'"></i>'+pr.n.split(" · ")[0]+'</span>';}).join("");
@@ -1838,7 +1896,8 @@ function renderInventory(){
   m.innerHTML=TRAILERS.map(function(tr,ti){
     var chips=tr.bins.map(function(b,bi){
       var pr=LOAD_PRI[b[1]];
-      return '<button class="binchip" style="border-color:'+pr.c+'" onclick="binOpen('+ti+','+bi+')"><i style="background:'+pr.c+'"></i><b>'+binId(tr.prefix,b[0])+'</b><span>'+esc(b[2])+'</span></button>';
+      var fy=binNotesFor(binId(tr.prefix,b[0])).filter(function(n){return !n.hidden;}).length;
+      return '<button class="binchip" style="border-color:'+pr.c+'" onclick="binOpen('+ti+','+bi+')"><i style="background:'+pr.c+'"></i><b>'+binId(tr.prefix,b[0])+'</b><span>'+esc(b[2])+'</span>'+(fy?'<em class="bnc">'+fy+'</em>':'')+'</button>';
     }).join("");
     var over=tr.oversize.map(function(o){
       var pr=LOAD_PRI[o[1]];
@@ -1850,12 +1909,18 @@ function renderInventory(){
   }).join("");
 }
 function binOpen(ti,bi){
-  var tr=TRAILERS[ti],b=tr.bins[bi],pr=LOAD_PRI[b[1]];
-  document.getElementById("binTitle").innerHTML='<span class="binno" style="background:'+pr.c+'">'+binId(tr.prefix,b[0])+'</span> '+esc(b[2]);
+  var tr=TRAILERS[ti],b=tr.bins[bi],pr=LOAD_PRI[b[1]],bid=binId(tr.prefix,b[0]);
+  document.getElementById("binTitle").innerHTML='<span class="binno" style="background:'+pr.c+'">'+bid+'</span> '+esc(b[2]);
+  var notes=binNotesFor(bid);
   document.getElementById("binBody").innerHTML=
     '<div class="binpri" style="border-left-color:'+pr.c+'"><b>'+pr.n+'</b> — '+esc(pr.d)+'</div>'
     +'<div class="seclabel">📋 Contents (sample)</div><ul class="binlist">'+b[3].map(function(it){return '<li>'+esc(it)+'</li>';}).join("")+'</ul>'
-    +'<div class="seclabel">🚚 Where it goes in the trailer</div><div class="binplace">📍 '+esc(b[4])+'</div>';
+    +'<div class="seclabel">🚚 Where it goes in the trailer</div><div class="binplace">📍 '+esc(b[4])+'</div>'
+    +'<div class="seclabel">📝 FYIs'+(notes.length?' ('+notes.length+')':'')+'</div>'
+    +(notes.length?notes.slice().reverse().map(function(n){return fyiRow(n,false);}).join(""):'<p class="hint" style="margin:0 0 8px">Missing something? Extra thrown in? Say it here — it goes straight to the FYI board without stopping the leaders.</p>')
+    +'<div class="fyiadd"><textarea id="bnMText" rows="2" maxlength="500" placeholder="FYI on this bin — couldn\'t find, extra added, moved…"></textarea>'
+    +'<input id="bnMName" maxlength="40" placeholder="Your name" value="'+esc(MY.name||"")+'" />'
+    +'<button class="btn ghost" onclick="binNoteSend('+ti+','+bi+')">➕ Add FYI to '+bid+'</button></div>';
   document.getElementById("binModal").classList.add("show");
 }
 var tabsEls=document.querySelectorAll(".tab");for(var ti=0;ti<tabsEls.length;ti++){(function(btn){btn.addEventListener("click",function(){show(btn.getAttribute("data-tab"));});})(tabsEls[ti]);}

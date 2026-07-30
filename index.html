@@ -682,6 +682,18 @@ textarea, select { font-size: 16px !important; }
   .witbtn{margin-top:9px;border:1px solid var(--rust);background:var(--card);color:var(--rust);font-weight:700;font-size:12.5px;padding:8px 13px;border-radius:9px;cursor:pointer;min-height:44px}
   .mirneed{font-size:11.5px;font-weight:700;color:#8a6d1f;margin-top:8px}
   .mirconfmeta{font-size:11.5px;font-weight:800;color:var(--good);margin-top:8px}
+  /* Trailer Load List — packing FYIs */
+  .binchip{position:relative}
+  .binchip .bnc{position:absolute;top:-6px;right:-5px;background:var(--wine);color:#fff;font-style:normal;font-size:9.5px;font-weight:800;min-width:16px;height:16px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+  .fyirow{border-top:1px dashed var(--line);padding:8px 2px;font-size:13px}
+  .fyirow:first-child{border-top:none}
+  .fyirow .fb{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+  .fyirow .bref{display:inline-block;background:#ece5d7;color:#6a5d45;font-weight:800;font-size:10px;border-radius:6px;padding:2px 6px;margin-right:6px;letter-spacing:.4px;vertical-align:1px}
+  .fyirow.done{opacity:.6}
+  .pinman textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:16px;margin:8px 0;font-family:var(--sans);resize:vertical;background:#fff}
+  .pinman input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:16px;margin-bottom:8px;font-family:var(--sans);background:#fff}
+  #binBody .fyiadd{margin-top:4px}
+  #binBody .fyiadd textarea,#binBody .fyiadd input{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;text-align:left;letter-spacing:normal;font-family:var(--sans);background:#fff;margin-bottom:8px;resize:vertical}
   /* Day PIN gate — locks the whole app */
   .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:center;justify-content:center;padding:24px}
   .daygate.show{display:flex}
@@ -807,7 +819,7 @@ textarea, select { font-size: 16px !important; }
       <button class="hubcard" onclick="show('setup')"><span class="ic">✅</span><span class="tx"><b>Setup Checklist</b><span>Fri build + Sat production</span></span><span class="arr">›</span></button>
       <button class="hubcard" onclick="show('radios')"><span class="ic">📻</span><span class="tx"><b>Radio Checkout</b><span>10 radios · name in &amp; out</span></span><span class="pill" id="crewRadioPill">0</span></button>
       <button class="hubcard slate" onclick="show('techio')"><span class="ic">🎛️</span><span class="tx"><b>Tech I/O List</b><span>32-channel patch · tracks, click, guide</span></span><span class="arr">›</span></button>
-      <button class="hubcard" onclick="show('inventory')"><span class="ic">📦</span><span class="tx"><b>Trailer Load List</b><span>2 trailers · 40 bins · load-priority colors · demo</span></span><span class="arr">›</span></button>
+      <button class="hubcard" onclick="show('inventory')"><span class="ic">📦</span><span class="tx"><b>Trailer Load List</b><span>2 trailers · 40 bins · packing FYIs · demo contents</span></span><span class="pill" id="crewInvPill">0</span></button>
       <button class="hubcard dark" onclick="show('dashboard')"><span class="ic">📊</span><span class="tx"><b style="color:var(--ink)">Leader Dashboard 🔒</b><span>Live progress · leaders only</span></span><span class="arr">›</span></button>
     </div>
   </section>
@@ -919,6 +931,15 @@ textarea, select { font-size: 16px !important; }
     <p class="eyebrow">Logistics</p><h1 class="title">Trailer Load List</h1>
     <div class="demoflag">🧪 <b>Demo / sample contents.</b> The two-trailer bin system, IDs and load-priority colors are real — bin contents are placeholders until the logistics team fills them in.</div>
     <p class="sub">Two trailers, ~40 numbered bins. Colors are <b>load priority</b>: what's needed <b>first on site loads last</b> (rear, by the door). Tap any bin for its contents and where it rides in the trailer.</p>
+    <div class="form"><div class="ttl">📝 Packing FYIs</div>
+      <p class="hint" style="margin:-4px 0 8px">Couldn't find something that should be in a bin? Threw an extra in? Something moved without a heads-up? Say it here and keep packing — leaders see every note without being flagged down mid-load. You can also add one straight from a bin: tap the bin, the FYI box is at the bottom.</p>
+      <div id="invNotesMount"></div>
+      <details class="pinman"><summary>➕ Add an FYI</summary>
+        <textarea id="bnText" rows="2" maxlength="500" placeholder="What should leaders know?"></textarea>
+        <input id="bnBin" maxlength="12" placeholder="Bin # if you know it (optional — e.g. 002-007)" />
+        <input id="bnName" maxlength="40" placeholder="Your name" />
+        <button class="btn ghost" id="bnBtn">Add FYI</button>
+      </details></div>
     <div class="prilegend" id="priLegend"></div>
     <div id="invMount"></div>
   </section>
