@@ -94,6 +94,31 @@ ask) from the research doc.
   tombstoned (same pattern as starter scripts). The CRM **survives the
   end-of-day reset** — it's season-long relationship data.
 
+## Trailer Load List — Gear Search (v1.12.0)
+
+Forty bins across two trailers is too many to scroll on a phone while someone
+is holding a tent pole and asking where the gaff tape is. The search box at
+the top of **Specialists → 📦 Trailer Load List** searches **every bin title,
+every item listed inside a bin, the placement notes, and the oversize gear**,
+and answers the whole question in one card:
+
+- **Where it is** — trailer, bin number (colour-coded by load priority), and
+  the exact placement note ("Front half, driver side, shelf 1")
+- **When it moves** — the load-priority band, so you know whether it comes off
+  the truck first or lives in the nose
+- **Its current status** — any open **📝 Packing FYIs** on that bin are shown
+  right in the result, newest quoted, so "someone already reported two of
+  those missing" reaches you *before* the walk to the trailer instead of after
+- Matching words are highlighted, results rank by exact bin # → name match →
+  load priority, and tapping a bin result opens its full contents (and the
+  FYI box)
+
+Notes on the matching: a trailer's own name is deliberately **not** searchable
+per-bin — "Trailer 001 · Tech / Worship (+ band & FOH tents)" would otherwise
+make all twenty of its bins match a search for "tent". Searching a bin number
+also surfaces bins that reference it ("stacked on 001-014"), which is how you
+find what's on top of the thing you need.
+
 ## Trailer Load List — Packing FYIs (v1.12.0)
 
 The bin roster on **Specialists → 📦 Trailer Load List** stays read-only for

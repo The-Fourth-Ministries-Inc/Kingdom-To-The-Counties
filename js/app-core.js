@@ -1690,7 +1690,7 @@ function show(id){
   if(id==="announcements"||id==="issue"){seenAnn=STATE.announcements.length;seenIssue=visCount(STATE.feedback);updateBadges();}
   if(id==="tour")tourSeen();
   if(id==="radios")renderRadios();
-  if(id==="inventory"){renderInventory();renderInvNotes();}
+  if(id==="inventory"){renderInventory();renderInvNotes();invSearchRun();}
   if(id==="shareapp")renderShareQR();
   if(id==="capture"&&typeof renderCapture==="function")renderCapture();
   if(id==="mobilize"&&typeof renderMobilize==="function"){renderMobilize();chFetch();}
@@ -1861,9 +1861,10 @@ function renderInvNotes(){
   var html=open.length?open.slice().reverse().map(function(n){return fyiRow(n,true);}).join(""):'<p class="hint" style="margin:0 0 4px">Nothing flagged. The team\'s notes will show up here for everyone.</p>';
   if(done.length)html+='<details class="ackedwrap"><summary>✓ Handled ('+done.length+')</summary>'+done.slice().reverse().map(function(n){return fyiRow(n,true);}).join("")+'</details>';
   m.innerHTML=html;
-  /* Keep the bin-chip bubbles in step when the page is on screen. */
+  /* Keep the bin-chip bubbles — and any open search results, which show each
+     bin's flagged status — in step when the page is on screen. */
   var pg=document.getElementById("page-inventory");
-  if(pg&&pg.classList.contains("active"))renderInventory();
+  if(pg&&pg.classList.contains("active")){renderInventory();invSearchRun();}
 }
 function binNotePush(bin,txt,name){
   var rec={id:uid(),bin:bin,text:txt,by:name,t:nowLabel(),d:dateKey(new Date()),hidden:false,ackBy:"",ackT:""};
@@ -1888,6 +1889,111 @@ function binNoteSend(ti,bi){
   binNotePush(bid,txt,name);
   binOpen(ti,bi); // redraw the modal with the new note in place
   toast("📝 FYI on "+bid+" — leaders will see it");
+}
+/* ---- Load List search (v1.12.0) ----
+   40 bins across two trailers is too many to scroll on a phone while someone
+   is holding a tent pole and asking where the gaff tape is. This searches
+   every bin title, every listed item and the oversize gear, and answers the
+   whole question in one card: which trailer, which bin, where it rides, when
+   it comes off the truck (load priority), and anything the team has already
+   flagged about that bin — so "it's in 001-014" and "someone reported two of
+   those missing" arrive together instead of one trip later. */
+var INV_INDEX=null;
+function invIndex(){
+  if(INV_INDEX)return INV_INDEX;
+  var out=[];
+  TRAILERS.forEach(function(tr,ti){
+    tr.bins.forEach(function(b,bi){
+      var bid=binId(tr.prefix,b[0]);
+      /* The trailer NAME is deliberately not in the haystack: "Trailer 001 ·
+         Tech / Worship (+ band & FOH tents)" would make all 20 of its bins
+         match a search for "tent". The bin id carries the trailer anyway. */
+      out.push({kind:"bin",ti:ti,bi:bi,bin:bid,trailer:tr.name,icon:tr.icon,pri:b[1],title:b[2],items:b[3],place:b[4],
+        hay:(bid+" "+b[2]+" "+b[3].join(" ")+" "+b[4]).toLowerCase()});
+    });
+    tr.oversize.forEach(function(o){
+      out.push({kind:"over",ti:ti,bin:"",trailer:tr.name,icon:tr.icon,pri:o[1],title:o[0],items:[],place:o[2],
+        hay:(o[0]+" "+o[2]).toLowerCase()});
+    });
+  });
+  INV_INDEX=out;return out;
+}
+function invEscRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");}
+/* Highlight the matched words. Splits the RAW text on a combined regex and
+   escapes every piece as it goes — never runs a replace over already-escaped
+   markup, which would let a one-letter query ("b") chew up its own tags. */
+function invMark(text,terms){
+  text=text||"";
+  if(!terms.length)return esc(text);
+  var re=new RegExp("("+terms.map(invEscRe).join("|")+")","ig"),out="",last=0,m;
+  while((m=re.exec(text))!==null){
+    if(!m[0]){re.lastIndex++;continue;}
+    out+=esc(text.slice(last,m.index))+"<b>"+esc(m[0])+"</b>";
+    last=m.index+m[0].length;
+  }
+  return out+esc(text.slice(last));
+}
+function invResultCard(e,terms){
+  var pr=LOAD_PRI[e.pri];
+  var hits=e.items.filter(function(it){var l=it.toLowerCase();return terms.some(function(t){return l.indexOf(t)>=0;});});
+  var showing=hits.length?hits.slice(0,6):e.items.slice(0,3);
+  var lines=showing.map(function(it){return '<div class="rhit">• '+invMark(it,terms)+'</div>';}).join("");
+  var extra=hits.length?(hits.length>6?'<div class="rmore">+'+(hits.length-6)+' more matching items in this bin</div>':'')
+    :(e.items.length>3?'<div class="rmore">+'+(e.items.length-3)+' more in this bin</div>':'');
+  var tag=e.kind==="bin"?e.bin:"OVERSIZE";
+  /* Current status: what the team has flagged on this bin. A volunteer
+     searching for the thing someone already reported missing needs to see
+     that here, not after a walk to the trailer. */
+  var fyi="";
+  if(e.kind==="bin"){
+    var open=binNotesFor(e.bin).filter(function(n){return !n.hidden;});
+    if(open.length){
+      var last=open[open.length-1],txt=last.text.length>110?(last.text.slice(0,110)+"…"):last.text;
+      fyi='<div class="rfyi">📝 '+open.length+' open FYI'+(open.length>1?'s':'')+' on this bin — “'+esc(txt)+'” <i>— '+esc(last.by)+'</i></div>';
+    }
+  }
+  var meta='<div class="rmeta">'+esc(e.icon)+' <b>'+invMark(e.trailer,terms)+'</b><br>📍 '+invMark(e.place,terms)+'</div>'
+    +'<div class="rpri"><i style="background:'+pr.c+'"></i>'+esc(pr.n)+' — '+esc(pr.d)+'</div>';
+  var inner='<div class="rt"><span class="rbin" style="background:'+pr.c+'">'+esc(tag)+'</span><span class="rti">'+invMark(e.title,terms)+'</span></div>'
+    +lines+extra+meta+fyi;
+  return e.kind==="bin"
+    ? '<button class="invres" style="border-left-color:'+pr.c+'" onclick="binOpen('+e.ti+','+e.bi+')">'+inner+'<div class="rmore">Tap for full contents &amp; to add an FYI ›</div></button>'
+    : '<div class="invres" style="border-left-color:'+pr.c+'">'+inner+'</div>';
+}
+function invSearchRun(){
+  var input=document.getElementById("invQ");if(!input)return;
+  var q=(input.value||"").trim();
+  var wrap=document.getElementById("invSearchWrap"),res=document.getElementById("invResults");
+  var hide=["invFyiCard","priLegend","invMount","invSearchHint"];
+  if(wrap)wrap.classList.toggle("has",!!q);
+  if(!q){
+    if(res){res.style.display="none";res.innerHTML="";}
+    hide.forEach(function(id){var el=document.getElementById(id);if(el)el.style.display="";});
+    return;
+  }
+  hide.forEach(function(id){var el=document.getElementById(id);if(el)el.style.display="none";});
+  var terms=q.toLowerCase().split(/\s+/).filter(Boolean);
+  var found=invIndex().filter(function(e){
+    return terms.every(function(t){return e.hay.indexOf(t)>=0;});
+  });
+  /* Rank: the bin someone typed the number of, then things whose NAME matches
+     (a bin called "XLR cables" beats one that merely stacks on top of it),
+     then by load priority — what comes off the truck first is usually what
+     someone is hunting for. */
+  function rank(e){
+    if(e.bin&&terms.indexOf(e.bin.toLowerCase())>=0)return 0;
+    var t=e.title.toLowerCase();
+    if(terms.some(function(x){return t.indexOf(x)>=0;}))return 1;
+    return 2;
+  }
+  found.sort(function(a,b){return (rank(a)-rank(b))||(a.pri-b.pri);});
+  res.style.display="";
+  if(!found.length){
+    res.innerHTML='<div class="empty">Nothing matching “'+esc(q)+'”.<br><br>Contents are still sample data, so it may just not be listed yet — add a 📝 Packing FYI and logistics will sort it out.</div>';
+    return;
+  }
+  res.innerHTML='<p class="invrcount">'+found.length+' match'+(found.length>1?'es':'')+' for “'+esc(q)+'”</p>'
+    +found.map(function(e){return invResultCard(e,terms);}).join("");
 }
 function renderInventory(){
   var lg=document.getElementById("priLegend");
@@ -1923,6 +2029,9 @@ function binOpen(ti,bi){
     +'<button class="btn ghost" onclick="binNoteSend('+ti+','+bi+')">➕ Add FYI to '+bid+'</button></div>';
   document.getElementById("binModal").classList.add("show");
 }
+document.getElementById("invQ").addEventListener("input",invSearchRun);
+document.getElementById("invQ").addEventListener("search",invSearchRun); // iOS "Cancel" / clear
+document.getElementById("invQX").addEventListener("click",function(){var q=document.getElementById("invQ");q.value="";invSearchRun();q.focus();});
 var tabsEls=document.querySelectorAll(".tab");for(var ti=0;ti<tabsEls.length;ti++){(function(btn){btn.addEventListener("click",function(){show(btn.getAttribute("data-tab"));});})(tabsEls[ti]);}
 var simRange=document.getElementById("simRange");
 simRange.addEventListener("input",function(){if(!LEADER){askPin(function(){});return;}simActive=true;simAnchor=parseInt(simRange.value,10);simEpoch=Date.now();document.getElementById("simNow").textContent="Previewing "+fmt(simAnchor)+" (running)";refreshAll();refreshChecklists();renderDashboard();});
