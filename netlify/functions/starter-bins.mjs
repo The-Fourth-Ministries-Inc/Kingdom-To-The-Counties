@@ -40,6 +40,146 @@ export default {
    "range": "350–399"
   }
  ],
+ "photos": [
+  {
+   "file": "assets/trailer/left-bay-1.jpg",
+   "label": "Left-hand side, first bay",
+   "match": [
+    "left-hand side, first bay"
+   ]
+  },
+  {
+   "file": "assets/trailer/left-bay-2.jpg",
+   "label": "Left side, second bay",
+   "match": [
+    "left side, second bay"
+   ]
+  },
+  {
+   "file": "assets/trailer/left-bay-3.jpg",
+   "label": "Left side, 3rd bay",
+   "match": [
+    "left side, 3rd bay"
+   ]
+  },
+  {
+   "file": "assets/trailer/right-rack.jpg",
+   "label": "Right-hand side, metal rack",
+   "match": [
+    "right-hand side, metal rack",
+    "bottom of metal rack",
+    "top of rack"
+   ]
+  },
+  {
+   "file": "assets/trailer/right-ark.jpg",
+   "label": "Right side, by the Ark",
+   "match": [
+    "front of ark",
+    "above ark",
+    "next to side door"
+   ]
+  },
+  {
+   "file": "assets/trailer/side-door.jpg",
+   "label": "Right side, side door",
+   "match": [
+    "left of side door",
+    "inside side door",
+    "across from side door"
+   ]
+  },
+  {
+   "file": "assets/trailer/nose-left.jpg",
+   "label": "Nose, left side",
+   "match": [
+    "nose, left side"
+   ]
+  },
+  {
+   "file": "assets/trailer/nose-right.jpg",
+   "label": "Nose, right side",
+   "match": [
+    "nose, right side"
+   ]
+  },
+  {
+   "file": "assets/trailer/nose-bucket.jpg",
+   "label": "Nose, center",
+   "match": [
+    "nose, center"
+   ]
+  },
+  {
+   "file": "assets/trailer/packouts.jpg",
+   "label": "The Packout shelf",
+   "match": [
+    "shelf, leftmost",
+    "shelf, middle",
+    "shelf, rightmost",
+    "shelf, behind packouts"
+   ]
+  },
+  {
+   "file": "assets/trailer/packout-stack-1.jpg",
+   "label": "Packout stack 1",
+   "match": [
+    "atop 2u packout 1",
+    "atop 1u packout 1"
+   ]
+  },
+  {
+   "file": "assets/trailer/packout-stack-2.jpg",
+   "label": "Packout stack 2",
+   "match": [
+    "atop 2u packout 2"
+   ]
+  },
+  {
+   "file": "assets/trailer/packout-stack-3.jpg",
+   "label": "Packout stack 3",
+   "match": [
+    "atop 2u packout 3"
+   ]
+  },
+  {
+   "file": "assets/trailer/left-rear-end.jpg",
+   "label": "Left side, rear",
+   "match": [
+    "rear end of shelf",
+    "just inside gate",
+    "strapped to banner pipes",
+    "under coffins",
+    "hanging from brackets on end of shelf",
+    "hanging from end of shelf"
+   ]
+  },
+  {
+   "file": "assets/trailer/right-rear-end.jpg",
+   "label": "Right side, rear",
+   "match": [
+    "just inside rear gate"
+   ]
+  },
+  {
+   "file": "assets/trailer/aisle-rear.jpg",
+   "label": "Centre aisle, from the rear",
+   "match": [
+    "center aisle",
+    "in aisle"
+   ]
+  },
+  {
+   "file": "assets/trailer/aisle-nose.jpg",
+   "label": "Centre aisle, from the nose",
+   "match": [
+    "nose end of shelf",
+    "stacked drum platforms",
+    "next to drum stack",
+    "dedicated hook"
+   ]
+  }
+ ],
  "bins": [
   {
    "id": "100",
@@ -49,7 +189,7 @@ export default {
    "items": [
     "bag of rags",
     "roll of black trash bags",
-    "white dust with hand broom x1",
+    "white dust pan with hand broom x1",
     "red hand sweepers x2",
     "croc wipes",
     "paper towels"
@@ -180,7 +320,7 @@ export default {
    "sec": "tech",
    "title": "Tiedowns",
    "items": [
-    "rachet straps x?",
+    "ratchet straps x?",
     "press-release straps in jug x?",
     "bungee cord jug x1 (empty)",
     "gaffer tape x4",
@@ -707,8 +847,8 @@ export default {
    "sec": "logistics",
    "title": "Mommy Tote #1",
    "items": [
-    "3 paper towles",
-    "2 dis infecting wipes",
+    "3 paper towels",
+    "2 disinfecting wipes",
     "small white garbage weight bag",
     "garbage bag rolls",
     "pack of ponchos",
@@ -769,7 +909,7 @@ export default {
     "2x mini fan boxes (3 fans in each)",
     "first aid kit 1x",
     "blue disposable gloves",
-    "wash clothes ~20x",
+    "wash cloths ~20x",
     "4x tent shade sides red",
     "medical tent sign",
     "ponchos",
@@ -799,10 +939,11 @@ export default {
    "bin": "306",
    "sec": "logistics",
    "title": "Paakin Tote",
+   "note": "Parking crew tote",
    "items": [
     "3x tent walls rolled up",
     "6x orange vests",
-    "16x florescent vests",
+    "16x fluorescent vests",
     "6x orange flags",
     "6x flashlights",
     "4x yellow caution tape",
@@ -832,7 +973,7 @@ export default {
    "title": "Logistics Overflow",
    "items": [
     "9 empty tent weight bags (Black)",
-    "bugg zapper",
+    "bug zapper",
     "2 rolls of kitchen bags",
     "plastic knives"
    ],
@@ -846,7 +987,7 @@ export default {
    "items": [
     "1 shade wall",
     "disinfecting wipes",
-    "papers towels",
+    "paper towels",
     "ponchos",
     "clear garbage bags",
     "6 small metal tent stakes",
@@ -867,7 +1008,7 @@ export default {
     "3 sunscreen",
     "permanent marker",
     "3 packs ponchos",
-    "2 garbage bag solls",
+    "2 garbage bag rolls",
     "orange duct tapes",
     "bag of rubber bands",
     "black bag of tent stakes strings and allen wrench",
@@ -1007,7 +1148,7 @@ export default {
    "id": "t2-gorrilla-cart",
    "sec": "logistics",
    "kind": "loose",
-   "title": "Gorrilla Cart",
+   "title": "Gorilla Cart",
    "qty": "1",
    "items": [],
    "loc": ""
@@ -1044,9 +1185,9 @@ export default {
    "id": "351",
    "bin": "351",
    "sec": "guest",
-   "title": "Lilac T shirt totle",
+   "title": "Lilac T Shirt Tote",
    "items": [
-    "Liliac t4 t shirts many"
+    "Lilac t4 t shirts many"
    ],
    "loc": ""
   },
@@ -1134,7 +1275,7 @@ export default {
    "id": "360",
    "bin": "360",
    "sec": "guest",
-   "title": "heavently heather hoodies tote 2",
+   "title": "heavenly heather hoodies tote 2",
    "items": [
     "heather maroon hoodies"
    ],
@@ -1166,6 +1307,7 @@ export default {
    "bin": "363",
    "sec": "guest",
    "title": "Krazy Kids Klub Krate",
+   "note": "Kids club supplies",
    "items": [
     "2x market basket bags of small crosses bags many",
     "two chalk tubs",
@@ -1195,7 +1337,7 @@ export default {
    "sec": "guest",
    "title": "Cloth box",
    "items": [
-    "2x tables clothes black"
+    "2x table cloths black"
    ],
    "loc": ""
   },
@@ -1226,7 +1368,7 @@ export default {
    "id": "368",
    "bin": "368",
    "sec": "guest",
-   "title": "Miraculous MIsc. Merch. Display",
+   "title": "Miraculous Misc. Merch. Display",
    "items": [
     "coat hanger",
     "4 black tent strings",

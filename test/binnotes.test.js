@@ -188,6 +188,87 @@ test("marking a note handled is leader-only, final-state, and reversible", async
   assert.equal(note(s, "n1").ackBy, "");
 });
 
+test("packed ticks are open to volunteers, final-state, and shared", async () => {
+  await vpost("binPackSet", { bin: "109", on: true, by: "Troy", t: "6:00 PM", d: "2026-07-25" });
+  // A retry (or a second person ticking the same bin) is a no-op, not a toggle
+  // back to unpacked — that was the bug class behind vanishing checkmarks.
+  await vpost("binPackSet", { bin: "109", on: true, by: "Rachel", t: "6:01 PM" });
+  let s = await get();
+  assert.equal(s.binState["109"].p.by, "Troy", "the first ticker's stamp is kept");
+
+  await vpost("binPackSet", { bin: "109", on: false, by: "Troy" });
+  s = await get();
+  assert.ok(!s.binState["109"], "unticking clears the entry entirely");
+});
+
+test("custody records who has a piece of gear and survives reset", async () => {
+  await vpost("binHoldSet", { bin: "t1-generator", on: true, by: "Kyle", note: "in my truck", t: "7:00 PM", d: "2026-07-25" });
+  let s = await get();
+  assert.equal(s.binState["t1-generator"].h.by, "Kyle");
+  assert.equal(s.binState["t1-generator"].h.note, "in my truck");
+
+  // Pack it too — the two marks coexist on one entry.
+  await vpost("binPackSet", { bin: "t1-generator", on: true, by: "Kyle" });
+  s = await get();
+  assert.ok(s.binState["t1-generator"].p && s.binState["t1-generator"].h);
+
+  await lpost("reset", {});
+  s = await get();
+  assert.ok(!s.binState["t1-generator"].p, "packed ticks clear for the next load-out");
+  assert.equal(s.binState["t1-generator"].h.by, "Kyle",
+    "custody SURVIVES reset — who has the generator is what you need between counties");
+
+  await vpost("binHoldSet", { bin: "t1-generator", on: false, by: "Kyle" });
+  s = await get();
+  assert.ok(!s.binState["t1-generator"], "returned clears it");
+});
+
+test("a leader can clear every packed tick without touching custody", async () => {
+  await vpost("binPackSet", { bin: "300", on: true, by: "Sam" });
+  await vpost("binPackSet", { bin: "301", on: true, by: "Sam" });
+  await vpost("binHoldSet", { bin: "t1-ark", on: true, by: "Liz" });
+
+  const refused = await vpost("binPackClear", {});
+  assert.equal(refused.status, 403, "starting a new load-out is a leader call");
+
+  await lpost("binPackClear", {});
+  const s = await get();
+  assert.ok(!s.binState["300"] && !s.binState["301"], "every tick cleared");
+  assert.equal(s.binState["t1-ark"].h.by, "Liz", "custody untouched");
+});
+
+test("a leader edit refuses to overwrite another leader's newer save", async () => {
+  const v0 = theBin(await bins(), "111").v;
+  await lpost("binEdit", { id: "c1", bin: "111", items: ["ratchet straps x6"], by: "Kyle" });
+
+  // Second leader still holding the version they opened.
+  const stale = await lpost("binEdit", { id: "c2", bin: "111", items: ["something else entirely"], baseV: v0, by: "Mike" });
+  assert.equal(stale.status, 409, "a stale editor is refused, not silently applied");
+  const body = await stale.json();
+  assert.equal(body.conflict, true);
+  assert.deepEqual(theBin(await bins(), "111").items, ["ratchet straps x6"], "Kyle's save stands");
+
+  // Re-opening at the current version saves fine.
+  const fresh = theBin(await bins(), "111").v;
+  await lpost("binEdit", { id: "c3", bin: "111", items: ["ratchet straps x6", "yellow rope"], baseV: fresh, by: "Mike" });
+  assert.equal(theBin(await bins(), "111").items.length, 2, "redoing on top of their version works");
+
+  // And an outbox retry of an accepted edit is still a no-op, not a conflict.
+  const retry = await lpost("binEdit", { id: "c3", bin: "111", items: ["ratchet straps x6", "yellow rope"], baseV: fresh, by: "Mike" });
+  assert.equal(retry.status, 200, "a retry of a write that already landed is not a conflict");
+});
+
+test("the corrected spellings made it into the seed data", async () => {
+  const b = await bins();
+  const all = JSON.stringify(b.list);
+  for(const typo of ["towles", "dis infecting", "papers towels", "bag solls", "rachet", "florescent", "Liliac", "heavently", "tables clothes", "Gorrilla", "bugg zapper"]){
+    assert.ok(!all.includes(typo), "typo still present: " + typo);
+  }
+  assert.ok(theBin(b, "300").items.includes("3 paper towels"), "searching 'towels' can now find bin 300");
+  assert.equal(theBin(b, "306").note, "Parking crew tote", "the parking tote is findable by what it is");
+  assert.equal(theBin(b, "306").title, "Paakin Tote", "…without renaming what the team called it");
+});
+
 test("FYIs survive the end-of-day reset — the trailer is the same trailer next week", async () => {
   await lpost("reset", {});
   const s = await get();

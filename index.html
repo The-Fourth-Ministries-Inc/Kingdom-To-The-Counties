@@ -247,6 +247,22 @@ textarea, select { font-size: 16px !important; }
   .thead{display:flex;align-items:center;gap:7px;font-size:14px;margin-bottom:11px}
   .thead .tcount{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--muted)}
   .bingrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px}
+  .packbar{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow);margin-bottom:14px}
+  .packbar .t{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:8px}
+  .packbar .t .v{color:var(--rust);font-variant-numeric:tabular-nums}
+  .packbar .pfoot{display:flex;justify-content:space-between;align-items:center;gap:9px;margin-top:8px;font-size:12px;font-weight:700;color:var(--muted)}
+  .binchipwrap{position:relative;display:flex;align-items:stretch;gap:6px}
+  .binchipwrap .pk{flex:none;width:38px;border:1px solid var(--line);border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:900;font-size:17px;color:var(--good);cursor:pointer;-webkit-user-select:none;user-select:none}
+  .binchipwrap .pk.on{background:var(--good);color:#fff;border-color:var(--good)}
+  .binchipwrap .binchip{flex:1;min-width:0}
+  .binchip.packed{background:#f2f6f0;border-left-color:var(--good)}
+  .packbtn,.holdbtn{display:block;width:100%;margin-top:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:11px;padding:13px;font-family:var(--sans);font-size:14px;font-weight:700;cursor:pointer;min-height:48px;text-align:left}
+  .packbtn.on{background:#eef3ea;border-color:var(--good);color:#3f6a3c}
+  .holdbtn.on{background:#f7efe8;border-color:var(--rust);color:var(--rust)}
+  .binphoto{margin:10px 0 2px}
+  .binphoto summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--rust);padding:9px 2px;min-height:44px;display:flex;align-items:center}
+  .binphoto img{width:100%;border-radius:12px;display:block;margin-top:4px;background:#eee}
+  .binphoto span{display:block;font-size:11.5px;color:var(--muted);margin-top:5px}
   .binchip{position:relative;display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-left:3px solid var(--slate);border-radius:11px;background:#fff;padding:9px 10px;font-family:var(--sans);font-size:12px;text-align:left;cursor:pointer;color:var(--ink);min-height:44px}
   .binchip b{flex:none;font-size:12.5px;letter-spacing:.4px;font-family:var(--serif);font-weight:800}
   .binchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
@@ -966,7 +982,14 @@ textarea, select { font-size: 16px !important; }
   <section class="page" id="page-inventory">
     <button class="back" onclick="show('crew')">‹ Specialists</button>
     <p class="eyebrow">Logistics</p><h1 class="title">Trailer Load List</h1>
-    <p class="sub">Both trailers, bin by bin — straight from the team's inventory sheet. <b>Search by bin number or by the thing you're holding.</b> Tap any bin for its contents, where it rides, and to flag anything that's missing or extra.</p>
+    <p class="sub">Both trailers, bin by bin — straight from the team's inventory sheet. <b>Search by bin number or by the thing you're holding.</b> Tap any bin for its contents, a photo of where it rides, and to flag anything missing or extra.</p>
+    <span class="syncpill" id="sp-inv"><span class="d"></span>Demo mode</span>
+    <div class="packbar" id="invPackBar">
+      <div class="t"><span>🚚 Load-out</span><span class="v" id="invPackLbl">0 / 0</span></div>
+      <div class="pbar"><i id="invPackFill"></i></div>
+      <div class="pfoot"><span id="invPackLeft">—</span><button class="iobtn" id="invPackClearBtn" style="display:none" onclick="binPackClear()">♻️ Start a new load-out</button></div>
+      <p class="hint" style="margin:8px 0 0">Tick the ☐ on a bin as it goes on the truck — everyone sees it within a few seconds. No signal? Your ticks queue up and send themselves when you're back in range; keep packing.</p>
+    </div>
     <div class="invsearch" id="invSearchWrap">
       <input id="invQ" type="search" inputmode="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="🔍 Bin number or item — “109”, “gaff tape”, “ponchos”…" />
       <button id="invQX" type="button" aria-label="Clear search">×</button>

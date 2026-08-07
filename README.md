@@ -118,6 +118,45 @@ has already flagged about that bin**, so "someone reported that missing an
 hour ago" reaches you *before* the walk to the trailer. Results rank exact bin
 number → title match → item match, with empty bins last.
 
+### Load-out — ticking bins onto the truck
+
+A **🚚 Load-out** bar sits at the top: tick the ☐ beside any bin as it goes on
+the truck and it lights up on everyone's phone within a few seconds, with a
+live "31 / 60 bins on the truck · 52%" and how many are still to load. Ticks
+are **final-state writes** — a retry, or two people ticking the same bin, lands
+on the same answer instead of toggling it back off — and they **queue offline**
+and send themselves when signal returns, so nobody has to stand still.
+
+Leaders get **♻️ Start a new load-out**, which clears every tick. The
+end-of-day reset clears them too.
+
+### Who's got it — custody for loose gear
+
+The generator, the ladders, the Ark, the hand truck — the things that aren't in
+a numbered bin are the things that actually go missing *between* counties. Any
+bin or item takes a **🙋 I've got this** tap, with an optional "where is it /
+when's it back", and shows **🙋 Kyle** on its chip until someone marks it
+returned.
+
+Custody deliberately **survives the reset and county switches** — packed ticks
+are about tonight's truck, but who has the generator is exactly what you still
+need to know next week.
+
+### Photos of every bay
+
+Each entry shows **📷 See this spot in the trailer** — the actual photo of the
+bay, rack, nose or packout stack it lives in, matched off its location text
+(17 photos covering all 66 located entries). Loaded lazily and only when
+tapped, since the app is opened on field signal.
+
+Originals live in `assets/Trailer Photos/`; the app serves ~1100 px copies from
+`assets/trailer/` (86 MB → 6 MB, with EXIF rotation applied — the shots were
+taken sideways). Rebuild them with:
+
+```bash
+pip install Pillow && python3 scripts/optimize-trailer-photos.py
+```
+
 ### Reporting — missing items and extras
 
 The roster is **read-only for volunteers**; what they can do is report what
@@ -144,6 +183,14 @@ bins/gear and remove entries. Every change bumps a revision, syncs to every
 phone, and is logged with the leader's name — "who changed 109 and when" is
 answerable.
 
+Each bin also carries an edit **version**. The editor sends the version it
+opened, and a save against a stale version is **refused with a 409** rather
+than applied — otherwise a leader who opened bin 111 five minutes ago would
+save their stale copy of the contents straight over another leader's work.
+The refusal re-downloads the current version and says so, so the second leader
+can redo their change on top of it. (A retry of a write that already landed is
+*not* treated as a conflict.)
+
 - The roster lives in its own `bins` blob and is fetched separately
   (`GET ?part=bins`, own ETag) because it's ~19 KB — far too big to ride the
   5-second poll. Phones re-download only when the rev changes, and the last
@@ -151,15 +198,19 @@ answerable.
   with no signal** — the normal state inside a metal trailer.
 - Starter bins self-seed on read and deleted ones are tombstoned (same
   pattern as starter scripts and churches), so leader edits are never
-  overwritten by the seed data.
+  overwritten by seed data.
 - Not county-scoped and **survives the end-of-day reset** — the trailers are
   the same trailers at the next county.
 
 ### Editing the seed data
 
 `data/bins.json` is the transcription of the team's sheet and the single
-source of truth for the *starter* roster. It is deliberately **verbatim**,
-typos and all, so the app matches the sheet. After editing it:
+source of truth for the *starter* roster — bins, section/trailer labels, and
+the photo→location map. Contents are kept close to verbatim; the only edits
+are spelling fixes that would otherwise break search ("paper towles" never
+matches a search for *towels*). Deliberately playful bin names the team chose
+— Krazy Kids Klub Krate, Paakin Tote — are left alone, with a searchable
+`note` added instead. After editing it:
 
 ```bash
 node scripts/sync-starter-bins.mjs   # validates ids/sections, regenerates the server copy

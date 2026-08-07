@@ -224,6 +224,10 @@ export function normBin(x){
  const items = Array.isArray(x.items) ? x.items : [];
  return {
   id: idStr(x.id, 40) || uid(),
+  /* Bumped on every leader edit. A leader's editor sends the version it
+     opened; if it no longer matches, someone else saved first and we refuse
+     rather than silently overwriting their work (see binEdit). */
+  v: Math.max(0, Math.round(Number(x.v) || 0)),
   bin: str(x.bin, 12),               // the number on the lid ("109"), blank for loose gear
   sec: idStr(x.sec, 24) || "tech",
   title: str(x.title, 120),
@@ -291,6 +295,35 @@ function binLogPush(b, entry){ b.log.push(normBinLog(entry)); b.log = b.log.slic
 const binLogged = (b, id) => !!id && b.log.some(e => e.id === id);
 /* Fields a leader may patch. `items` is handled separately (it's an array). */
 const BIN_EDIT_FIELDS = ["bin","sec","title","qty","loc","note","empty"];
+
+/* ---- load-out state (v1.12.0) ----
+   Two things the roster deliberately does NOT hold, because they are the
+   field's live state rather than the leaders' record of what exists:
+     p — packed: this bin is on the truck. Cleared at the start of each
+         load-out (binPackClear) and by the end-of-day reset.
+     h — holder: who has this right now. Loose gear (the generator, the
+         ladders, the Ark) is what actually goes missing BETWEEN counties, so
+         custody deliberately SURVIVES reset and county switches — it is not
+         day-scoped, and clearing it is an explicit "returned" tap.
+   One blob, small enough to ride the main poll payload so a checkbox lights
+   up on everyone's phone within a few seconds. */
+const stamp = x => ({ by: str(x && x.by, 40), t: str(x && x.t, 12), d: str(x && x.d, 10) });
+const BINSTATE_MAX = 800;
+export function normBinState(v){
+ v = v || {};
+ const src = (v.marks && typeof v.marks === "object") ? v.marks : {};
+ const marks = {};
+ for(const k of Object.keys(src).slice(0, BINSTATE_MAX)){
+  const id = idStr(k, 40);
+  if(!id) continue;
+  const m = src[k] || {};
+  const out = {};
+  if(m.p) out.p = stamp(m.p);
+  if(m.h) out.h = { ...stamp(m.h), note: str(m.h.note, 120) };
+  if(out.p || out.h) marks[id] = out;
+ }
+ return { marks };
+}
 
 /* ---- Trailer Load List packing FYIs (v1.12.0) ----
    The roster stays read-only for volunteers; this is the "throw in a thought
@@ -687,7 +720,7 @@ const LEADER_ACTIONS = new Set([
  "churchEdit","churchDelete","churchFlagClear","churchTemplate","miracleDelete","binNoteAck",
  /* The trailer roster is the leaders' record — volunteers report against it
     (binNoteAdd) but never write it. */
- "binEdit","binAdd","binDelete","binItemAdd"
+ "binEdit","binAdd","binDelete","binItemAdd","binPackClear"
 ]);
 
 /* ---------------- per-county scoping (v1.11.0) ----------------
@@ -1050,7 +1083,7 @@ async function assemble(s, K, active, lvl){
  let parts = await readAll(s, K);
  parts = await migrateIfNeeded(s, K, parts);
  const core = normCore(parts.core);
- const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, miraclesRaw, binNotesRaw, binsRaw, pinCfg] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), s.get("miracles", { type:"json" }), s.get("binnotes", { type:"json" }), s.get("bins", { type:"json" }), readDayPinCfg(s) ]);
+ const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, miraclesRaw, binNotesRaw, binsRaw, binStateRaw, pinCfg] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), s.get("miracles", { type:"json" }), s.get("binnotes", { type:"json" }), s.get("bins", { type:"json" }), s.get("binstate", { type:"json" }), readDayPinCfg(s) ]);
  const dayPin = pinCfg.pin;
  /* Leaders (and only leaders) get the actual PIN plus when it rolls over, so
     they can read it out at the huddle and tell people what changes Monday.
@@ -1113,6 +1146,9 @@ async function assemble(s, K, active, lvl){
  // Like the church roster: only the rev rides in the poll; the ~19 KB bin
  // list is fetched separately (GET ?part=bins) and only when rev changes.
  binsRev: Math.max(0, Math.round(Number(binsRaw && binsRaw.rev) || 0)),
+ // Packed ticks + custody DO ride the poll: a checkbox has to light up on
+ // everyone's phone while they're loading, and it's only a few KB.
+ binState: normBinState(binStateRaw).marks,
  churchesRev,
  churchCount
  };
@@ -1668,6 +1704,17 @@ export default async (req, context) => {
  s.setJSON(K.epoch, { e: uid() }), // stale phones clear instead of re-pushing old tallies
  ...doomed.map(b => s.delete(b.key))
  ]);
+ /* Packed ticks are load-out state for the event that just ended, so they
+    clear. CUSTODY survives: who has the generator is exactly the thing you
+    still need to know on the drive home and at the next county. */
+ await compareAndSwap(s, "binstate", normBinState, st => {
+ let touched = false;
+ for(const id of Object.keys(st.marks)){
+  if(st.marks[id].p){ delete st.marks[id].p; touched = true; }
+  if(!st.marks[id].p && !st.marks[id].h) delete st.marks[id];
+ }
+ return touched ? st : undefined;
+ }, () => ({ marks: {} })).catch(() => {});
  break;
  }
  /* ---- Recording Studio ---- */
@@ -1809,6 +1856,20 @@ export default async (req, context) => {
     name against it, so "who changed 109's contents and when" is answerable. */
  case "binEdit": {
  const patch = payload.patch || {};
+ /* Optimistic concurrency: the editor sends the version it opened. If another
+    leader saved in the meantime the versions differ and we refuse — a
+    full-list save would otherwise carry this leader's stale copy of the
+    contents and silently wipe the other one's work. */
+ if(payload.baseV != null){
+  const snap = normBins(await s.get("bins", { type:"json" }));
+  const cur = snap.list.find(x => x.id === idStr(payload.bin, 40));
+  /* A RETRY of a write that already landed is not a conflict — it bumped the
+     version itself, and the CAS below no-ops on the log id. Only a genuinely
+     newer version from someone else is refused. */
+  if(cur && !binLogged(snap, payload.id) && cur.v !== Math.max(0, Math.round(Number(payload.baseV) || 0))){
+   return json({ error:"someone else changed this bin first", conflict:true, bin: cur }, 409);
+  }
+ }
  await casBins(s, b => {
  if(binLogged(b, payload.id)) return undefined; // retry of an applied write
  const i = b.list.findIndex(x => x.id === idStr(payload.bin, 40));
@@ -1821,7 +1882,7 @@ export default async (req, context) => {
  if(Array.isArray(payload.items) || "title" in patch){
   merged.empty = !(merged.items || []).length && !merged.title;
  }
- b.list[i] = normBin({ ...merged, id: cur.id, by: str(payload.by, 40), t: str(payload.t, 12), d: str(payload.d, 10) });
+ b.list[i] = normBin({ ...merged, id: cur.id, v: cur.v + 1, by: str(payload.by, 40), t: str(payload.t, 12), d: str(payload.d, 10) });
  binLogPush(b, { id: payload.id, bin: cur.id, type: Array.isArray(payload.items) ? "items" : "edit",
    by: payload.by, note: (cur.bin ? "Bin " + cur.bin : cur.title) + " updated", t: payload.t, d: payload.d });
  b.rev++; return b;
@@ -1841,6 +1902,7 @@ export default async (req, context) => {
  if(it.items.length >= 80) return undefined;
  it.items.push(item);
  it.empty = false;
+ it.v++;   // an open editor elsewhere must not save over this
  binLogPush(b, { id: payload.id, bin: it.id, type: "apply", by: payload.by,
    note: "Added “" + item + "”" + (it.bin ? " to bin " + it.bin : ""), t: payload.t, d: payload.d });
  b.rev++; return b;
@@ -1872,6 +1934,54 @@ export default async (req, context) => {
  });
  break;
  }
+ /* ---- load-out: packed ticks & custody ----
+    Open to everyone behind the Day PIN — the crew loading the truck is who
+    knows what's on it. Both are FINAL-STATE writes (like setCheck), so a
+    retried request or two people ticking the same bin land on the same
+    answer instead of toggling it back off. */
+ case "binPackSet":
+ await compareAndSwap(s, "binstate", normBinState, st => {
+ const id = idStr(payload.bin, 40);
+ if(!id) return undefined;
+ const cur = st.marks[id] || {};
+ if(!!cur.p === !!payload.on) return undefined;   // already there — keep the first ticker's stamp
+ if(payload.on) cur.p = { by: str(payload.by, 40), t: str(payload.t, 12), d: str(payload.d, 10) };
+ else delete cur.p;
+ if(cur.p || cur.h) st.marks[id] = cur; else delete st.marks[id];
+ return st;
+ }, () => ({ marks: {} }));
+ break;
+ case "binHoldSet":
+ await compareAndSwap(s, "binstate", normBinState, st => {
+ const id = idStr(payload.bin, 40);
+ if(!id) return undefined;
+ const cur = st.marks[id] || {};
+ const who = str(payload.by, 40);
+ if(payload.on && !who) return undefined;
+ if(payload.on){
+  if(cur.h && cur.h.by === who && cur.h.note === str(payload.note, 120)) return undefined;
+  cur.h = { by: who, t: str(payload.t, 12), d: str(payload.d, 10), note: str(payload.note, 120) };
+ }else{
+  if(!cur.h) return undefined;
+  delete cur.h;
+ }
+ if(cur.p || cur.h) st.marks[id] = cur; else delete st.marks[id];
+ return st;
+ }, () => ({ marks: {} }));
+ break;
+ /* Leader: start a fresh load-out. Clears every packed tick but deliberately
+    KEEPS custody — who has the generator doesn't change because we started
+    loading for the next county. */
+ case "binPackClear":
+ await compareAndSwap(s, "binstate", normBinState, st => {
+ let touched = false;
+ for(const id of Object.keys(st.marks)){
+  if(st.marks[id].p){ delete st.marks[id].p; touched = true; }
+  if(!st.marks[id].p && !st.marks[id].h) delete st.marks[id];
+ }
+ return touched ? st : undefined;
+ }, () => ({ marks: {} }));
+ break;
  /* ---- Trailer Load List packing FYIs ----
     Adding a note is open to everyone behind the Day PIN — the whole point is
     that a packer can flag "extra patch cable went into 002-007" without

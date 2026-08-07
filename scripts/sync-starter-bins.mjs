@@ -6,7 +6,7 @@
    Validates as it goes, because a duplicate or missing bin id would silently
    break the self-seeding merge on the server (ids are how a leader's edit and
    a starter row are matched up). */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 const src = JSON.parse(readFileSync(new URL("../data/bins.json", import.meta.url), "utf8"));
 const bins = src.bins || [];
@@ -25,12 +25,18 @@ for(const b of bins){
 for(const s of (src.sections || [])){
   if(!trailerKeys.has(s.trailer)) problems.push("section " + s.key + ": unknown trailer '" + s.trailer + "'");
 }
+/* A photo path that doesn't exist would render as a broken image on a phone in
+   a field, so it fails the build here instead. */
+for(const ph of (src.photos || [])){
+  if(!ph.file || !existsSync(new URL("../" + ph.file, import.meta.url))) problems.push("photo file missing: " + ph.file);
+  if(!Array.isArray(ph.match) || !ph.match.length) problems.push("photo " + ph.file + " has no match rules");
+}
 if(problems.length){
   console.error("data/bins.json has problems:\n - " + problems.join("\n - "));
   process.exit(1);
 }
 
-const payload = { trailers: src.trailers, sections: src.sections, bins };
+const payload = { trailers: src.trailers, sections: src.sections, photos: src.photos || [], bins };
 const out = "/* AUTO-GENERATED from data/bins.json — do not edit by hand.\n"
   + "   Regenerate with: node scripts/sync-starter-bins.mjs\n\n"
   + "   The trailer roster as the team recorded it in their inventory sheet.\n"
@@ -42,5 +48,8 @@ writeFileSync(new URL("../netlify/functions/starter-bins.mjs", import.meta.url),
 
 const counts = {};
 for(const b of bins) counts[b.sec] = (counts[b.sec] || 0) + 1;
+const located = bins.filter(b => (b.loc || "").trim());
+const shot = located.filter(b => (src.photos || []).some(p => p.match.some(m => b.loc.toLowerCase().includes(m))));
 console.log("starter-bins.mjs regenerated:", bins.length, "entries",
   "(" + Object.entries(counts).map(([k, v]) => k + " " + v).join(", ") + ")");
+console.log("photos:", (src.photos || []).length, "— covering", shot.length + "/" + located.length, "located entries");

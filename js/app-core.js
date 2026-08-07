@@ -344,7 +344,7 @@ var SETUP=[
   ]}
 ];
 var TEARDOWN=[];
-var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],miracles:[],binNotes:[],count:0,event:{name:"",date:""},ioList:[],dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
+var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],miracles:[],binNotes:[],binState:{},count:0,event:{name:"",date:""},ioList:[],dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
 var LIVE=false,LEADER=false,seenAnn=0,seenIssue=0,inflight=0,countFlushT=null,countSending=false;
 /* Which announcement the volunteer closed (id, or "checkin"), and the last
    urgent one we alerted for — see renderAnnouncements. */
@@ -373,7 +373,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
    onclick="fn('...')" handlers all over this file, so a lone ' would break out
    of the JS string literal inside the attribute. */
 function esc(s){return(s||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
-function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],miracles:Array.isArray(s.miracles)?s.miracles:[],witnessMin:s.witnessMin||2,binNotes:Array.isArray(s.binNotes)?s.binNotes:[],county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
+function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],miracles:Array.isArray(s.miracles)?s.miracles:[],witnessMin:s.witnessMin||2,binNotes:Array.isArray(s.binNotes)?s.binNotes:[],binState:(s.binState&&typeof s.binState==="object")?s.binState:{},binsRev:(s.binsRev!=null?s.binsRev:null),county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
 function toast(msg){var el=document.getElementById("toastEl");if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}el.textContent=msg;el.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function vibr(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(_){}}
 function hasFullState(s){return !!(s&&("checklist" in s||"announcements" in s||"count" in s));}
@@ -602,6 +602,16 @@ function applyPending(st){
     }else if(op.a==="binNoteAck"){
       var bn=(st.binNotes||[]).filter(function(x){return x.id===p.id;})[0];
       if(bn){bn.hidden=!!p.hidden;bn.ackBy=p.hidden?p.by:"";bn.ackT=p.hidden?p.t:"";}
+    }else if(op.a==="binPackSet"){
+      st.binState=st.binState||{};
+      var mp=st.binState[p.bin]||{};
+      if(p.on)mp.p={by:p.by,t:p.t,d:p.d};else delete mp.p;
+      if(mp.p||mp.h)st.binState[p.bin]=mp;else delete st.binState[p.bin];
+    }else if(op.a==="binHoldSet"){
+      st.binState=st.binState||{};
+      var mh=st.binState[p.bin]||{};
+      if(p.on)mh.h={by:p.by,t:p.t,d:p.d,note:p.note||""};else delete mh.h;
+      if(mh.p||mh.h)st.binState[p.bin]=mh;else delete st.binState[p.bin];
     }else if(op.a==="setIOList"){
       if(Array.isArray(p.list))st.ioList=p.list;
     }else if(op.a==="setEvent"){
@@ -1284,7 +1294,7 @@ function restoreComments(snaps){
     else if(s.focused==="ct"&&ct){ct.focus();try{ct.setSelectionRange(s.selS,s.selE);}catch(_){}}
   }
 }
-function renderDynamic(){var _cs=snapshotComments();refreshChecklists();renderAnnouncements();renderAnnGate();renderSimGate();renderPraise();renderMiracles();renderInvNotes();renderInvLeader();renderIssues();renderRoster();renderCount();renderRadios();renderEvent();renderFunding();renderDashboard();updateBadges();if(!ioEditing)renderIOList();restoreComments(_cs);if(typeof chMaybeSync==="function")chMaybeSync();binsMaybeSync();}
+function renderDynamic(){var _cs=snapshotComments();refreshChecklists();renderAnnouncements();renderAnnGate();renderSimGate();renderPraise();renderMiracles();renderInvNotes();renderInvLeader();renderPackBar();renderIssues();renderRoster();renderCount();renderRadios();renderEvent();renderFunding();renderDashboard();updateBadges();if(!ioEditing)renderIOList();restoreComments(_cs);if(typeof chMaybeSync==="function")chMaybeSync();binsMaybeSync();}
 function updateBadges(){
   function set(id,n){var e=document.getElementById(id);if(!e)return;e.textContent=n;e.style.display=n?"flex":"none";}
   set("crewCheckinPill",STATE.checkins.length);set("crewCountPill",STATE.count);
@@ -1704,7 +1714,7 @@ function show(id){
   if(id==="announcements"||id==="issue"){seenAnn=STATE.announcements.length;seenIssue=visCount(STATE.feedback);updateBadges();}
   if(id==="tour")tourSeen();
   if(id==="radios")renderRadios();
-  if(id==="inventory"){binsMaybeSync();renderInventory();renderInvNotes();renderInvLeader();invSearchRun();}
+  if(id==="inventory"){binsMaybeSync();renderInventory();renderInvNotes();renderInvLeader();renderPackBar();invSearchRun();}
   if(id==="shareapp")renderShareQR();
   if(id==="capture"&&typeof renderCapture==="function")renderCapture();
   if(id==="mobilize"&&typeof renderMobilize==="function"){renderMobilize();chFetch();}
@@ -1782,19 +1792,20 @@ function goSchedule(){show("now");setTimeout(function(){var a=document.getElemen
    re-download only when that changes. The last good copy is cached in
    localStorage so the page opens instantly — and works — with no signal,
    which is the normal state of a field or a metal trailer.  */
-var BINS={rev:-1,list:[],log:[],trailers:[],sections:[]};
+var BINS={rev:-1,list:[],log:[],trailers:[],sections:[],photos:[]};
 function binsFix(o){
   if(o){
     if(!Array.isArray(o.list))o.list=[];
     if(!Array.isArray(o.log))o.log=[];
     if(!Array.isArray(o.trailers))o.trailers=[];
     if(!Array.isArray(o.sections))o.sections=[];
+    if(!Array.isArray(o.photos))o.photos=[];
     o.list.forEach(function(b){if(!Array.isArray(b.items))b.items=[];});
   }
   return o;
 }
 try{var _bc=JSON.parse(localStorage.getItem("k2c_bins")||"null");if(_bc&&Array.isArray(_bc.list))BINS=binsFix(_bc);}catch(_){}
-var binsEtag="",binsFetching=false,binEditId="";
+var binsEtag="",binsFetching=false,binEditId="",binEditBaseV=0;
 function binsSave(){try{localStorage.setItem("k2c_bins",JSON.stringify(BINS));}catch(_){}}
 function binById(id){for(var i=0;i<BINS.list.length;i++)if(BINS.list[i].id===id)return BINS.list[i];return null;}
 function binOnPage(){var p=document.querySelector(".page.active");return !!p&&p.id==="page-inventory";}
@@ -1819,10 +1830,15 @@ function binsFetch(force){
 }
 /* Leader roster write: apply to the cached copy for instant feedback, push,
    then re-download the server's normalized truth (which also bumps rev). */
-function binAction(action,payload,localApply){
+function binAction(action,payload,localApply,onConflict){
   if(!LIVE){toast("📶 No connection — roster changes need signal. Try again when you're back on.");return false;}
   if(localApply){localApply();INV_INDEX=null;binsSave();renderInventory();invSearchRun();}
-  apiPost(action,payload).then(function(){binsFetch(true);}).catch(function(){binsFetch(true);});
+  apiPost(action,payload).then(function(){binsFetch(true);}).catch(function(err){
+    /* 409 = another leader saved this bin while this editor was open. Never
+       retry it: re-download the truth and hand it back to the leader. */
+    if(err===409&&onConflict)onConflict();
+    binsFetch(true);
+  });
   return true;
 }
 /* ---- grouping helpers ---- */
@@ -1853,6 +1869,84 @@ var BN_KIND={missing:{ic:"🔺",lb:"MISSING",cls:"miss"},extra:{ic:"➕",lb:"EXT
 function bnKind(k){return BN_KIND[k]||BN_KIND.note;}
 function binLabel(b){return b.bin?("Bin "+b.bin):(b.title||"Item");}
 function binTag(b){return b.bin||"LOOSE";}
+/* ---- load-out state: packed ✓ and who's got it ---- */
+function binMark(id){return (STATE.binState||{})[id]||{};}
+function binPacked(b){return !!binMark(b.id).p;}
+function binHolder(b){return binMark(b.id).h||null;}
+function binPackStats(){
+  var tot=0,done=0;
+  BINS.list.forEach(function(b){if(b.empty)return;tot++;if(binPacked(b))done++;});
+  return {total:tot,done:done,pct:tot?Math.round(done/tot*100):0};
+}
+function binPackToggle(id,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  var b=binById(id);if(!b)return;
+  var me=myTag();
+  if(!me){askName(function(){binPackToggle(id);});return;}
+  var on=!binPacked(b);
+  vibr(10);
+  queueWrite("binPackSet",{bin:id,on:on,by:me,t:nowLabel(),d:dateKey(new Date())},function(){
+    STATE.binState=STATE.binState||{};
+    var m=STATE.binState[id]||{};
+    if(on)m.p={by:me,t:nowLabel(),d:dateKey(new Date())};else delete m.p;
+    if(m.p||m.h)STATE.binState[id]=m;else delete STATE.binState[id];
+  },function(){renderInventory();invSearchRun();renderPackBar();
+    var cur=binById(id);if(cur&&document.getElementById("binModal").classList.contains("show"))binRenderBody(cur);});
+}
+/* Custody — "I've got it". Loose gear is what goes missing between counties,
+   so this deliberately survives the reset; clearing it is an explicit tap. */
+function binHoldToggle(id){
+  var b=binById(id);if(!b)return;
+  var me=myTag();
+  if(!me){askName(function(){binHoldToggle(id);});return;}
+  var cur=binHolder(b);
+  var on=!(cur&&cur.by===me);
+  var note="";
+  if(on){
+    note=(prompt("You've got "+binLabel(b)+".\n\nWhere is it / when's it coming back? (optional)","")||"").trim().slice(0,120);
+  }else if(cur&&cur.by!==me){
+    if(!confirm(cur.by+" has this. Mark it returned anyway?"))return;
+  }
+  queueWrite("binHoldSet",{bin:id,on:on,by:me,note:note,t:nowLabel(),d:dateKey(new Date())},function(){
+    STATE.binState=STATE.binState||{};
+    var m=STATE.binState[id]||{};
+    if(on)m.h={by:me,t:nowLabel(),d:dateKey(new Date()),note:note};else delete m.h;
+    if(m.p||m.h)STATE.binState[id]=m;else delete STATE.binState[id];
+  },function(){renderInventory();invSearchRun();
+    var c2=binById(id);if(c2&&document.getElementById("binModal").classList.contains("show"))binRenderBody(c2);});
+  toast(on?("🙋 You've got "+binLabel(b)):("↩ "+binLabel(b)+" marked returned"));
+}
+function binPackClear(){
+  if(!LEADER){askPin(binPackClear);return;}
+  var st=binPackStats();
+  if(!confirm("Start a new load-out?\n\nThis clears all "+st.done+" packed ticks so the crew can load from scratch. Who's-got-what is kept."))return;
+  apiPost("binPackClear",{}).then(function(){lastEtag="";return refreshFromServer();})
+    .then(function(){renderInventory();renderPackBar();invSearchRun();toast("♻️ Fresh load-out — every bin unticked");})
+    .catch(function(e){if(e!==403)toast("Couldn't clear — check your signal");});
+}
+function renderPackBar(){
+  var el=document.getElementById("invPackBar");if(!el)return;
+  var st=binPackStats();
+  var lbl=document.getElementById("invPackLbl"),bar=document.getElementById("invPackFill");
+  if(lbl)lbl.textContent=st.done+" / "+st.total+" bins on the truck · "+st.pct+"%";
+  if(bar)bar.style.width=st.pct+"%";
+  var btn=document.getElementById("invPackClearBtn");
+  if(btn)btn.style.display=LEADER?"":"none";
+  var left=document.getElementById("invPackLeft");
+  if(left)left.textContent=st.done===st.total&&st.total?"🎉 Everything's on the truck.":(st.total-st.done)+" still to load";
+}
+/* ---- photos: one shot per bay, matched off the location text ---- */
+function binPhoto(b){
+  var loc=(b.loc||"").toLowerCase();
+  if(!loc)return null;
+  var ph=BINS.photos||[];
+  for(var i=0;i<ph.length;i++){
+    for(var j=0;j<(ph[i].match||[]).length;j++){
+      if(loc.indexOf(ph[i].match[j])>=0)return ph[i];
+    }
+  }
+  return null;
+}
 
 /* ---- the page ---- */
 function renderInventory(){
@@ -1870,8 +1964,13 @@ function renderInventory(){
         var open=binOpenFor(b.id);
         var miss=open.filter(function(n){return n.kind==="missing";}).length;
         var badge=open.length?'<em class="bnc'+(miss?' miss':'')+'">'+open.length+'</em>':'';
-        return '<button class="binchip'+(b.empty?' dim':'')+'" onclick="binOpen(\''+esc(b.id)+'\')">'
-          +'<b>'+esc(binTag(b))+'</b><span>'+esc(b.empty?"(empty)":(b.title||"—"))+'</span>'+badge+'</button>';
+        var packed=binPacked(b),held=binHolder(b);
+        /* The tick is its own hit target inside the chip: loading the truck is
+           a two-second-per-bin job and must not cost a modal each time. */
+        var tick=b.empty?'':'<i class="pk'+(packed?' on':'')+'" role="button" tabindex="0" aria-label="'+(packed?'On the truck':'Mark on the truck')+'" onclick="binPackToggle(\''+esc(b.id)+'\',event)">'+(packed?'✓':'')+'</i>';
+        return '<div class="binchipwrap">'+tick
+          +'<button class="binchip'+(b.empty?' dim':'')+(packed?' packed':'')+'" onclick="binOpen(\''+esc(b.id)+'\')">'
+          +'<b>'+esc(binTag(b))+'</b><span>'+esc(b.empty?"(empty)":(b.title||"—"))+(held?' · 🙋'+esc(held.by):'')+'</span>'+badge+'</button></div>';
       }).join("");
       return '<div class="seclabel" style="margin:14px 0 8px">'+esc(sec.name)+(sec.range?' <span style="opacity:.6">· '+esc(sec.range)+'</span>':'')+'</div>'
         +'<div class="bingrid">'+chips+'</div>';
@@ -1963,7 +2062,7 @@ function invSearchRun(){
   var input=document.getElementById("invQ");if(!input)return;
   var q=(input.value||"").trim();
   var wrap=document.getElementById("invSearchWrap"),res=document.getElementById("invResults");
-  var hide=["invFyiCard","invMount","invSearchHint","invLeaderCard"];
+  var hide=["invFyiCard","invMount","invSearchHint","invLeaderCard","invPackBar"];
   if(wrap)wrap.classList.toggle("has",!!q);
   if(!q){
     if(res){res.style.display="none";res.innerHTML="";}
@@ -2017,11 +2116,22 @@ function binRenderBody(b){
       +(flagged?'':'<button class="miss" onclick="binReportMissing(\''+esc(b.id)+'\','+i+')" aria-label="Report missing">🔺<small>Missing</small></button>')
       +'</li>';
   }).join("");
+  var packed=binPacked(b),held=binHolder(b),ph=binPhoto(b);
   el.innerHTML=
     '<div class="binwhere"><b>'+esc(binWhere(b))+'</b>'
       +(b.loc?'<br>📍 '+esc(b.loc):'')
       +(b.qty?'<br>Qty '+esc(b.qty):'')
       +(b.note?'<br><i>'+esc(b.note)+'</i>':'')+'</div>'
+    /* Photo of the bay it lives in — loaded lazily, because these are opened
+       one at a time on field signal. */
+    +(ph?'<details class="binphoto"><summary>📷 See this spot in the trailer</summary>'
+      +'<img loading="lazy" src="'+esc(encodeURI(ph.file))+'" alt="'+esc(ph.label)+'" />'
+      +'<span>'+esc(ph.label)+'</span></details>':'')
+    +(b.empty?'':'<button class="packbtn'+(packed?' on':'')+'" onclick="binPackToggle(\''+esc(b.id)+'\')">'
+      +(packed?'✓ On the truck'+(binMark(b.id).p.by?' — '+esc(binMark(b.id).p.by):''):'☐ Mark it on the truck')+'</button>')
+    +'<button class="holdbtn'+(held?' on':'')+'" onclick="binHoldToggle(\''+esc(b.id)+'\')">'
+      +(held?('🙋 '+esc(held.by)+' has this'+(held.note?' — '+esc(held.note):'')+' · tap to mark returned')
+            :'🙋 I\'ve got this / taking it')+'</button>'
     +'<div class="seclabel">📋 Contents'+(b.items.length?' ('+b.items.length+')':'')+'</div>'
     +(b.items.length?'<ul class="binlist">'+items+'</ul>'
       :'<p class="hint" style="margin:0 0 8px">'+(b.empty?'This bin is empty / unassigned.':'No contents listed yet.')+'</p>')
@@ -2116,7 +2226,9 @@ function bnApply(noteId){
 function binEditOpen(id){
   if(!LEADER){askPin(function(){binEditOpen(id);});return;}
   binEditId=id;
-  var b=binById(id);if(b)binRenderBody(b);
+  var b=binById(id);
+  binEditBaseV=b?(b.v||0):0;   // the version this editor opened — see binEditSave
+  if(b)binRenderBody(b);
 }
 function binEditForm(b){
   return '<div class="binedit">'
@@ -2153,9 +2265,12 @@ function binEditSave(id){
     qty:(document.getElementById("beQty").value||"").trim().slice(0,12),
     note:(document.getElementById("beNote").value||"").trim().slice(0,300)
   };
-  var ok=binAction("binEdit",{id:uid(),bin:id,patch:patch,items:items,by:by,t:nowLabel(),d:dateKey(new Date())},function(){
+  var ok=binAction("binEdit",{id:uid(),bin:id,patch:patch,items:items,baseV:binEditBaseV,by:by,t:nowLabel(),d:dateKey(new Date())},function(){
     b.bin=patch.bin;b.title=patch.title;b.loc=patch.loc;b.qty=patch.qty;b.note=patch.note;
-    b.items=items;b.empty=!items.length&&!patch.title;
+    b.items=items;b.empty=!items.length&&!patch.title;b.v=(b.v||0)+1;
+  },function(){
+    alert("Someone else changed "+binLabel(b)+" while you had it open.\n\nYour changes were NOT saved — their version is showing now, so you can redo yours on top of it.");
+    binEditId="";var fresh=binById(id);if(fresh)binRenderBody(fresh);
   });
   if(!ok)return;
   binEditId="";
