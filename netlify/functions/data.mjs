@@ -7,6 +7,9 @@ import STARTER_SCRIPTS from "./starter-scripts.mjs";
 // Pre-Crusade Mobilization: starter church roster (merged on read, tombstoned
 // on delete — same pattern as the starter scripts).
 import STARTER_CHURCHES from "./starter-churches.mjs";
+// Trailer Load List: the real bin roster from the team's inventory sheet.
+// Merged on read, tombstoned on delete — same pattern again.
+import STARTER_BINS from "./starter-bins.mjs";
 
 const STORE = "k2c-ambassador";
 const DEFAULT_DAY_PIN = "0711";
@@ -206,16 +209,108 @@ const CAPTURE_LIST_MAX = 1000;
 export const normCaptures = v => Array.isArray(v) ? v.map(normCapture).slice(-CAPTURE_LIST_MAX) : [];
 const capMediaKey = id => "capmedia-" + (id || "").toString().replace(/[^a-z0-9_-]/gi, "").slice(0, 40);
 
+/* ---- Trailer Load List roster (v1.12.0) ----
+   The bin roster the team recorded in their inventory sheet, seeded from
+   STARTER_BINS and then owned by leaders in-app. Structure mirrors the church
+   CRM: {rev, removed, list, log} in its own blob, fetched via GET ?part=bins
+   with its own ETag (it's ~19 KB — far too big for the 5-second poll), rev
+   bumped on every write so phones re-download only when it actually changed.
+   Volunteers never write here: reporting a missing or extra item goes to
+   binnotes instead, so the roster stays the leaders' record and the reports
+   stay the field's observations. */
+const BIN_LOG_TYPES = new Set(["add","edit","delete","items","apply"]);
+export function normBin(x){
+ x = x || {};
+ const items = Array.isArray(x.items) ? x.items : [];
+ return {
+  id: idStr(x.id, 40) || uid(),
+  bin: str(x.bin, 12),               // the number on the lid ("109"), blank for loose gear
+  sec: idStr(x.sec, 24) || "tech",
+  title: str(x.title, 120),
+  qty: str(x.qty, 12),
+  /* Trimmed: a whitespace-only line would otherwise survive as an invisible
+     bullet in the contents list (and as a blank line in the leader editor,
+     which round-trips items through a textarea). */
+  items: items.map(i => str(i, 300).trim()).filter(Boolean).slice(0, 80),
+  loc: str(x.loc, 200),
+  note: str(x.note, 300),
+  empty: !!x.empty,
+  by: str(x.by, 40), t: str(x.t, 12), d: str(x.d, 10)
+ };
+}
+function normBinLog(x){
+ x = x || {};
+ return {
+  id: idStr(x.id) || uid(),
+  bin: idStr(x.bin, 40),
+  type: BIN_LOG_TYPES.has(x.type) ? x.type : "edit",
+  by: str(x.by || "Leader", 40),
+  note: str(x.note, 300),
+  t: str(x.t, 12), d: str(x.d, 10)
+ };
+}
+const BIN_LIST_MAX = 600;
+export function normBins(v){
+ v = v || {};
+ return {
+  rev: Math.max(0, Math.round(Number(v.rev) || 0)),
+  removed: Array.isArray(v.removed) ? v.removed.map(x => idStr(x, 40)).filter(Boolean).slice(0, 400) : [],
+  list: Array.isArray(v.list) ? v.list.map(normBin).slice(0, BIN_LIST_MAX) : [],
+  log: Array.isArray(v.log) ? v.log.map(normBinLog).slice(-600) : [],
+  /* Trailer/section labels ship with the starter data and are refreshed from
+     it on read — they're structure, not content leaders edit in the app. */
+  trailers: Array.isArray(v.trailers) ? v.trailers : [],
+  sections: Array.isArray(v.sections) ? v.sections : []
+ };
+}
+const emptyBins = () => ({ rev: 0, removed: [], list: [], log: [], trailers: [], sections: [] });
+/* Merge any starter bin whose id is neither on the board nor tombstoned, and
+   keep the trailer/section labels current. A leader's edit to a bin that
+   already exists is never touched. */
+function mergeStarterBins(b){
+ const have = new Set(b.list.map(x => x.id));
+ const gone = new Set(b.removed);
+ let changed = false;
+ for(const sb of (STARTER_BINS.bins || [])){
+  if(!sb || !sb.id || have.has(sb.id) || gone.has(sb.id)) continue;
+  b.list.push(normBin(sb));
+  changed = true;
+ }
+ const labels = JSON.stringify([STARTER_BINS.trailers, STARTER_BINS.sections]);
+ if(JSON.stringify([b.trailers, b.sections]) !== labels){
+  b.trailers = STARTER_BINS.trailers || [];
+  b.sections = STARTER_BINS.sections || [];
+  changed = true;
+ }
+ if(changed) b.rev++;
+ return changed;
+}
+const seededBins = () => { const b = emptyBins(); mergeStarterBins(b); return b; };
+const casBins = (s, mutate) => compareAndSwap(s, "bins", normBins, mutate, seededBins);
+function binLogPush(b, entry){ b.log.push(normBinLog(entry)); b.log = b.log.slice(-600); }
+const binLogged = (b, id) => !!id && b.log.some(e => e.id === id);
+/* Fields a leader may patch. `items` is handled separately (it's an array). */
+const BIN_EDIT_FIELDS = ["bin","sec","title","qty","loc","note","empty"];
+
 /* ---- Trailer Load List packing FYIs (v1.12.0) ----
-   The bin roster itself stays read-only for volunteers; this is the "throw in
-   a thought as you pack" channel. A note is pinned to a bin id ("001-014") or
-   is general ("GEN"), and carries the same acknowledge-&-hide state as issues
-   so leaders can mark it handled without deleting the record. */
+   The roster stays read-only for volunteers; this is the "throw in a thought
+   as you pack" channel. A note is pinned to a bin id ("109") or is general
+   ("GEN"), and carries the same acknowledge-&-hide state as issues so leaders
+   can mark it handled without deleting the record.
+   `kind` distinguishes the three things a packer actually reports:
+     missing — it's on the list but not in the bin
+     extra   — it's in the bin but not on the list
+     note    — anything else worth saying
+   `item` names the specific line it's about, so a leader can act on it (and,
+   for extras, add it straight to the roster) without decoding prose. */
+const BINNOTE_KINDS = new Set(["missing","extra","note"]);
 export function normBinNote(x){
  x = x || {};
  return {
   id: idStr(x.id) || uid(),
-  bin: idStr(x.bin, 12) || "GEN",
+  bin: idStr(x.bin, 40) || "GEN",
+  kind: BINNOTE_KINDS.has(x.kind) ? x.kind : "note",
+  item: str(x.item, 300),
   text: str(x.text, 500),
   by: str(x.by || "Volunteer", 40),
   t: str(x.t, 12), d: str(x.d, 10),
@@ -226,7 +321,9 @@ export function normBinNote(x){
 const BINNOTE_LIST_MAX = 400;
 export function normBinNotes(v){
  v = v || {};
- return { list: Array.isArray(v.list) ? v.list.map(normBinNote).filter(n => n.text).slice(-BINNOTE_LIST_MAX) : [] };
+ /* A missing/extra report is meaningful with just the item named, so a note
+    survives on EITHER a body or an item — only a truly blank one is dropped. */
+ return { list: Array.isArray(v.list) ? v.list.map(normBinNote).filter(n => n.text || n.item).slice(-BINNOTE_LIST_MAX) : [] };
 }
 
 /* ---- Miracle Tracker (v1.12.0) ----
@@ -587,7 +684,10 @@ const LEADER_ACTIONS = new Set([
  "addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin","captureSetState","setCounty",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
  "capturesList","captureMedia","captureDelete","capturePurge","revokeLeaderTokens",
- "churchEdit","churchDelete","churchFlagClear","churchTemplate","miracleDelete","binNoteAck"
+ "churchEdit","churchDelete","churchFlagClear","churchTemplate","miracleDelete","binNoteAck",
+ /* The trailer roster is the leaders' record — volunteers report against it
+    (binNoteAdd) but never write it. */
+ "binEdit","binAdd","binDelete","binItemAdd"
 ]);
 
 /* ---------------- per-county scoping (v1.11.0) ----------------
@@ -950,7 +1050,7 @@ async function assemble(s, K, active, lvl){
  let parts = await readAll(s, K);
  parts = await migrateIfNeeded(s, K, parts);
  const core = normCore(parts.core);
- const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, miraclesRaw, binNotesRaw, pinCfg] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), s.get("miracles", { type:"json" }), s.get("binnotes", { type:"json" }), readDayPinCfg(s) ]);
+ const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, miraclesRaw, binNotesRaw, binsRaw, pinCfg] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), s.get("miracles", { type:"json" }), s.get("binnotes", { type:"json" }), s.get("bins", { type:"json" }), readDayPinCfg(s) ]);
  const dayPin = pinCfg.pin;
  /* Leaders (and only leaders) get the actual PIN plus when it rolls over, so
     they can read it out at the huddle and tell people what changes Monday.
@@ -1010,6 +1110,9 @@ async function assemble(s, K, active, lvl){
  miracles: normMiracles(miraclesRaw).list,
  witnessMin: WITNESS_MIN,
  binNotes: normBinNotes(binNotesRaw).list,
+ // Like the church roster: only the rev rides in the poll; the ~19 KB bin
+ // list is fetched separately (GET ?part=bins) and only when rev changes.
+ binsRev: Math.max(0, Math.round(Number(binsRaw && binsRaw.rev) || 0)),
  churchesRev,
  churchCount
  };
@@ -1090,7 +1193,7 @@ export default async (req, context) => {
    /* Locked. The church roster is refused outright; the main payload returns
       only what the client needs to draw the Day PIN gate — no event data, no
       names, no contact info. */
-   if(wantPart === "churches") return json({ error:"day pin required", locked:true }, 403);
+   if(wantPart === "churches" || wantPart === "bins") return json({ error:"day pin required", locked:true }, 403);
    const body = JSON.stringify({ locked:true, dayPinSet:true });
    const etag = 'W/"lock-' + hash(body) + '"';
    if(req.headers.get("if-none-match") === etag){
@@ -1111,6 +1214,19 @@ export default async (req, context) => {
     return (merged || compacted) ? c : undefined;
    }, emptyChurches);
    const body = JSON.stringify(ch);
+   const etag = 'W/"' + hash(body) + '"';
+   if(req.headers.get("if-none-match") === etag){
+    return new Response(null, { status:304, headers:{ "ETag":etag, "Cache-Control":"no-store" } });
+   }
+   return new Response(body, { status:200, headers:{ "Content-Type":"application/json", "Cache-Control":"no-store", "ETag":etag } });
+  }
+  /* Trailer roster — its own endpoint + ETag for the same reason as the
+     churches one: too big to ride the 5-second poll, and it changes rarely.
+     The read is where missing starter bins self-seed. */
+  if(part === "bins"){
+   const bn = await compareAndSwap(s, "bins", normBins,
+    b => mergeStarterBins(b) ? b : undefined, emptyBins);
+   const body = JSON.stringify(bn);
    const etag = 'W/"' + hash(body) + '"';
    if(req.headers.get("if-none-match") === etag){
     return new Response(null, { status:304, headers:{ "ETag":etag, "Cache-Control":"no-store" } });
@@ -1688,6 +1804,74 @@ export default async (req, context) => {
  }, () => []);
  await s.delete(capMediaKey(payload.id)).catch(() => {});
  break;
+ /* ---- Trailer Load List roster (leader-only) ----
+    Every write bumps rev (so phones re-download) and lands in the log with a
+    name against it, so "who changed 109's contents and when" is answerable. */
+ case "binEdit": {
+ const patch = payload.patch || {};
+ await casBins(s, b => {
+ if(binLogged(b, payload.id)) return undefined; // retry of an applied write
+ const i = b.list.findIndex(x => x.id === idStr(payload.bin, 40));
+ if(i < 0) return undefined;
+ const cur = b.list[i], merged = { ...cur };
+ for(const k of BIN_EDIT_FIELDS) if(k in patch) merged[k] = patch[k];
+ if(Array.isArray(payload.items)) merged.items = payload.items;
+ /* Editing contents into a bin un-marks it empty; emptying it re-marks it,
+    so the two can never disagree the way a stale checkbox would. */
+ if(Array.isArray(payload.items) || "title" in patch){
+  merged.empty = !(merged.items || []).length && !merged.title;
+ }
+ b.list[i] = normBin({ ...merged, id: cur.id, by: str(payload.by, 40), t: str(payload.t, 12), d: str(payload.d, 10) });
+ binLogPush(b, { id: payload.id, bin: cur.id, type: Array.isArray(payload.items) ? "items" : "edit",
+   by: payload.by, note: (cur.bin ? "Bin " + cur.bin : cur.title) + " updated", t: payload.t, d: payload.d });
+ b.rev++; return b;
+ });
+ break;
+ }
+ /* Append ONE item. Used by "apply this extra to the roster" — a full-array
+    replace would carry the leader's stale copy and could drop another
+    leader's concurrent addition; this can't. */
+ case "binItemAdd": {
+ const item = str(payload.item, 300);
+ if(!item) break;
+ await casBins(s, b => {
+ if(binLogged(b, payload.id)) return undefined;
+ const it = b.list.find(x => x.id === idStr(payload.bin, 40));
+ if(!it) return undefined;
+ if(it.items.length >= 80) return undefined;
+ it.items.push(item);
+ it.empty = false;
+ binLogPush(b, { id: payload.id, bin: it.id, type: "apply", by: payload.by,
+   note: "Added “" + item + "”" + (it.bin ? " to bin " + it.bin : ""), t: payload.t, d: payload.d });
+ b.rev++; return b;
+ });
+ break;
+ }
+ case "binAdd": {
+ const rec = normBin(payload.bin || {});
+ if(!rec.title && !rec.bin) break;
+ await casBins(s, b => {
+ if(b.list.some(x => x.id === rec.id)) return undefined; // idempotent retry
+ if(b.list.length >= BIN_LIST_MAX) return undefined;
+ b.list.push(rec);
+ binLogPush(b, { bin: rec.id, type: "add", by: rec.by || payload.by,
+   note: "Added " + (rec.bin ? "bin " + rec.bin : rec.title), t: rec.t, d: rec.d });
+ b.rev++; return b;
+ });
+ break;
+ }
+ case "binDelete": {
+ await casBins(s, b => {
+ const it = b.list.find(x => x.id === idStr(payload.bin, 40));
+ if(!it) return undefined;
+ b.list = b.list.filter(x => x.id !== it.id);
+ if(!b.removed.includes(it.id)) b.removed.push(it.id); // tombstone: don't re-seed
+ binLogPush(b, { bin: it.id, type: "delete", by: payload.by,
+   note: "Removed " + (it.bin ? "bin " + it.bin : it.title), t: payload.t, d: payload.d });
+ b.rev++; return b;
+ });
+ break;
+ }
  /* ---- Trailer Load List packing FYIs ----
     Adding a note is open to everyone behind the Day PIN — the whole point is
     that a packer can flag "extra patch cable went into 002-007" without
@@ -1698,7 +1882,7 @@ export default async (req, context) => {
  if(payload.id && bn.list.some(x => x.id === payload.id)) return undefined; // idempotent retry
  const rec = normBinNote(payload);
  rec.hidden = false; rec.ackBy = ""; rec.ackT = "";
- if(!rec.text) return undefined;
+ if(!rec.text && !rec.item) return undefined;
  bn.list.push(rec); bn.list = bn.list.slice(-BINNOTE_LIST_MAX);
  return bn;
  }, () => ({ list: [] }));

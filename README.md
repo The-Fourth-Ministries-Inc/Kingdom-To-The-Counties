@@ -94,51 +94,79 @@ ask) from the research doc.
   tombstoned (same pattern as starter scripts). The CRM **survives the
   end-of-day reset** — it's season-long relationship data.
 
-## Trailer Load List — Gear Search (v1.12.0)
+## Trailer Load List (v1.12.0)
 
-Forty bins across two trailers is too many to scroll on a phone while someone
-is holding a tent pole and asking where the gaff tape is. The search box at
-the top of **Specialists → 📦 Trailer Load List** searches **every bin title,
-every item listed inside a bin, the placement notes, and the oversize gear**,
-and answers the whole question in one card:
+**Specialists → 📦 Trailer Load List** is the team's real inventory — both
+trailers, bin by bin, seeded from the inventory sheet the logistics team
+built: **100s Tech/Worship**, **300s Logistics**, **350s Guest Services**
+(~60 numbered bins plus ~66 pieces of loose gear, each with the location it
+rides in).
 
-- **Where it is** — trailer, bin number (colour-coded by load priority), and
-  the exact placement note ("Front half, driver side, shelf 1")
-- **When it moves** — the load-priority band, so you know whether it comes off
-  the truck first or lives in the nose
-- **Its current status** — any open **📝 Packing FYIs** on that bin are shown
-  right in the result, newest quoted, so "someone already reported two of
-  those missing" reaches you *before* the walk to the trailer instead of after
-- Matching words are highlighted, results rank by exact bin # → name match →
-  load priority, and tapping a bin result opens its full contents (and the
-  FYI box)
+### Search — by bin number or by the thing in your hand
 
-Notes on the matching: a trailer's own name is deliberately **not** searchable
-per-bin — "Trailer 001 · Tech / Worship (+ band & FOH tents)" would otherwise
-make all twenty of its bins match a search for "tent". Searching a bin number
-also surfaces bins that reference it ("stacked on 001-014"), which is how you
-find what's on top of the thing you need.
+Volunteers look things up two ways, and both hit the same index (bin numbers,
+titles, every item line, and the location notes):
 
-## Trailer Load List — Packing FYIs (v1.12.0)
+- **"Where does 109 go?"** — type the number.
+- **"Which bin has the gaff tape?"** — type the thing. (It's bin 111,
+  Tiedowns.)
 
-The bin roster on **Specialists → 📦 Trailer Load List** stays read-only for
-volunteers — but packing always surfaces things worth saying ("couldn't find
-the 50ft XLRs", "someone brought an extra patch cable, it went into 002-007").
-The **Packing FYIs** board is the way to say them **without stopping the
-leaders mid-load**:
+Every result answers the whole question in one card: which trailer and
+section, the bin number, where it rides, quantity where recorded, matched
+words highlighted, and — pulled from the reports below — **anything the team
+has already flagged about that bin**, so "someone reported that missing an
+hour ago" reaches you *before* the walk to the trailer. Results rank exact bin
+number → title match → item match, with empty bins last.
 
-- **Anyone** behind the Day PIN can add an FYI — from the board at the top of
-  the page (with an optional bin #), or straight from any bin's pop-up, where
-  the FYI box sits at the bottom. Contents stay untouched; the note is a
-  side-channel, not an edit.
-- Bins with open FYIs show a **count bubble** on their chip, every note shows
-  up in the shared board for the whole team, and the Trailer Load List card
-  shows how many are open.
-- **Leaders mark a note ✓ handled** (leader-PIN, server-enforced, reversible)
-  — same acknowledge-&-hide flow as issues, so nothing is deleted, just
-  filed.
-- FYIs are **not county-scoped and survive the reset**: the note describes
-  the physical trailer, and it's the same trailer at the next county.
+### Reporting — missing items and extras
+
+The roster is **read-only for volunteers**; what they can do is report what
+they actually find, without interrupting a leader mid-load:
+
+- **🔺 next to any item** — one tap (with a confirm, since a mis-tap sends
+  someone hunting for nothing) files it as **MISSING**. The item shows struck
+  through with "reported missing by …" for everyone.
+- **➕ Extra item in here** — something in the bin that isn't on the list.
+- **📝 Note about this bin** — anything else. There's also a general note box
+  on the page for things that aren't about one bin.
+
+Everything lands on one shared board at the top of the page and on the bin
+itself. Leaders mark reports **✓ Handled** (reversible, nothing is deleted),
+and an **extra** gets a one-tap **"➕ Add to bin 306 & mark handled"** that
+appends the item to the roster and files the report in the same motion, so
+the two can't drift apart.
+
+### Leaders own the roster
+
+Open any bin → **✏️ Edit this bin**: number, title, contents (one item per
+line), where it rides, quantity, and a leader note. Leaders can also add new
+bins/gear and remove entries. Every change bumps a revision, syncs to every
+phone, and is logged with the leader's name — "who changed 109 and when" is
+answerable.
+
+- The roster lives in its own `bins` blob and is fetched separately
+  (`GET ?part=bins`, own ETag) because it's ~19 KB — far too big to ride the
+  5-second poll. Phones re-download only when the rev changes, and the last
+  copy is cached in `localStorage`, so the page opens instantly and **works
+  with no signal** — the normal state inside a metal trailer.
+- Starter bins self-seed on read and deleted ones are tombstoned (same
+  pattern as starter scripts and churches), so leader edits are never
+  overwritten by the seed data.
+- Not county-scoped and **survives the end-of-day reset** — the trailers are
+  the same trailers at the next county.
+
+### Editing the seed data
+
+`data/bins.json` is the transcription of the team's sheet and the single
+source of truth for the *starter* roster. It is deliberately **verbatim**,
+typos and all, so the app matches the sheet. After editing it:
+
+```bash
+node scripts/sync-starter-bins.mjs   # validates ids/sections, regenerates the server copy
+```
+
+Day-to-day corrections should be made **in the app** (leaders), not here —
+this file only seeds a fresh deployment.
 
 ## Miracle Tracker (v1.12.0)
 
