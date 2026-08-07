@@ -243,25 +243,49 @@ textarea, select { font-size: 16px !important; }
   /* trailer load list (two trailers, 40 bins, load-priority colors) */
   .demoflag{background:rgba(180,120,20,.12);border:1px dashed rgba(180,120,20,.5);color:#7a4a12;border-radius:10px;padding:9px 12px;font-size:13px;line-height:1.4;margin:10px 0}
   .prilegend{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
-  .prikey{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--muted)}
-  .prikey i{width:11px;height:11px;border-radius:4px;display:inline-block}
   .trailerblk{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 13px 15px;margin-bottom:16px}
   .thead{display:flex;align-items:center;gap:7px;font-size:14px;margin-bottom:11px}
   .thead .tcount{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--muted)}
   .bingrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px}
-  .binchip{display:flex;align-items:center;gap:6px;border:2px solid #999;border-radius:11px;background:#fff;padding:8px 9px;font-family:var(--sans);font-size:12px;text-align:left;cursor:pointer;color:var(--ink)}
-  .binchip i{width:10px;height:10px;border-radius:50%;flex:none}
-  .binchip b{flex:none;font-size:11.5px;letter-spacing:.4px}
+  .packbar{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow);margin-bottom:14px}
+  .packbar .t{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:8px}
+  .packbar .t .v{color:var(--rust);font-variant-numeric:tabular-nums}
+  .packbar .pfoot{display:flex;justify-content:space-between;align-items:center;gap:9px;margin-top:8px;font-size:12px;font-weight:700;color:var(--muted)}
+  .binchipwrap{position:relative;display:flex;align-items:stretch;gap:6px}
+  .binchipwrap .pk{flex:none;width:38px;border:1px solid var(--line);border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:900;font-size:17px;color:var(--good);cursor:pointer;-webkit-user-select:none;user-select:none}
+  .binchipwrap .pk.on{background:var(--good);color:#fff;border-color:var(--good)}
+  .binchipwrap .binchip{flex:1;min-width:0}
+  .binchip.packed{background:#f2f6f0;border-left-color:var(--good)}
+  .packbtn,.holdbtn{display:block;width:100%;margin-top:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:11px;padding:13px;font-family:var(--sans);font-size:14px;font-weight:700;cursor:pointer;min-height:48px;text-align:left}
+  .packbtn.on{background:#eef3ea;border-color:var(--good);color:#3f6a3c}
+  .holdbtn.on{background:#f7efe8;border-color:var(--rust);color:var(--rust)}
+  .binphoto{margin:10px 0 2px}
+  .binphoto summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--rust);padding:9px 2px;min-height:44px;display:flex;align-items:center}
+  .binphoto img{width:100%;border-radius:12px;display:block;margin-top:4px;background:#eee}
+  .binphoto span{display:block;font-size:11.5px;color:var(--muted);margin-top:5px}
+  .binchip{position:relative;display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-left:3px solid var(--slate);border-radius:11px;background:#fff;padding:9px 10px;font-family:var(--sans);font-size:12px;text-align:left;cursor:pointer;color:var(--ink);min-height:44px}
+  .binchip b{flex:none;font-size:12.5px;letter-spacing:.4px;font-family:var(--serif);font-weight:800}
   .binchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
   .binchip:active{transform:scale(.97)}
-  .binno{color:#fff;font-weight:800;font-size:12.5px;padding:3px 8px;border-radius:8px;letter-spacing:.5px}
-  .overrow{display:flex;align-items:flex-start;gap:8px;padding:7px 2px;border-top:1px dashed var(--line);font-size:12.5px}
-  .overrow i{width:10px;height:10px;border-radius:50%;flex:none;margin-top:4px}
-  .overrow div{display:flex;flex-direction:column}
-  .overrow span{color:var(--muted);font-size:11.5px}
-  .binpri{border-left:4px solid #999;background:#f6f2ea;border-radius:8px;padding:8px 11px;font-size:12.5px;margin:8px 0 4px;line-height:1.45}
-  .binlist{margin:4px 0 8px;padding-left:20px;font-size:13.5px;line-height:1.55}
-  .binplace{background:#eef3ea;border-radius:9px;padding:9px 12px;font-size:13px;line-height:1.45;margin-top:4px}
+  .binchip.dim{opacity:.5;border-left-color:var(--line)}
+  .binchip .bnc{position:absolute;top:-6px;right:-5px;background:var(--slate);color:#fff;font-style:normal;font-size:9.5px;font-weight:800;min-width:17px;height:17px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+  .binchip .bnc.miss{background:var(--bad)}
+  .binno{background:var(--ink);color:var(--cream);font-weight:800;font-size:12.5px;padding:3px 9px;border-radius:8px;letter-spacing:.5px;font-family:var(--serif)}
+  .binwhere{background:#f6f2ea;border-radius:9px;padding:9px 12px;font-size:12.5px;line-height:1.5;margin:6px 0 2px}
+  .binlist{margin:4px 0 8px;padding:0;list-style:none}
+  .binitem{display:flex;align-items:center;gap:8px;border-top:1px dashed var(--line);padding:7px 0;font-size:13.5px;line-height:1.45}
+  .binitem:first-child{border-top:none}
+  .binitem>span{flex:1;min-width:0}
+  .binitem em{display:block;font-style:normal;font-size:11px;font-weight:800;color:var(--bad);margin-top:2px}
+  .binitem.flagged>span{opacity:.65;text-decoration:line-through}
+  .binitem.flagged em{text-decoration:none;opacity:1}
+  .binitem .miss{flex:none;border:1px solid var(--line);background:var(--card);border-radius:9px;min-width:44px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;font-size:14px;line-height:1}
+  .binitem .miss small{font-size:8.5px;font-weight:800;color:var(--muted);letter-spacing:.3px}
+  .binacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .binacts .btn{flex:1;min-width:130px;margin-bottom:0}
+  .binedit .ttl2,.fyiadd .ttl2{font-family:var(--serif);font-weight:700;font-size:15px;margin:2px 0 10px}
+  .binedit input,.binedit textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 11px;font-size:16px;font-family:var(--sans);background:#fff;color:var(--ink);margin-bottom:9px;text-align:left;letter-spacing:normal;resize:vertical}
+  .binedit .btn.del{background:none;border:1px solid var(--bad);color:var(--bad);margin-top:10px}
   .ackedwrap{margin-top:14px}
   .ackedwrap summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--muted);padding:8px 2px;list-style:none}
   .cmts{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
@@ -666,6 +690,63 @@ textarea, select { font-size: 16px !important; }
   .ackmeta{font-size:11px;font-weight:700;color:var(--good);margin-top:8px}
   .item.acked{opacity:.6}
   .item.acked .pri{text-decoration:line-through}
+  /* Miracle Tracker (v1.12.0) */
+  .item.miracle{border-left-color:var(--good)}
+  .item.miracle .pri{background:#e3ecdf;color:#3f6a3c}
+  .item.mirpend{border-left-color:#caa24a}
+  .item.mirpend .pri{background:#f3e7c8;color:#8a6d1f}
+  .mirtypes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .mirtype{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700}
+  .mirtype small{font-weight:600;color:var(--muted);font-size:10.5px}
+  .mirtype b{margin-left:auto;font-family:var(--serif);font-size:17px;color:var(--rust)}
+  .mirsect{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;font-weight:800;color:var(--muted);margin:16px 2px 8px}
+  .witwrap{margin-top:9px}
+  .witrow{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:5px 0;border-top:1px dashed var(--line)}
+  .witrow .wt{margin-left:auto;font-size:11px;color:var(--muted);flex:none}
+  .witbtn{margin-top:9px;border:1px solid var(--rust);background:var(--card);color:var(--rust);font-weight:700;font-size:12.5px;padding:8px 13px;border-radius:9px;cursor:pointer;min-height:44px}
+  .mirneed{font-size:11.5px;font-weight:700;color:#8a6d1f;margin-top:8px}
+  .mirconfmeta{font-size:11.5px;font-weight:800;color:var(--good);margin-top:8px}
+  /* Trailer Load List — gear search */
+  .invsearch{position:relative;margin-bottom:11px}
+  .invsearch input{width:100%;border:1px solid var(--line);border-radius:13px;padding:13px 40px 13px 14px;font-size:16px;font-family:var(--sans);background:var(--card);color:var(--ink);box-shadow:var(--shadow);-webkit-appearance:none;appearance:none}
+  .invsearch input::-webkit-search-cancel-button{display:none}
+  .invsearch button{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;background:none;color:var(--muted);font-size:24px;line-height:1;cursor:pointer;display:none;border-radius:50%}
+  .invsearch.has button{display:block}
+  .invrcount{font-size:12px;font-weight:700;color:var(--muted);margin:0 2px 9px}
+  .invres{display:block;width:100%;text-align:left;font-family:var(--sans);color:var(--ink);background:var(--card);border:1px solid var(--line);border-left:4px solid var(--slate);border-radius:13px;padding:12px 14px;margin-bottom:10px;box-shadow:var(--shadow)}
+  button.invres{cursor:pointer}
+  button.invres:active{transform:scale(.99)}
+  .invres .rt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+  .invres .rbin{flex:none;font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--cream);background:var(--ink);border-radius:7px;padding:3px 8px;font-family:var(--serif)}
+  .invres .rti{font-size:14px;font-weight:700;font-family:var(--serif)}
+  .invres .rhit{font-size:13px;color:#403d38;margin-top:2px}
+  .invres .rhit b{background:#f7e6c2;font-weight:700;border-radius:3px;padding:0 1px}
+  .invres .rmeta{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:7px}
+  .invres .rmeta b{color:var(--ink)}
+  .invres .rpri{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;margin-top:7px}
+  .invres .rpri i{width:9px;height:9px;border-radius:50%;flex:none}
+  .invres .rfyi{font-size:12px;font-weight:700;color:var(--wine);background:#f6eef0;border-radius:8px;padding:6px 9px;margin-top:8px;line-height:1.45}
+  .invres .rmore{font-size:11.5px;color:var(--muted);margin-top:4px;font-style:italic}
+  /* Trailer Load List — missing / extra / note reports */
+  .fyirow{border-top:1px dashed var(--line);padding:9px 2px;font-size:13px}
+  .fyirow:first-child{border-top:none}
+  .fyirow .ftx{margin-top:3px;line-height:1.45}
+  .fyirow .fb{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+  .fyirow .frow{display:flex;gap:7px;flex-wrap:wrap}
+  .fyirow .bref{display:inline-block;font-weight:800;font-size:10px;border-radius:6px;padding:3px 7px;letter-spacing:.5px;background:#ece5d7;color:#6a5d45}
+  .fyirow .bref.miss{background:#efdcde;color:var(--bad)}
+  .fyirow .bref.xtra{background:#f4e6dc;color:var(--rust)}
+  .fyirow .bref.note{background:#dde7ee;color:#3c5160}
+  .fyirow.done{opacity:.6}
+  .ackbtn.ok{border-color:var(--good);color:var(--good)}
+  .invres .rfyi.miss{color:var(--bad);background:#f7ebec}
+  .invres .rfyi.xtra{color:var(--rust);background:#f7efe8}
+  .invres .rfyi.note{color:#3c5160;background:#e9eff4}
+  .invres.dim{opacity:.55}
+  .pinman textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:16px;margin:8px 0;font-family:var(--sans);resize:vertical;background:#fff}
+  .pinman input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:16px;margin-bottom:8px;font-family:var(--sans);background:#fff}
+  #binBody .fyiadd{margin-top:4px}
+  #binBody .fyiadd textarea,#binBody .fyiadd input{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;text-align:left;letter-spacing:normal;font-family:var(--sans);background:#fff;margin-bottom:8px;resize:vertical}
   /* Day PIN gate — locks the whole app */
   .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:center;justify-content:center;padding:24px}
   .daygate.show{display:flex}
@@ -791,7 +872,7 @@ textarea, select { font-size: 16px !important; }
       <button class="hubcard" onclick="show('setup')"><span class="ic">✅</span><span class="tx"><b>Setup Checklist</b><span>Fri build + Sat production</span></span><span class="arr">›</span></button>
       <button class="hubcard" onclick="show('radios')"><span class="ic">📻</span><span class="tx"><b>Radio Checkout</b><span>10 radios · name in &amp; out</span></span><span class="pill" id="crewRadioPill">0</span></button>
       <button class="hubcard slate" onclick="show('techio')"><span class="ic">🎛️</span><span class="tx"><b>Tech I/O List</b><span>32-channel patch · tracks, click, guide</span></span><span class="arr">›</span></button>
-      <button class="hubcard" onclick="show('inventory')"><span class="ic">📦</span><span class="tx"><b>Trailer Load List</b><span>2 trailers · 40 bins · load-priority colors · demo</span></span><span class="arr">›</span></button>
+      <button class="hubcard" onclick="show('inventory')"><span class="ic">📦</span><span class="tx"><b>Trailer Load List</b><span>2 trailers · 40 bins · packing FYIs · demo contents</span></span><span class="pill" id="crewInvPill">0</span></button>
       <button class="hubcard dark" onclick="show('dashboard')"><span class="ic">📊</span><span class="tx"><b style="color:var(--ink)">Leader Dashboard 🔒</b><span>Live progress · leaders only</span></span><span class="arr">›</span></button>
     </div>
   </section>
@@ -811,6 +892,7 @@ textarea, select { font-size: 16px !important; }
         <button onclick="show('announcements')">📣 Announce</button>
         <button onclick="show('issue')">🧩 Issues</button>
         <button onclick="show('praise')">🎉 Praise</button>
+        <button onclick="show('miracles')">🙌 Miracles</button>
         <button onclick="show('mobilize')">⛪ Churches</button>
       </div>
       <div class="eventedit"><div class="ttl">📍 This event</div>
@@ -842,6 +924,7 @@ textarea, select { font-size: 16px !important; }
       <div class="dashrow"><div class="t"><span>Tech I/O patched</span><span class="v" id="dIo">0 / 0 · 0%</span></div><div class="pbar"><i id="dIoBar"></i></div></div>
       <div class="dashrow"><div class="t"><span>Overdue setup items</span><span class="v" id="dOver">0</span></div></div>
       <div class="dashrow"><div class="t"><span>✝️ Decisions today</span><span class="v" id="dDecisions">0</span></div><div id="dDecBreak" style="margin-top:6px"><p class="hint">No decisions logged yet.</p></div></div>
+      <div class="dashrow"><div class="t"><span>🙌 Miracles this season</span><span class="v" id="dMir">0 confirmed</span></div><div id="dMirBreak" style="margin-top:6px"><p class="hint">Reports appear on the Miracle Tracker and count here once two witnesses confirm them.</p></div></div>
       <div class="dashrow"><div class="t"><span>👥 Attendees by counter</span></div><div id="dTally" style="margin-top:6px"><p class="hint">No counts logged yet.</p></div></div>
       <div class="dashrow"><div class="t"><span>🗓 Season so far</span><button class="iobtn" onclick="seasonLoad()">Refresh</button></div><div id="dSeason" style="margin-top:6px"><p class="hint">Tap Refresh to load past events. Each event is summarised automatically when you reset.</p></div></div>
       <div class="dashrow"><div class="t"><span>📻 Radios out</span><span class="v" id="dRadios">0</span></div><div id="dRadioList" style="margin-top:6px"></div></div>
@@ -899,9 +982,35 @@ textarea, select { font-size: 16px !important; }
   <section class="page" id="page-inventory">
     <button class="back" onclick="show('crew')">‹ Specialists</button>
     <p class="eyebrow">Logistics</p><h1 class="title">Trailer Load List</h1>
-    <div class="demoflag">🧪 <b>Demo / sample contents.</b> The two-trailer bin system, IDs and load-priority colors are real — bin contents are placeholders until the logistics team fills them in.</div>
-    <p class="sub">Two trailers, ~40 numbered bins. Colors are <b>load priority</b>: what's needed <b>first on site loads last</b> (rear, by the door). Tap any bin for its contents and where it rides in the trailer.</p>
-    <div class="prilegend" id="priLegend"></div>
+    <p class="sub">Both trailers, bin by bin — straight from the team's inventory sheet. <b>Search by bin number or by the thing you're holding.</b> Tap any bin for its contents, a photo of where it rides, and to flag anything missing or extra.</p>
+    <span class="syncpill" id="sp-inv"><span class="d"></span>Demo mode</span>
+    <div class="packbar" id="invPackBar">
+      <div class="t"><span>🚚 Load-out</span><span class="v" id="invPackLbl">0 / 0</span></div>
+      <div class="pbar"><i id="invPackFill"></i></div>
+      <div class="pfoot"><span id="invPackLeft">—</span><button class="iobtn" id="invPackClearBtn" style="display:none" onclick="binPackClear()">♻️ Start a new load-out</button></div>
+      <p class="hint" style="margin:8px 0 0">Tick the ☐ on a bin as it goes on the truck — everyone sees it within a few seconds. No signal? Your ticks queue up and send themselves when you're back in range; keep packing.</p>
+    </div>
+    <div class="invsearch" id="invSearchWrap">
+      <input id="invQ" type="search" inputmode="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="🔍 Bin number or item — “109”, “gaff tape”, “ponchos”…" />
+      <button id="invQX" type="button" aria-label="Clear search">×</button>
+    </div>
+    <p class="hint" id="invSearchHint" style="margin:-6px 0 14px">Type a <b>bin number</b> (109, 306, 351) or <b>what you're looking for</b> (tent stakes, hoodies, XLRs). Every result tells you the trailer, the bin, where it rides, and anything the team has already flagged about it.</p>
+    <div id="invResults" style="display:none"></div>
+    <div class="form" id="invFyiCard"><div class="ttl">🚩 What the team has flagged</div>
+      <p class="hint" style="margin:-4px 0 8px">Missing items, extras and notes from everyone packing — leaders see them all without being flagged down mid-load. <b>To report something, open the bin it belongs to</b> and tap 🔺 next to the item (or ➕ for an extra).</p>
+      <div id="invNotesMount"></div>
+      <details class="pinman"><summary>➕ Add a general note</summary>
+        <textarea id="bnText" rows="2" maxlength="500" placeholder="Something that isn't about one particular bin…"></textarea>
+        <input id="bnBin" maxlength="12" placeholder="Bin # if it is about one (optional — e.g. 109)" />
+        <input id="bnName" maxlength="40" placeholder="Your name" />
+        <button class="btn ghost" id="bnBtn">Send to leaders</button>
+      </details></div>
+    <div class="form" id="invLeaderCard" style="display:none"><div class="ttl">🔧 Leader tools</div>
+      <p class="hint" style="margin:-4px 0 8px">Open any bin and tap <b>✏️ Edit this bin</b> to change its number, title, contents, or where it rides. Changes sync to every phone and are logged with your name.</p>
+      <select id="invAddSec"></select>
+      <input id="invAddBin" maxlength="12" placeholder="New bin number (optional)" />
+      <input id="invAddTitle" maxlength="120" placeholder="Title (e.g. Shade Tote 4)" />
+      <button class="btn ghost" onclick="binAddNew()">➕ Add a bin / item to the roster</button></div>
     <div id="invMount"></div>
   </section>
   <section class="page" id="page-setup">
@@ -938,9 +1047,10 @@ textarea, select { font-size: 16px !important; }
     <div id="ioMount"></div>
   </section>
   <section class="page" id="page-board">
-    <p class="eyebrow">Communication</p><h1 class="title">Post</h1><p class="sub">Praise, issues & announcements.</p>
+    <p class="eyebrow">Communication</p><h1 class="title">Post</h1><p class="sub">Praise, miracles, issues & announcements.</p>
     <div class="hub">
       <button class="hubcard" onclick="show('praise')"><span class="ic">🎉</span><span class="tx"><b>Praise Wall</b><span>Celebrate God moments & great volunteers</span></span><span class="pill" id="boardPraisePill">0</span></button>
+      <button class="hubcard" onclick="show('miracles')"><span class="ic">🙌</span><span class="tx"><b>Miracle Tracker</b><span>Salvations, rededications & healings — season record, confirmed by two witnesses</span></span><span class="pill" id="boardMirPill">0</span></button>
       <button class="hubcard slate" onclick="show('issue')"><span class="ic">⚠️</span><span class="tx"><b>Report an Issue</b><span>Something's wrong? Flag leadership fast</span></span><span class="pill" id="boardIssuePill">0</span></button>
       <button class="hubcard wine" onclick="show('announcements')"><span class="ic">📣</span><span class="tx"><b>Announcements</b><span>Updates from leadership</span></span><span class="pill" id="boardAnnPill">0</span></button>
     </div>
@@ -966,6 +1076,22 @@ textarea, select { font-size: 16px !important; }
       <textarea id="pBody" rows="3" placeholder="What's worth celebrating? A salvation, a kind volunteer, an answered prayer…"></textarea>
       <button class="btn rust" id="pBtn">Post praise</button></div>
     <div id="praiseFeed"></div>
+  </section>
+  <section class="page" id="page-miracles">
+    <button class="back" onclick="show('board')">‹ Post</button>
+    <p class="eyebrow">Season Record</p><h1 class="title">Miracle Tracker</h1>
+    <span class="syncpill" id="sp-mir"><span class="d"></span>Demo mode</span>
+    <p class="sub">One shared record of what God is doing across all eight counties — salvations, rededications, healings. A report joins the official tally once <b>two witnesses</b> confirm it: <i>“by the testimony of two or three witnesses every matter shall be established.”</i> (Deut 19:15 · 2 Cor 13:1)</p>
+    <div class="stat"><div class="box"><div class="n" id="mirConf">0</div><div class="l">Confirmed Miracles</div></div><div class="box alt"><div class="n" id="mirPend">0</div><div class="l">Awaiting Witnesses</div></div></div>
+    <div class="mirtypes" id="mirTypes"></div>
+    <div class="form"><div class="ttl">🙌 Report a miracle</div>
+      <select id="mirType"><option value="salvation">✝️ Salvation</option><option value="rededication">🔁 Rededication</option><option value="healing">🙌 Healing</option><option value="other">✨ Other miracle</option></select>
+      <input id="mirWho" maxlength="80" placeholder="Their name (optional — first name is fine)" />
+      <textarea id="mirBody" rows="3" maxlength="1000" placeholder="What happened? Where on the field, roughly when, who else was there…"></textarea>
+      <input id="mirMyName" maxlength="40" placeholder="Your name (the reporter)" />
+      <button class="btn rust" id="mirBtn">Report it</button>
+      <p class="hint">The name is optional on purpose — never pressure someone to be named. Your report is the testimony; it becomes <b>confirmed</b> when two <b>other</b> people who saw it (teammates or leaders) tap “I witnessed this too” — each from their own phone.</p></div>
+    <div id="mirFeed"></div>
   </section>
   <section class="page" id="page-issue">
     <button class="back" onclick="show('board')">‹ Post</button>

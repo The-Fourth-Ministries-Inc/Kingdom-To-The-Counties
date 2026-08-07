@@ -33,7 +33,7 @@ function mockStore(){
 
 const store = mockStore();
 process.env.LEADER_PIN = "999999";
-const { default: handler, __setStoreFactory } = await import("../netlify/functions/data.mjs");
+const { default: handler, __setStoreFactory, currentEvent } = await import("../netlify/functions/data.mjs");
 __setStoreFactory(() => store);   // in-memory stand-in for Netlify Blobs
 
 const post = (action, payload = {}, extra = {}) => handler(new Request("https://x/api", {
@@ -178,7 +178,10 @@ test("an existing unscoped board is adopted into the current county on first run
     assert.ok(s.checklist["su-sat-0-0"], "the in-progress checkmark survived the switch to scoped keys");
     assert.equal(s.checkins.length, 1);
     assert.equal(s.checkins[0].name, "Rachel");
-    assert.ok(fresh._data.has("core~carroll"), "data was copied into the current county's scope");
+    /* Adoption targets whichever county the SCHEDULE says is current — the
+       test ran during Carroll week when it was written, but it must keep
+       passing after every Monday rollover. */
+    assert.ok(fresh._data.has("core~" + currentEvent().key), "data was copied into the current county's scope");
   } finally {
     __setStoreFactory(() => store);   // restore for any later tests
   }
