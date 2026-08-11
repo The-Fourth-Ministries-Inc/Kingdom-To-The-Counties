@@ -330,6 +330,35 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
+## Graphics for Sharing (v1.15.0)
+
+Under **Ambassador Resources → 🖼️ Graphics for Sharing**: a download-and-post
+strip of everything a volunteer can put on their own feed. Two formats per
+county — the tall `· Flyer` (print/story shaped) and the wide `· Banner` (built
+for a Facebook event header or cover photo) — plus the **Come and See** hero,
+the **Mission & Vision** card, and the promo video. Cards run in season order
+so the next county is near the top.
+
+Card copy (dates, venues, towns) is written from the county roster in
+`js/counties.js`, **not** transcribed off the artwork, so the page can't drift
+from the schedule the rest of the app runs on. When you add a graphic, copy the
+venue string from the roster entry.
+
+**A card whose image is missing hides itself.** `gfxMiss()` (inline at the
+bottom of `#page-graphics`) drops the whole card on an image `error`, and a
+sweep on `load` catches images that failed before the handler was parsed. So a
+graphic that hasn't been deployed yet, or an offline boot with a cold cache,
+shows a shorter list rather than a row of broken-image icons and a download
+button that 404s. The `N graphics + promo video` badge counts what actually
+rendered, so it can't go stale either.
+
+> **Pending artwork.** The wiring for `mission-vision.jpg`,
+> `social-belknap-county.jpg`, `social-cheshire-county.jpg`,
+> `social-coos-county.jpg` and `social-rockingham-county.jpg` is in place, but
+> the image files are not in `assets/` yet — those five cards are self-hiding
+> until someone commits them. Drop them in at exactly those names and they
+> appear with no code change; bump the patch version when you do.
+
 ## Recording Studio (Teleprompter) (v1.14.2)
 
 Under **Ambassador Resources → 🎬 Recording Studio**: invite-video scripts for
