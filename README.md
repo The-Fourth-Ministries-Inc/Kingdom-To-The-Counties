@@ -94,7 +94,7 @@ ask) from the research doc.
   tombstoned (same pattern as starter scripts). The CRM **survives the
   end-of-day reset** — it's season-long relationship data.
 
-## Trailer Load List (v1.13.0)
+## Trailer Load List (v1.14.0)
 
 **Specialists → 📦 Trailer Load List** is the team's real inventory — both
 trailers, bin by bin, seeded from the inventory sheet the logistics team
@@ -109,7 +109,8 @@ controls pushed below everything they touch:
 
 1. **Search** — the first thing under the title, and **sticky**, so it stays
    reachable however far down the roster you've scrolled.
-2. **Results**, then the **🚚 Load-out** progress bar.
+2. **Results**, with the view controls (**🔲 Show only what's left**) sitting
+   with the search where you reach for them.
 3. **The bins themselves**, with the identifier set in 20px: the **number**
    leads for a numbered bin, and — because over half the roster is loose gear
    with no number — the **name** leads for everything else, rather than a grid
@@ -118,8 +119,18 @@ controls pushed below everything they touch:
    second card and stole width from every name. Empty / unassigned bins are
    shelved into a **☐ N empty bins** expander per trailer instead of padding
    out the grid.
-4. **🚩 Reports & leader tools** below a divider: the flag board, then the
+4. The **🚚 Load-out** progress bar, at the foot of the roster.
+5. **🚩 Reports & leader tools** below a divider: the flag board, then the
    leader-gated card (add a bin, **♻️ Start a new load-out**).
+
+Tapping a bin opens its card with a **✕ top-left** — a full bin (contents,
+reports, and the leader edit form) is taller than a phone, so the card scrolls
+its body and pins the header and Close row rather than running off-screen.
+
+When the phone has no signal the page says so plainly: *"showing the roster
+this phone downloaded at 9:14 AM — leader edits since then aren't here yet."*
+The cache is what makes the list work in a metal trailer; the cost is reading
+a roster that may have moved on, and that shouldn't be silent.
 
 Searching hides everything below the results, so a match is never buried under
 the roster.
@@ -168,6 +179,14 @@ filter sticks across reloads, because a load-out spans them.
 
 Leaders get **♻️ Start a new load-out**, which clears every tick. The
 end-of-day reset clears them too.
+
+### On the Leader Dashboard
+
+Leaders shouldn't have to walk the Load List to know how it's going, so the
+dashboard carries **📦 Trailer load-out** — the overall bar plus a line per
+trailer, since crews split that way and "which trailer is behind" is the
+actual question — and **🚩 Open bin flags**, listing what's been reported and
+the most recent roster edits with who made them.
 
 ### Who's got it — custody for loose gear
 

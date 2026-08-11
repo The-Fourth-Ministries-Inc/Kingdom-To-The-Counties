@@ -299,6 +299,11 @@ textarea, select { font-size: 16px !important; }
   /* Toggle chips (e.g. "show only what's left"). */
   .filterbtn{flex:none;border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:16px;padding:9px 13px;font:700 12px/1 var(--sans);cursor:pointer;min-height:44px}
   .filterbtn.on{background:var(--ink);border-color:var(--ink);color:var(--cream)}
+  /* View controls belong with the search, not with the progress bar at the
+     foot of the page — you reach for them while looking at the grid. */
+  .invtools{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 13px}
+  /* Cached-roster warning: only shown when we're not live. */
+  .invstale{background:rgba(180,120,20,.12);border:1px dashed rgba(180,120,20,.5);color:#7a4a12;border-radius:10px;padding:9px 12px;font-size:12.5px;line-height:1.45;margin:0 0 12px}
   /* "For leaders" divider on the Trailer Load List — plain rule + small caps label */
   .leaderdiv{display:flex;align-items:center;gap:10px;margin:26px 2px 14px;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase}
   .leaderdiv::before,.leaderdiv::after{content:"";flex:1;height:1px;background:var(--line)}
@@ -692,6 +697,11 @@ textarea, select { font-size: 16px !important; }
   .dashrow{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow);margin-bottom:11px}
   .dashrow .t{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:8px}
   .dashrow .t .v{color:var(--rust);font-variant-numeric:tabular-nums}
+  /* One line per trailer / flag / roster edit inside a dashboard row. */
+  .dlrow{display:flex;align-items:baseline;gap:10px;font-size:12.5px;border-top:1px dashed var(--line);padding:7px 0;line-height:1.4}
+  .dlrow:first-child{border-top:none}
+  .dlrow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dlrow b{flex:none;font-variant-numeric:tabular-nums;color:var(--muted);font-size:11.5px}
   .eventedit{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 15px;box-shadow:var(--shadow);margin-bottom:14px}
   .eventedit .ttl{font-family:var(--serif);font-weight:600;font-size:15px;margin:0 0 9px}
   .eventedit input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:14px;margin-bottom:8px;font-family:var(--sans)}
@@ -706,6 +716,17 @@ textarea, select { font-size: 16px !important; }
   .sheet .row button{flex:1;border:none;border-radius:11px;padding:12px;font-weight:700;font-size:14px;cursor:pointer}
   .sheet .row .cancel{background:var(--card);border:1px solid var(--line);color:var(--ink)}
   .sheet .row .ok{background:var(--wine);color:#fff}
+  /* Bin card. A full bin — contents, reports, and the leader edit form — is
+     taller than a phone, so the sheet scrolls its body and keeps the header
+     and the Close row pinned. The ✕ sits top-left so it's reachable without
+     scrolling back down to the Close button. */
+  .binsheet{max-width:380px;max-height:88vh;padding:0;display:flex;flex-direction:column}
+  .sheethead{flex:none;display:flex;align-items:center;gap:11px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .sheethead h3{margin:0;flex:1;min-width:0;font-size:18px}
+  .sheetx{flex:none;width:44px;height:44px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:50%;font-size:17px;line-height:1;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+  .sheetx:active{background:var(--ink);color:var(--cream)}
+  .binsheet #binBody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 18px 2px}
+  .binsheet .row{flex:none;padding:12px 18px 16px}
   .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;height:calc(var(--tab-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:stretch;box-shadow:0 -4px 18px rgba(43,42,40,.06);}
   .tab{flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:10px;letter-spacing:.3px;font-weight:600;position:relative}
   .tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -882,7 +903,7 @@ textarea, select { font-size: 16px !important; }
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.13.0</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.14.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -975,6 +996,12 @@ textarea, select { font-size: 16px !important; }
       <div class="dashrow"><div class="t"><span>Setup readiness</span><span class="v" id="dSetup">0 / 0 · 0%</span></div><div class="pbar"><i id="dSetupBar"></i></div></div>
       <div class="dashrow"><div class="t"><span>Tech I/O patched</span><span class="v" id="dIo">0 / 0 · 0%</span></div><div class="pbar"><i id="dIoBar"></i></div></div>
       <div class="dashrow"><div class="t"><span>Overdue setup items</span><span class="v" id="dOver">0</span></div></div>
+      <div class="dashrow"><div class="t"><span>📦 Trailer load-out</span><span class="v" id="dLoad">0 / 0 · 0%</span></div><div class="pbar"><i id="dLoadBar"></i></div>
+        <div id="dLoadTrailers" style="margin-top:9px"></div></div>
+      <div class="dashrow"><div class="t"><span>🚩 Open bin flags</span><span class="v" id="dBinFlags">0</span></div>
+        <div id="dBinFlagList" style="margin-top:6px"></div>
+        <div class="t" style="margin:12px 0 6px"><span>✏️ Recent roster edits</span></div>
+        <div id="dBinLog"></div></div>
       <div class="dashrow"><div class="t"><span>✝️ Decisions today</span><span class="v" id="dDecisions">0</span></div><div id="dDecBreak" style="margin-top:6px"><p class="hint">No decisions logged yet.</p></div></div>
       <div class="dashrow"><div class="t"><span>🙌 Miracles this season</span><span class="v" id="dMir">0 confirmed</span></div><div id="dMirBreak" style="margin-top:6px"><p class="hint">Reports appear on the Miracle Tracker and count here once two witnesses confirm them.</p></div></div>
       <div class="dashrow"><div class="t"><span>👥 Attendees by counter</span></div><div id="dTally" style="margin-top:6px"><p class="hint">No counts logged yet.</p></div></div>
@@ -1036,19 +1063,21 @@ textarea, select { font-size: 16px !important; }
     <p class="eyebrow">Logistics</p><h1 class="title">Trailer Load List</h1>
     <p class="sub">Both trailers, bin by bin. <b>Search by bin number or what you're holding</b> — tap any bin for its contents, its photo, and to flag anything missing or extra.</p>
     <span class="syncpill" id="sp-inv"><span class="d"></span>Demo mode</span>
+    <div class="invstale" id="invStale" style="display:none"></div>
     <div class="invsearch" id="invSearchWrap">
       <input id="invQ" type="search" inputmode="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="🔍 Bin number or item — “109”, “gaff tape”, “ponchos”…" />
       <button id="invQX" type="button" aria-label="Clear search">×</button>
     </div>
-    <p class="hint" id="invSearchHint" style="margin:8px 2px 14px">Bin number or item name — results show the trailer, the bin, and where it rides.</p>
+    <p class="hint" id="invSearchHint" style="margin:8px 2px 10px">Bin number or item name — results show the trailer, the bin, and where it rides.</p>
+    <div class="invtools" id="invTools"><button class="filterbtn" id="invLeftBtn" aria-pressed="false" onclick="invToggleRemaining()">🔲 Show only what's left</button></div>
     <div id="invResults" style="display:none"></div>
+    <div id="invMount"></div>
     <div class="packbar" id="invPackBar">
       <div class="t"><span>🚚 Load-out</span><span class="v" id="invPackLbl">0 / 0</span></div>
       <div class="pbar"><i id="invPackFill"></i></div>
-      <div class="pfoot"><span id="invPackLeft">—</span><button class="filterbtn" id="invLeftBtn" aria-pressed="false" onclick="invToggleRemaining()">🔲 Show only what's left</button></div>
+      <div class="pfoot"><span id="invPackLeft">—</span></div>
       <p class="hint" style="margin:8px 0 0">Tick the ☐ on a bin as it goes on the truck — synced for everyone, even offline.</p>
     </div>
-    <div id="invMount"></div>
     <div class="leaderdiv" id="invForLeaders"><span>🚩 Reports &amp; leader tools</span></div>
     <div class="form" id="invFyiCard"><div class="ttl">🚩 What the team has flagged</div>
       <p class="hint" style="margin:-4px 0 8px">Everything the crew flags while packing — missing items, extras, notes — lands here for you to triage. <b>To report something yourself, open the bin</b> and tap 🔺 (missing) or ➕ (extra).</p>
@@ -2194,10 +2223,10 @@ textarea, select { font-size: 16px !important; }
   <div id="capMediaBody"><p class="hint">Loading…</p></div>
   <div class="row"><button class="ok" onclick="document.getElementById('capMediaModal').classList.remove('show')">Close</button></div>
 </div></div>
-<div class="modal" id="binModal"><div class="sheet">
-  <h3 id="binTitle"></h3>
+<div class="modal" id="binModal"><div class="sheet binsheet">
+  <div class="sheethead"><button class="sheetx" aria-label="Close" onclick="binClose()">✕</button><h3 id="binTitle"></h3></div>
   <div id="binBody"></div>
-  <div class="row"><button class="ok" onclick="document.getElementById('binModal').classList.remove('show')">Close</button></div>
+  <div class="row"><button class="ok" onclick="binClose()">Close</button></div>
 </div></div>
 <div class="modal" id="pinModal"><div class="sheet">
   <h3>Leader access 🔒</h3><p>Enter the leader PIN to unlock checklists & the dashboard.</p>

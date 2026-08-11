@@ -1285,7 +1285,53 @@ function renderDashboard(){
   if(document.activeElement!==en)en.value=ev.name||"";
   if(document.activeElement!==ed)ed.value=ev.date||"";
   renderCapStorage();
-  renderTallyBreak();renderDashRadios();
+  renderTallyBreak();renderDashRadios();renderDashLoad();
+}
+/* Load-out on the leader dashboard. The overall bar answers "are we nearly
+   loaded", the per-trailer lines answer "which crew is behind" — crews split
+   by trailer — and the flags and roster edits are the two things a leader
+   would otherwise only find by walking the Load List themselves. */
+var BIN_LOG_LBL={add:"Added",edit:"Edited",delete:"Removed",items:"Contents changed",apply:"Extra accepted onto"};
+function renderDashLoad(){
+  var el=document.getElementById("dLoad");if(!el)return;
+  var st=binPackStats();
+  el.textContent=st.done+" / "+st.total+" · "+st.pct+"%";
+  var bar=document.getElementById("dLoadBar");if(bar)bar.style.width=st.pct+"%";
+  var per=document.getElementById("dLoadTrailers");
+  if(per){
+    var rows=BINS.trailers.map(function(tr){
+      var tot=0,done=0;
+      BINS.list.forEach(function(b){
+        if(b.empty)return;
+        var s=binSection(b.sec);
+        if(!s||s.trailer!==tr.key)return;
+        tot++;if(binPacked(b))done++;
+      });
+      if(!tot)return "";
+      return '<div class="dlrow"><span>'+esc(tr.icon||"📦")+' '+esc(tr.name)+'</span><b>'+done+' / '+tot
+        +(done===tot?' ✅':'')+'</b></div>';
+    }).join("");
+    per.innerHTML=rows||'<p class="hint" style="margin:0">The roster hasn\'t downloaded on this phone yet.</p>';
+  }
+  var open=binNotesOpen();
+  var fl=document.getElementById("dBinFlags");if(fl)fl.textContent=open.length;
+  var fll=document.getElementById("dBinFlagList");
+  if(fll){
+    fll.innerHTML=open.length?open.slice(-5).reverse().map(function(n){
+      var b=binById(n.bin),k=bnKind(n.kind);
+      return '<div class="dlrow"><span>'+k.ic+' '+esc(n.item||n.text||k.lb)+'</span><b>'
+        +esc(b?binTag(b):(n.bin==="GEN"?"general":n.bin))+'</b></div>';
+    }).join(""):'<p class="hint" style="margin:0">Nothing flagged.</p>';
+  }
+  var lg=document.getElementById("dBinLog");
+  if(lg){
+    var log=(BINS.log||[]).slice(-6).reverse();
+    lg.innerHTML=log.length?log.map(function(e){
+      var b=binById(e.bin);
+      return '<div class="dlrow"><span>'+esc(BIN_LOG_LBL[e.type]||"Edited")+' '+esc(b?binTag(b):(e.bin||"—"))
+        +(e.note?' — '+esc(e.note):'')+'</span><b>'+esc(e.by)+(e.t?' · '+esc(e.t):'')+'</b></div>';
+    }).join(""):'<p class="hint" style="margin:0">No roster edits logged yet.</p>';
+  }
 }
 /* v1.7.1 — Quick Capture storage meter. The backend reports exactly how many
    bytes capture media is using (captureBytes) against the configured budget
@@ -1364,7 +1410,8 @@ function updateSync(){var els=document.querySelectorAll(".syncpill");var label;
   else if(isLocalDev()){label="Demo mode — deploy to sync";}
   else if(cacheAge){label="📶 No signal — showing what we last saw"+(cacheAge?" ("+agoLabel(cacheAge)+")":"");}
   else{label="📶 No signal — can't load the board yet, retrying…";}
-  for(var i=0;i<els.length;i++){els[i].classList.toggle("live",LIVE);els[i].innerHTML='<span class="d"></span>'+label;}}
+  for(var i=0;i<els.length;i++){els[i].classList.toggle("live",LIVE);els[i].innerHTML='<span class="d"></span>'+label;}
+  if(typeof renderInvStale==="function")renderInvStale();}
 setInterval(updateSync,1000);
 var pinThen=null;
 function askPin(then){pinThen=then;document.getElementById("pinErr").textContent="";document.getElementById("pinInput").value="";document.getElementById("pinModal").classList.add("show");setTimeout(function(){document.getElementById("pinInput").focus();},50);}
@@ -1760,7 +1807,7 @@ function show(id){
   if(id==="announcements"||id==="issue"){seenAnn=visCount(STATE.announcements);seenIssue=visCount(STATE.feedback);updateBadges();}
   if(id==="tour")tourSeen();
   if(id==="radios")renderRadios();
-  if(id==="inventory"){binsMaybeSync();renderInventory();renderInvNotes();renderInvLeader();renderPackBar();invSearchRun();}
+  if(id==="inventory"){binsMaybeSync();renderInventory();renderInvNotes();renderInvLeader();renderPackBar();renderInvStale();invSearchRun();}
   if(id==="shareapp")renderShareQR();
   if(id==="capture"&&typeof renderCapture==="function")renderCapture();
   if(id==="mobilize"&&typeof renderMobilize==="function"){renderMobilize();chFetch();}
@@ -1868,11 +1915,16 @@ function binsFetch(force){
     return r.json();
   }).then(function(d){
     binsFetching=false;
+    /* d === null is a 304: the roster we hold IS the server's, so it counts as
+       confirmed-fresh for staleness purposes even though nothing changed. */
+    if(d===null){BINS.at=Date.now();binsSave();renderInvStale();return;}
     if(d&&Array.isArray(d.list)){
-      BINS=binsFix(d);binsSave();INV_INDEX=null;
+      var at=Date.now();
+      BINS=binsFix(d);BINS.at=at;binsSave();INV_INDEX=null;
       if(!userEditing()){renderInventory();invSearchRun();}
+      renderInvStale();renderDashLoad();
     }
-  }).catch(function(){binsFetching=false;});
+  }).catch(function(){binsFetching=false;renderInvStale();});
 }
 /* Leader roster write: apply to the cached copy for instant feedback, push,
    then re-download the server's normalized truth (which also bumps rev). */
@@ -1993,6 +2045,28 @@ function renderPackBar(){
     f.textContent=invRemainingOnly?"✓ Showing what's left":"🔲 Show only what's left";
     f.setAttribute("aria-pressed",invRemainingOnly?"true":"false");
   }
+}
+/* ---- roster staleness ----
+   The roster is cached so the page opens instantly with no signal, which is
+   the normal state of a metal trailer. The cost is that a phone can be reading
+   a roster a leader has since edited, with nothing to say so. When we're not
+   live, say plainly how old the copy is. */
+function binsStamp(){
+  var at=BINS.at;
+  if(!at)return "";
+  var d=new Date(at),now=new Date();
+  var t=fmt(d.getHours()*60+d.getMinutes());
+  if(dateKey(d)===dateKey(now))return t;
+  var y=new Date(now.getTime()-86400000);
+  return (dateKey(d)===dateKey(y)?"yesterday ":(d.getMonth()+1)+"/"+d.getDate()+" ")+t;
+}
+function renderInvStale(){
+  var el=document.getElementById("invStale");if(!el)return;
+  if(LIVE||!BINS.list.length){el.style.display="none";el.textContent="";return;}
+  var s=binsStamp();
+  el.style.display="";
+  el.textContent=s?("📴 No signal — showing the roster this phone downloaded at "+s+". Leader edits since then aren't here yet.")
+                  :"📴 No signal — showing this phone's saved copy of the roster.";
 }
 /* ---- photos: one shot per bay, matched off the location text ---- */
 function binPhoto(b){
@@ -2211,7 +2285,7 @@ function invSearchRun(){
   var input=document.getElementById("invQ");if(!input)return;
   var q=(input.value||"").trim();
   var wrap=document.getElementById("invSearchWrap"),res=document.getElementById("invResults");
-  var hide=["invFyiCard","invMount","invSearchHint","invLeaderCard","invPackBar","invForLeaders"];
+  var hide=["invFyiCard","invMount","invSearchHint","invLeaderCard","invPackBar","invForLeaders","invTools"];
   if(wrap)wrap.classList.toggle("has",!!q);
   if(!q){
     if(res){res.style.display="none";res.innerHTML="";}
@@ -2268,6 +2342,10 @@ function invSearchRun(){
 }
 
 /* ---- one bin ---- */
+function binClose(){
+  binEditId="";   // never leave a half-typed edit form to reopen on the next bin
+  document.getElementById("binModal").classList.remove("show");
+}
 function binOpen(id){
   var b=binById(id);if(!b)return;
   binEditId="";
@@ -2459,7 +2537,7 @@ function binEditDelete(id){
   });
   if(!ok)return;
   binEditId="";
-  document.getElementById("binModal").classList.remove("show");
+  binClose();
   toast("🗑 Removed from the roster");
 }
 function binAddNew(){
