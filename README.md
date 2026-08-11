@@ -330,7 +330,7 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
-## Recording Studio (Teleprompter)
+## Recording Studio (Teleprompter) (v1.14.2)
 
 Under **Ambassador Resources → 🎬 Recording Studio**: invite-video scripts for
 every county, each with a due date and assignee, opening into a full-screen
@@ -339,6 +339,17 @@ recording, save/share). Viewing and recording is open to anyone past the Day
 PIN; **adding/editing scripts, due dates, and assignees is leader-PIN only**
 (that's Laura's board). After recording, the app reminds the filmer to save the
 video and send it to Laura, then mark the script ✅ done with their initials.
+
+**The default scroll speed halved in v1.14.2.** Measured on a 390px phone at
+the stock 28px font, `1.0×` used to scroll ~220 wpm — far faster than anyone
+reads aloud on camera — so every filmer tapped `⟨⟨` a few times before their
+first take. It now runs ~110 wpm, a natural speaking pace. The `⟨⟨` / `⟩⟩`
+range is unchanged (0.1×–4.0×), so the old pace is `2.0×`.
+
+The `~m:ss` runtime estimate beside the speed badge assumes 140 wpm at `1.0×`.
+That was a ~55% over-estimate at the old speed and is now a ~20% under-estimate
+— closer, but still an estimate; it can't know the phone's width or the reader's
+pace. Deriving it from the scroll geometry instead would make it exact.
 
 An empty board shows leaders a **Load starter scripts** button that seeds A/B/C
 scripts for all counties (Sullivan ships with `[DATE]`/`[VENUE]` placeholders —
