@@ -1847,7 +1847,11 @@ function binTrailer(key){for(var i=0;i<BINS.trailers.length;i++)if(BINS.trailers
 function binTrailerOf(b){var s=binSection(b.sec);return s?binTrailer(s.trailer):null;}
 function binWhere(b){
   var s=binSection(b.sec),t=binTrailerOf(b);
-  return [t?t.name:"",s?s.name:""].filter(Boolean).join(" · ");
+  var tn=t?t.name:"",sn=s?s.name:"";
+  /* A single-section trailer already names its section ("Trailer 1 · Tech /
+     Worship"), so don't read it back twice on every result card. */
+  if(tn&&sn&&tn.toLowerCase().indexOf(sn.toLowerCase())>=0)sn="";
+  return [tn,sn].filter(Boolean).join(" · ");
 }
 /* Numbered bins first, in numeric order; loose gear after, alphabetically;
    empty bins last so they never push real contents down the page. */
@@ -1967,10 +1971,24 @@ function renderInventory(){
         var packed=binPacked(b),held=binHolder(b);
         /* The tick is its own hit target inside the chip: loading the truck is
            a two-second-per-bin job and must not cost a modal each time. */
-        var tick=b.empty?'':'<i class="pk'+(packed?' on':'')+'" role="button" tabindex="0" aria-label="'+(packed?'On the truck':'Mark on the truck')+'" onclick="binPackToggle(\''+esc(b.id)+'\',event)">'+(packed?'✓':'')+'</i>';
+        /* An empty box, not blank space: the chip is tall now, and an unmarked
+           tick has to still look like the ☐ the load-out bar tells you to tap. */
+        var tick=b.empty?'':'<i class="pk'+(packed?' on':'')+'" role="button" tabindex="0" aria-label="'+(packed?'On the truck':'Mark on the truck')+'" onclick="binPackToggle(\''+esc(b.id)+'\',event)"'
+          /* It announces itself as a button and takes focus, so Enter/Space
+             have to work too — it was mouse/touch-only before. */
+          +' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();binPackToggle(\''+esc(b.id)+'\',event);}">'+(packed?'✓':'☐')+'</i>';
+        /* Whatever identifies the entry leads its own big, bold line so it
+           reads at arm's length off a chip in a dim trailer. For a numbered
+           bin that's the number, with the title under it. Loose gear has no
+           number — over half the roster — so there the NAME leads instead of
+           a grid full of identical "LOOSE" tags. */
+        var name=b.empty?"(empty)":(b.title||"—");
+        var lead=b.bin?('<b>'+esc(b.bin)+'</b><span>'+esc(name)+'</span>')
+                      :('<b class="nm">'+esc(name)+'</b>');
         return '<div class="binchipwrap">'+tick
-          +'<button class="binchip'+(b.empty?' dim':'')+(packed?' packed':'')+'" onclick="binOpen(\''+esc(b.id)+'\')">'
-          +'<b>'+esc(binTag(b))+'</b><span>'+esc(b.empty?"(empty)":(b.title||"—"))+(held?' · 🙋'+esc(held.by):'')+'</span>'+badge+'</button></div>';
+          +'<button class="binchip'+(b.bin?'':' loose')+(b.empty?' dim':'')+(packed?' packed':'')+'" onclick="binOpen(\''+esc(b.id)+'\')">'
+          +lead
+          +(held?'<small>🙋 '+esc(held.by)+'</small>':'')+badge+'</button></div>';
       }).join("");
       return '<div class="seclabel" style="margin:14px 0 8px">'+esc(sec.name)+(sec.range?' <span style="opacity:.6">· '+esc(sec.range)+'</span>':'')+'</div>'
         +'<div class="bingrid">'+chips+'</div>';
@@ -2054,7 +2072,7 @@ function invResultCard(e,terms){
   }
   var meta='<div class="rmeta"><b>'+esc(binWhere(b))+'</b>'+(b.loc?'<br>📍 '+invMark(b.loc,terms):'')+(b.qty?'<br>Qty '+esc(b.qty):'')+'</div>';
   return '<button class="invres'+(b.empty?' dim':'')+'" onclick="binOpen(\''+esc(b.id)+'\')">'
-    +'<div class="rt"><span class="rbin">'+esc(binTag(b))+'</span><span class="rti">'+invMark(b.title||"(empty)",terms)+'</span></div>'
+    +'<div class="rt"><span class="rbin'+(b.bin?'':' loose')+'">'+esc(binTag(b))+'</span><span class="rti">'+invMark(b.title||"(empty)",terms)+'</span></div>'
     +lines+extra+meta+status
     +'<div class="rmore">Tap to open ›</div></button>';
 }
@@ -2062,7 +2080,7 @@ function invSearchRun(){
   var input=document.getElementById("invQ");if(!input)return;
   var q=(input.value||"").trim();
   var wrap=document.getElementById("invSearchWrap"),res=document.getElementById("invResults");
-  var hide=["invFyiCard","invMount","invSearchHint","invLeaderCard","invPackBar"];
+  var hide=["invFyiCard","invMount","invSearchHint","invLeaderCard","invPackBar","invForLeaders"];
   if(wrap)wrap.classList.toggle("has",!!q);
   if(!q){
     if(res){res.style.display="none";res.innerHTML="";}

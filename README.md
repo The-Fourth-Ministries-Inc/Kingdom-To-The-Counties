@@ -102,6 +102,24 @@ built: **100s Tech/Worship**, **300s Logistics**, **350s Guest Services**
 (~60 numbered bins plus ~66 pieces of loose gear, each with the location it
 rides in).
 
+### Page order — volunteer first
+
+The page is stacked in the order a volunteer needs it, with leader-only
+controls pushed below everything they touch:
+
+1. **Search** — the first thing under the title, and **sticky**, so it stays
+   reachable however far down the roster you've scrolled.
+2. **Results**, then the **🚚 Load-out** progress bar.
+3. **The bins themselves**, with the identifier set in 20px: the **number**
+   leads for a numbered bin, and — because over half the roster is loose gear
+   with no number — the **name** leads for everything else, rather than a grid
+   of identical "LOOSE" tags.
+4. **🚩 Reports & leader tools** below a divider: the flag board, then the
+   leader-gated card (add a bin, **♻️ Start a new load-out**).
+
+Searching hides everything below the results, so a match is never buried under
+the roster.
+
 ### Search — by bin number or by the thing in your hand
 
 Volunteers look things up two ways, and both hit the same index (bin numbers,
@@ -120,8 +138,8 @@ number → title match → item match, with empty bins last.
 
 ### Load-out — ticking bins onto the truck
 
-A **🚚 Load-out** bar sits at the top: tick the ☐ beside any bin as it goes on
-the truck and it lights up on everyone's phone within a few seconds, with a
+A **🚚 Load-out** bar sits above the roster: tick the ☐ beside any bin as it
+goes on the truck and it lights up on everyone's phone within a few seconds, with a
 live "31 / 60 bins on the truck · 52%" and how many are still to load. Ticks
 are **final-state writes** — a retry, or two people ticking the same bin, lands
 on the same answer instead of toggling it back off — and they **queue offline**
