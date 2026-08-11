@@ -62,3 +62,17 @@ volunteer could mistake for a real instruction.
   Chromium is available and the app runs from `python3 -m http.server`; seed
   `localStorage.k2c_bins` from `data/bins.json` to get the real roster without
   a backend.
+- If you touched the **Day PIN gate, the outbox, or `apiPost`**, run
+  `node scripts/check-day-gate.mjs` (needs Playwright and a server on :8765 —
+  see the header of that file). It's not part of `npm test` because it needs a
+  real browser, and it guards a bug that locked volunteers back out after they
+  had already unlocked.
+
+## Writes and the Day PIN — ordering matters
+
+`queueWrite()` flushes **synchronously** (`queueWrite` → `obFlush` → `apiPost`),
+and `apiPost` reads the stored Day PIN at call time. So anything that unlocks
+the app must store the PIN (`setDayOK`) **before** it queues any write. Getting
+this backwards sends the write with an empty `dayPin`, the server rejects it
+403 `{locked:true}`, and that handler tears the session down and re-shows the
+gate the volunteer just cleared. This shipped once — see `tryDayPin()`.

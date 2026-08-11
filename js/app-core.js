@@ -432,14 +432,20 @@ function refreshFromServer(){
   }).catch(function(){});
 }
 var LEADERPIN=sessionStorage.getItem("k2c_lpin")||"";
-function apiPost(a,p){return fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:a,payload:p,pin:LEADERPIN,dayPin:dayPinStored()})}).then(function(r){
+function apiPost(a,p){var dpSent=dayPinStored();return fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:a,payload:p,pin:LEADERPIN,dayPin:dpSent})}).then(function(r){
   if(r.status===403){
     /* Two different 403s now: the Day PIN gate (whole session is locked out —
        show the gate, keep the queued write) and a leader-PIN rejection. */
     return r.json().catch(function(){return {};}).then(function(d){
       if(d&&d.locked){
-        try{sessionStorage.removeItem("k2c_daypin");sessionStorage.removeItem("k2c_dayok");}catch(_){}
-        maybeDayGate();
+        /* Only tear the session down if the PIN that got rejected is still
+           the one we're holding. A newer, good unlock can land in sessionStorage
+           while this request was in flight — don't let a stale rejection wipe it
+           and re-show a gate the volunteer just cleared. */
+        if(dayPinStored()===dpSent){
+          try{sessionStorage.removeItem("k2c_daypin");sessionStorage.removeItem("k2c_dayok");}catch(_){}
+          maybeDayGate();
+        }
         throw 403;
       }
       LEADER=false;LEADERPIN="";sessionStorage.removeItem("k2c_lpin");applyLeaderUI();renderDynamic();
@@ -1458,10 +1464,15 @@ function tryDayPin(){
     if(res&&res.rateLimited){document.getElementById("dayPinErr").textContent="Too many wrong tries from this connection — wait 10 minutes and try again.";return;}
     if(!res){document.getElementById("dayPinErr").textContent="Wrong Day PIN — ask your team leader.";return;}
     document.getElementById("dayPinErr").textContent="";
+    /* setDayOK MUST land before dayGateCheckin: that call queues a write that
+       flushes synchronously (queueWrite -> obFlush -> apiPost), and apiPost
+       reads dayPinStored() at call time. Storing the PIN after queuing the
+       checkin used to send it with an empty dayPin, get 403 {locked:true},
+       and re-show the gate we just unlocked. */
+    setDayOK(v);
     var nmEl=document.getElementById("dayNameInput"),teamEl=document.getElementById("dayTeamSel");
     var nm=(nmEl&&nmEl.value.trim())||"";
     if(nm){rememberName(nm);prefillNames();dayGateCheckin(nm,teamEl?teamEl.value:"");}
-    setDayOK(v);
     if(res.leader){LEADER=true;LEADERPIN=res.token||v;try{sessionStorage.setItem("k2c_lpin",LEADERPIN);}catch(_){}applyLeaderUI();renderDynamic();}
     maybeDayGate();
     lastEtag="";refreshFromServer();   // we were locked a moment ago — pull the real payload now
