@@ -2195,10 +2195,17 @@ function invResultCard(e,terms){
       +(open.length>1?' <i>(+'+(open.length-1)+' more open)</i>':'')+'<br><i>flagged by '+esc(top.by)+'</i></div>';
   }
   var meta='<div class="rmeta"><b>'+esc(binWhere(b))+'</b>'+(b.loc?'<br>📍 '+invMark(b.loc,terms):'')+(b.qty?'<br>Qty '+esc(b.qty):'')+'</div>';
-  return '<button class="invres'+(b.empty?' dim':'')+'" onclick="binOpen(\''+esc(b.id)+'\')">'
+  /* Search is the way most people reach a bin now, so the result has to carry
+     the tick too — otherwise finding it during load-out means opening the
+     modal just to mark it, and a result gives no hint it's already loaded. */
+  var packed=binPacked(b);
+  var tick=b.empty?'':'<i class="pk'+(packed?' on':'')+'" role="button" tabindex="0" aria-label="'+(packed?'On the truck':'Mark on the truck')+'" onclick="binPackToggle(\''+esc(b.id)+'\',event)"'
+    +' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();binPackToggle(\''+esc(b.id)+'\',event);}">'+(packed?'✓':'☐')+'</i>';
+  return '<div class="invreswrap">'
+    +'<button class="invres'+(b.empty?' dim':'')+(packed?' packed':'')+'" onclick="binOpen(\''+esc(b.id)+'\')">'
     +'<div class="rt"><span class="rbin'+(b.bin?'':' loose')+'">'+esc(binTag(b))+'</span><span class="rti">'+invMark(b.title||"(empty)",terms)+'</span></div>'
     +lines+extra+meta+status
-    +'<div class="rmore">Tap to open ›</div></button>';
+    +'<div class="rmore">Tap to open ›</div></button>'+tick+'</div>';
 }
 function invSearchRun(){
   var input=document.getElementById("invQ");if(!input)return;

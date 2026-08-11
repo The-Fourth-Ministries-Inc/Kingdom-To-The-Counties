@@ -139,6 +139,10 @@ group as one word — "cable ties" finds the zip ties, "walkie" finds the radios
 ("black gaff tape", where nothing records "black") no longer dead-ends: it
 falls back to everything matching at least one word, most words first.
 
+Results carry the **☐ tick** too. Search is how most people reach a bin now,
+so finding one mid-load shouldn't mean opening it just to mark it — and a
+result that's already on the truck says so without being opened.
+
 Every result answers the whole question in one card: which trailer and
 section, the bin number, where it rides, quantity where recorded, matched
 words highlighted, and — pulled from the reports below — **anything the team
