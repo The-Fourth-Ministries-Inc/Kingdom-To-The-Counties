@@ -94,7 +94,7 @@ ask) from the research doc.
   tombstoned (same pattern as starter scripts). The CRM **survives the
   end-of-day reset** — it's season-long relationship data.
 
-## Trailer Load List (v1.12.0)
+## Trailer Load List (v1.13.0)
 
 **Specialists → 📦 Trailer Load List** is the team's real inventory — both
 trailers, bin by bin, seeded from the inventory sheet the logistics team
@@ -113,7 +113,11 @@ controls pushed below everything they touch:
 3. **The bins themselves**, with the identifier set in 20px: the **number**
    leads for a numbered bin, and — because over half the roster is loose gear
    with no number — the **name** leads for everything else, rather than a grid
-   of identical "LOOSE" tags.
+   of identical "LOOSE" tags. The ☐ tick sits in the chip's own top-right
+   corner; it used to be a separate box alongside, which read as an empty
+   second card and stole width from every name. Empty / unassigned bins are
+   shelved into a **☐ N empty bins** expander per trailer instead of padding
+   out the grid.
 4. **🚩 Reports & leader tools** below a divider: the flag board, then the
    leader-gated card (add a bin, **♻️ Start a new load-out**).
 
@@ -128,6 +132,12 @@ titles, every item line, and the location notes):
 - **"Where does 109 go?"** — type the number.
 - **"Which bin has the gaff tape?"** — type the thing. (It's bin 111,
   Tiedowns.)
+
+Volunteers don't type the sheet's words, so a small synonym table treats each
+group as one word — "cable ties" finds the zip ties, "walkie" finds the radios,
+"gaffer" finds the gaff tape. And a search whose words don't *all* land
+("black gaff tape", where nothing records "black") no longer dead-ends: it
+falls back to everything matching at least one word, most words first.
 
 Every result answers the whole question in one card: which trailer and
 section, the bin number, where it rides, quantity where recorded, matched
@@ -144,6 +154,13 @@ live "31 / 60 bins on the truck · 52%" and how many are still to load. Ticks
 are **final-state writes** — a retry, or two people ticking the same bin, lands
 on the same answer instead of toggling it back off — and they **queue offline**
 and send themselves when signal returns, so nobody has to stand still.
+
+Mis-taps happen in gloves, so every tick raises a toast with **Undo**.
+
+Two things answer "what's left?" without arithmetic: each trailer header
+carries its **own** count and progress bar (crews split by trailer), and
+**🔲 Show only what's left** hides everything already on the truck. That
+filter sticks across reloads, because a load-out spans them.
 
 Leaders get **♻️ Start a new load-out**, which clears every tick. The
 end-of-day reset clears them too.
@@ -236,6 +253,30 @@ node scripts/sync-starter-bins.mjs   # validates ids/sections, regenerates the s
 
 Day-to-day corrections should be made **in the app** (leaders), not here —
 this file only seeds a fresh deployment.
+
+## Announcements (v1.13.0)
+
+**Post → 📣 Announcements** is the app's only push channel: a leader posts,
+and the headline drops into the bar under the header on every phone. Urgent
+ones re-open that bar even for someone who dismissed the last message, and
+buzz the handset.
+
+Because it's the only push channel, leaders can take a message **down** as
+well as put one up:
+
+- **✓ Take it down** hides it — off the feed, out of the badge count, and the
+  push bar rolls on to the next live announcement instead of holding a
+  headline that's over. Reversible with **↩ Put back up**; taken-down messages
+  stay in a collapsed list with who took them down and when.
+- **🗑 Delete** removes it permanently, for a genuine mis-post. Confirm-gated,
+  and the copy steers toward hiding first.
+
+Both are leader-PIN-gated (`setAck` / `annDelete`) and go through the offline
+outbox like every other write.
+
+**The board ships empty.** There are no seeded announcements, in any mode — a
+placeholder "Stay clear of the crane zone" reads as a real safety instruction
+the moment it renders on a volunteer's phone.
 
 ## Miracle Tracker (v1.12.0)
 

@@ -162,8 +162,13 @@ textarea, select { font-size: 16px !important; }
   .cattabs{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 12px}
   .cattabs button{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:7px 12px;font-size:12.5px;font-weight:600;color:var(--ink)}
   .cattabs button.on{background:var(--ink);color:var(--cream);border-color:var(--ink)}
-  .toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:var(--ink);color:var(--cream);padding:11px 16px;border-radius:22px;font-size:13.5px;font-weight:600;z-index:400;box-shadow:0 6px 18px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;pointer-events:none;max-width:88vw;text-align:center}
+  .toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:var(--ink);color:var(--cream);padding:11px 16px;border-radius:22px;font-size:13.5px;font-weight:600;z-index:400;box-shadow:0 6px 18px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;pointer-events:none;max-width:88vw;text-align:center;display:flex;align-items:center;justify-content:center;gap:12px}
   .toast.show{opacity:1}
+  /* A toast carrying an action has to be tappable; a plain one must not eat
+     taps aimed at whatever it's floating over. */
+  .toast.act{pointer-events:auto}
+  .toast .tact{flex:none;background:none;border:1px solid rgba(245,242,233,.5);color:var(--cream);font:800 13px/1 inherit;padding:9px 13px;border-radius:14px;cursor:pointer;min-height:36px}
+  .toast .tact:active{background:rgba(245,242,233,.2)}
   /* ===== v1.8.0 — Pre-Crusade Mobilization (church CRM) ===== */
   .chsearch{display:flex;gap:8px;margin-bottom:10px}
   .chsearch input{flex:1;min-width:0;border:1px solid var(--line);border-radius:11px;padding:10px 12px;font-size:14px;background:#fff;color:var(--ink);font-family:var(--sans)}
@@ -251,10 +256,16 @@ textarea, select { font-size: 16px !important; }
   .packbar .t{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:8px}
   .packbar .t .v{color:var(--rust);font-variant-numeric:tabular-nums}
   .packbar .pfoot{display:flex;justify-content:space-between;align-items:center;gap:9px;margin-top:8px;font-size:12px;font-weight:700;color:var(--muted)}
-  .binchipwrap{position:relative;display:flex;align-items:stretch;gap:6px}
-  .binchipwrap .pk{flex:none;width:38px;border:1px solid var(--line);border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:900;font-size:19px;color:#c8c0af;cursor:pointer;-webkit-user-select:none;user-select:none}
+  /* The tick used to be a 38px box standing beside the chip. At chip height it
+     read as a second, empty card and it took width off every name. It now sits
+     in the chip's own top-right corner, layered over it — same hit target,
+     no extra column. It stays a SIBLING of the button, not a child, because
+     nesting a control inside a <button> is invalid. */
+  .binchipwrap{position:relative}
+  .binchipwrap .pk{position:absolute;top:7px;right:7px;width:40px;height:40px;border:1.5px solid var(--line);border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:900;font-size:19px;color:#c8c0af;cursor:pointer;-webkit-user-select:none;user-select:none;z-index:2}
+  .binchipwrap .pk:active{transform:scale(.92)}
   .binchipwrap .pk.on{background:var(--good);color:#fff;border-color:var(--good)}
-  .binchipwrap .binchip{flex:1;min-width:0}
+  .binchipwrap .binchip{width:100%}
   .binchip.packed{background:#f2f6f0;border-left-color:var(--good)}
   .packbtn,.holdbtn{display:block;width:100%;margin-top:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:11px;padding:13px;font-family:var(--sans);font-size:14px;font-weight:700;cursor:pointer;min-height:48px;text-align:left}
   .packbtn.on{background:#eef3ea;border-color:var(--good);color:#3f6a3c}
@@ -265,7 +276,9 @@ textarea, select { font-size: 16px !important; }
   .binphoto span{display:block;font-size:11.5px;color:var(--muted);margin-top:5px}
   /* v1.9.1 — bin number leads its own line so it reads at arm's length in a
      dim trailer; title + who's-holding-it follow underneath, smaller. */
-  .binchip{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;border:1px solid var(--line);border-left:3px solid var(--slate);border-radius:11px;background:#fff;padding:10px 12px;font-family:var(--sans);text-align:left;cursor:pointer;color:var(--ink);min-height:44px}
+  .binchip{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;border:1px solid var(--line);border-left:3px solid var(--slate);border-radius:11px;background:#fff;padding:10px 54px 10px 12px;font-family:var(--sans);text-align:left;cursor:pointer;color:var(--ink);min-height:56px}
+  /* An empty bin has no tick, so it gets its padding back. */
+  .binchip.dim{padding-right:12px}
   .binchip b{display:block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:20px;line-height:1.15;letter-spacing:.2px;font-family:var(--serif);font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink)}
   /* Loose gear has no number, so its NAME is the lead line — sized down from
      the 20px numerals and allowed to wrap, since names are long. */
@@ -274,8 +287,18 @@ textarea, select { font-size: 16px !important; }
   .binchip small{display:block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;font-weight:700;color:var(--rust);margin-top:3px}
   .binchip:active{transform:scale(.97)}
   .binchip.dim{opacity:.5;border-left-color:var(--line)}
-  .binchip .bnc{position:absolute;top:-6px;right:-5px;background:var(--slate);color:#fff;font-style:normal;font-size:9.5px;font-weight:800;min-width:17px;height:17px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+  /* Moved to the left corner — the tick owns the right one now. */
+  .binchip .bnc{position:absolute;top:-6px;left:-5px;background:var(--slate);color:#fff;font-style:normal;font-size:9.5px;font-weight:800;min-width:17px;height:17px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 4px}
   .binchip .bnc.miss{background:var(--bad)}
+  /* Per-trailer load progress, under the trailer name. */
+  .trailerblk .tbar{height:6px;margin:-4px 0 2px}
+  .thead .tcount b{font-family:var(--serif);font-size:13px;color:var(--rust)}
+  /* Empty / unassigned bins, shelved out of the grid. */
+  .emptywrap{margin-top:14px;border-top:1px dashed var(--line);padding-top:10px}
+  .emptywrap summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted);padding:8px 2px;min-height:44px;display:flex;align-items:center}
+  /* Toggle chips (e.g. "show only what's left"). */
+  .filterbtn{flex:none;border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:16px;padding:9px 13px;font:700 12px/1 var(--sans);cursor:pointer;min-height:44px}
+  .filterbtn.on{background:var(--ink);border-color:var(--ink);color:var(--cream)}
   /* "For leaders" divider on the Trailer Load List — plain rule + small caps label */
   .leaderdiv{display:flex;align-items:center;gap:10px;margin:26px 2px 14px;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase}
   .leaderdiv::before,.leaderdiv::after{content:"";flex:1;height:1px;background:var(--line)}
@@ -295,6 +318,10 @@ textarea, select { font-size: 16px !important; }
   .binedit .ttl2,.fyiadd .ttl2{font-family:var(--serif);font-weight:700;font-size:15px;margin:2px 0 10px}
   .binedit input,.binedit textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 11px;font-size:16px;font-family:var(--sans);background:#fff;color:var(--ink);margin-bottom:9px;text-align:left;letter-spacing:normal;resize:vertical}
   .binedit .btn.del{background:none;border:1px solid var(--bad);color:var(--bad);margin-top:10px}
+  /* Leader controls on an announcement card: take it down (reversible) or delete it. */
+  .annacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .annacts .ackbtn{margin-top:0}
+  .ackbtn.del{border-color:var(--bad);color:var(--bad)}
   .ackedwrap{margin-top:14px}
   .ackedwrap summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--muted);padding:8px 2px;list-style:none}
   .cmts{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
@@ -847,7 +874,7 @@ textarea, select { font-size: 16px !important; }
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.10.0</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.13.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1010,7 +1037,7 @@ textarea, select { font-size: 16px !important; }
     <div class="packbar" id="invPackBar">
       <div class="t"><span>🚚 Load-out</span><span class="v" id="invPackLbl">0 / 0</span></div>
       <div class="pbar"><i id="invPackFill"></i></div>
-      <div class="pfoot"><span id="invPackLeft">—</span></div>
+      <div class="pfoot"><span id="invPackLeft">—</span><button class="filterbtn" id="invLeftBtn" aria-pressed="false" onclick="invToggleRemaining()">🔲 Show only what's left</button></div>
       <p class="hint" style="margin:8px 0 0">Tick the ☐ on a bin as it goes on the truck — synced for everyone, even offline.</p>
     </div>
     <div id="invMount"></div>

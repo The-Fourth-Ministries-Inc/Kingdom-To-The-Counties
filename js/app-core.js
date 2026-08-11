@@ -374,7 +374,19 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
    of the JS string literal inside the attribute. */
 function esc(s){return(s||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
 function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],miracles:Array.isArray(s.miracles)?s.miracles:[],witnessMin:s.witnessMin||2,binNotes:Array.isArray(s.binNotes)?s.binNotes:[],binState:(s.binState&&typeof s.binState==="object")?s.binState:{},binsRev:(s.binsRev!=null?s.binsRev:null),county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
-function toast(msg){var el=document.getElementById("toastEl");if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}el.textContent=msg;el.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("show");},2600);}
+/* toast(msg) is the plain one. toast(msg,label,fn) adds a tappable action —
+   used for Undo, which gets a longer dwell because you have to reach for it. */
+function toast(msg,actLabel,actFn){
+  var el=document.getElementById("toastEl");
+  if(!el){el=document.createElement("div");el.id="toastEl";el.className="toast";document.body.appendChild(el);}
+  var act=!!(actLabel&&actFn);
+  el.innerHTML='<span>'+esc(msg)+'</span>'+(act?'<button type="button" class="tact">'+esc(actLabel)+'</button>':'');
+  el.classList.toggle("act",act);
+  if(act)el.querySelector(".tact").onclick=function(){clearTimeout(toast._t);el.classList.remove("show");el.classList.remove("act");actFn();};
+  el.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t=setTimeout(function(){el.classList.remove("show");el.classList.remove("act");},act?5200:2600);
+}
 function vibr(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(_){}}
 function hasFullState(s){return !!(s&&("checklist" in s||"announcements" in s||"count" in s));}
 function reconcileResponse(s){if(hasFullState(s)){var pc=STATE.count,pb=STATE.tallyBy,pd=STATE.decisions,pdb=STATE.decBy;STATE=adoptCounts(applyPending(normalize(s)),pc,pb,pd,pdb);}}
@@ -489,7 +501,7 @@ var OB_KEY={
 };
 /* Actions the server gates behind the leader PIN — held in the queue (not
    sent, not dropped) whenever this session has no PIN, e.g. after a reload. */
-var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,setEvent:1,setFunding:1,miracleDelete:1,binNoteAck:1};
+var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,setEvent:1,setFunding:1,miracleDelete:1,binNoteAck:1,annDelete:1};
 var OUTBOX=[];
 try{OUTBOX=JSON.parse(localStorage.getItem("k2c_outbox")||"[]");}catch(_){OUTBOX=[];}
 if(!Array.isArray(OUTBOX))OUTBOX=[];
@@ -563,10 +575,12 @@ function applyPending(st){
       st.notes=st.notes||{};
       if(p.text)st.notes[p.id]=p.text;else delete st.notes[p.id];
     }else if(op.a==="setAck"){
-      var arr=(p.kind==="praise"?st.praises:st.feedback)||[];
+      var arr=(p.kind==="praise"?st.praises:(p.kind==="ann"?st.announcements:st.feedback))||[];
       for(var j=0;j<arr.length;j++){
         if(arr[j].id===p.id){arr[j].hidden=!!p.hidden;arr[j].ackBy=p.hidden?p.by:"";arr[j].ackT=p.hidden?p.t:"";break;}
       }
+    }else if(op.a==="annDelete"){
+      st.announcements=(st.announcements||[]).filter(function(a){return a.id!==p.id;});
     }else if(op.a==="setRadio"){
       if(!(st.radios&&st.radios.length===10))st.radios=defaultRadiosLocal();
       st.radios[p.n-1]={n:p.n,out:p.out||null,in:p.in||null};
@@ -679,7 +693,10 @@ function agoLabel(ts){
   var h=Math.round(m/60);return h+(h===1?" hour ago":" hours ago");
 }
 function seedDemo(){return normalize({
-  announcements:[{id:uid(),pri:"heads",title:"Doors open at 1:00 PM",body:"Final setup check now — parking team to your posts.",by:"Kat Roedell · Logistics",t:"12:40 PM"},{id:uid(),pri:"urgent",title:"Stay clear of the crane zone",body:"Jesus Rig going up. Non-Tech volunteers keep outside the marked area until the all-clear.",by:"Kyle DeTrude · COO",t:"11:00 AM"}],
+  /* No seeded announcements. The board starts empty and only ever shows what
+     a leader actually posted — a fake "Stay clear of the crane zone" reads as
+     real the moment it renders, so there is no safe placeholder here. */
+  announcements:[],
   praises:[{id:uid(),name:"Liz DeTrude",body:"First salvation of the day at the front table — heaven is rejoicing! 🎉",t:"3:18 PM"}],
   feedback:[{id:uid(),priority:"med",title:"Parking sign blew over",body:"North entrance arrow is down — folks taking the wrong lane.",by:"Troy",t:"1:22 PM"}],
   checkins:[{id:uid(),name:"Rachel",team:"Ambassadors",t:"9:05 AM"},{id:uid(),name:"Bethanie",team:"Guest Services",t:"9:02 AM"}],
@@ -882,11 +899,23 @@ function chkNote(id){
   queueWrite("setChecklistNote",{id:id,text:t},function(){STATE.notes=STATE.notes||{};if(t)STATE.notes[id]=t;else delete STATE.notes[id];},function(){refreshChecklists();});
   toast(t?"📝 Note saved":"📝 Note removed");
 }
+function annCard(a){
+  var acls=({urgent:"urgent",heads:"heads",info:"info"}[a.pri]||"info");
+  var acts=LEADER?('<div class="annacts">'
+    +'<button class="ackbtn'+(a.hidden?' un':'')+'" onclick="ackCard(\'ann\',\''+esc(a.id)+'\')">'+(a.hidden?'↩ Put back up':'✓ Take it down')+'</button>'
+    +'<button class="ackbtn del" onclick="annDelete(\''+esc(a.id)+'\')">🗑 Delete</button></div>'):'';
+  return '<div class="item '+acls+(a.hidden?' acked':'')+'"><div class="top"><span class="pri">'+({urgent:"Urgent",heads:"Heads-up",info:"Info"}[a.pri]||"Info")+'</span><span class="meta">'+esc(a.t)+'</span></div>'
+    +'<h4>'+esc(a.title)+'</h4><p>'+esc(a.body)+'</p><div class="by">— '+esc(a.by)+'</div>'
+    +ackMeta(a,"Taken down")+cmtBlock("ann",a)+acts+'</div>';
+}
 function renderAnnouncements(){
   var f=document.getElementById("annFeed");
   var checkedIn=hasCheckedIn(MY.name); // day-gate unlock already checked them in
   var pin=checkedIn?"":'<div class="item heads" onclick="show(\'checkin\')" style="cursor:pointer"><div class="top"><span class="pri">Check-in</span><span class="meta">Pinned</span></div><h4>👋 Did you check in?</h4><p>Tap here to check yourself in for today\'s event — please do this before you serve.</p><div class="by">— Kingdom to the Counties</div></div>';
-  f.innerHTML=pin+STATE.announcements.map(function(a){var acls=({urgent:"urgent",heads:"heads",info:"info"}[a.pri]||"info");return '<div class="item '+acls+'"><div class="top"><span class="pri">'+({urgent:"Urgent",heads:"Heads-up",info:"Info"}[a.pri]||"Info")+'</span><span class="meta">'+esc(a.t)+'</span></div><h4>'+esc(a.title)+'</h4><p>'+esc(a.body)+'</p><div class="by">— '+esc(a.by)+'</div>'+cmtBlock("ann",a)+'</div>';}).join("");
+  var openAnn=STATE.announcements.filter(function(a){return !a.hidden;});
+  var hidAnn=STATE.announcements.filter(function(a){return a.hidden;});
+  f.innerHTML=pin+openAnn.map(annCard).join("")
+    +(hidAnn.length?'<details class="ackedwrap"><summary>✓ Taken down ('+hidAnn.length+')</summary>'+hidAnn.map(annCard).join("")+'</details>':"");
   var bar=document.getElementById("annBar");
   /* Dismissal is per-announcement. It used to be a single flag for the whole
      session, so a volunteer who closed "Lunch is ready" at noon would never
@@ -895,7 +924,7 @@ function renderAnnouncements(){
      Urgent announcements re-open the bar even if that exact one was
      dismissed once. */
   if(checkedIn){
-    var a=STATE.announcements[0];
+    var a=openAnn[0];   // a taken-down announcement must not keep pushing
     if(a){
       annBarMode="ann";
       var urgent=a.pri==="urgent";
@@ -926,7 +955,7 @@ function renderSimGate(){
 }
 function visCount(arr){var n=0;for(var i=0;i<arr.length;i++)if(!arr[i].hidden)n++;return n;}
 function ackBtn(kind,x){return LEADER?'<button class="ackbtn'+(x.hidden?' un':'')+'" onclick="ackCard(\''+esc(kind)+'\',\''+esc(x.id)+'\')">'+(x.hidden?'↩ Unhide':'✓ Acknowledge &amp; hide')+'</button>':'';}
-function ackMeta(x){return (x.hidden&&x.ackBy)?'<div class="ackmeta">✓ Acknowledged by '+esc(x.ackBy)+(x.ackT?(' · '+esc(x.ackT)):'')+'</div>':'';}
+function ackMeta(x,verb){return (x.hidden&&x.ackBy)?'<div class="ackmeta">✓ '+(verb||"Acknowledged")+' by '+esc(x.ackBy)+(x.ackT?(' · '+esc(x.ackT)):'')+'</div>':'';}
 function praiseCard(p){return '<div class="item praise'+(p.hidden?' acked':'')+'"><div class="top"><span class="pri">Praise 🎉</span><span class="meta">'+esc(p.t)+'</span></div><p>'+esc(p.body)+'</p><div class="by">— '+esc(p.name)+'</div>'+ackMeta(p)+cmtBlock("praise",p)+ackBtn("praise",p)+'</div>';}
 function renderPraise(){
   var f=document.getElementById("praiseFeed");
@@ -1066,12 +1095,29 @@ function ackCard(kind,id){
      ackCard toggle was fire-and-forget, so a dropped request lost the ack
      (the card hid, then reappeared on the next poll) and two leaders acking
      the same card at once toggled it right back to visible. */
-  var arr=kind==="praise"?STATE.praises:STATE.feedback,it=arr.filter(function(x){return x.id===id;})[0];
+  var arr=kind==="praise"?STATE.praises:(kind==="ann"?STATE.announcements:STATE.feedback);
+  var it=arr.filter(function(x){return x.id===id;})[0];
   if(!it)return;
   var hide=!it.hidden,t=nowLabel();
+  /* Hiding the announcement that's currently in the push bar has to release
+     the bar too, or it keeps showing a headline that's gone from the feed. */
+  if(hide&&kind==="ann")annBarDismissedId="";
   queueWrite("setAck",{kind:kind,id:id,hidden:hide,by:by,t:t},function(){
     it.hidden=hide;it.ackBy=hide?by:"";it.ackT=hide?t:"";
   },function(){renderDynamic();});
+}
+/* Permanent removal, for a mis-post that shouldn't stay in the record at all.
+   Hiding is the reversible option and what the button copy steers toward. */
+function annDelete(id){
+  if(!LEADER){askPin(function(){annDelete(id);});return;}
+  var a=(STATE.announcements||[]).filter(function(x){return x.id===id;})[0];
+  if(!a)return;
+  if(!confirm("Delete this announcement for everyone?\n\n“"+(a.title||"")+"”\n\nThis can't be undone — use ✓ Hide instead if you just want it off the board."))return;
+  annBarDismissedId="";
+  queueWrite("annDelete",{id:id},function(){
+    STATE.announcements=(STATE.announcements||[]).filter(function(x){return x.id!==id;});
+  },function(){renderDynamic();});
+  toast("🗑 Announcement deleted");
 }
 function renderRoster(){
   var list=STATE.checkins;document.getElementById("ciTotal").textContent=list.length;
@@ -1299,10 +1345,10 @@ function updateBadges(){
   function set(id,n){var e=document.getElementById(id);if(!e)return;e.textContent=n;e.style.display=n?"flex":"none";}
   set("crewCheckinPill",STATE.checkins.length);set("crewCountPill",STATE.count);
   set("capPill",(STATE.captureCount||0)+(typeof capQueue==="function"?capQueue().length:0));
-  set("boardAnnPill",STATE.announcements.length);set("boardPraisePill",visCount(STATE.praises));set("boardIssuePill",visCount(STATE.feedback));
+  set("boardAnnPill",visCount(STATE.announcements));set("boardPraisePill",visCount(STATE.praises));set("boardIssuePill",visCount(STATE.feedback));
   set("boardMirPill",(STATE.miracles||[]).filter(mirConfirmed).length);
   set("crewInvPill",binNotesOpen().length);
-  var u=Math.max(0,(STATE.announcements.length-seenAnn)+(visCount(STATE.feedback)-seenIssue));
+  var u=Math.max(0,(visCount(STATE.announcements)-seenAnn)+(visCount(STATE.feedback)-seenIssue));
   var b=document.getElementById("boardBadge");b.textContent=u;b.style.display=u?"flex":"none";
 }
 function updateSync(){var els=document.querySelectorAll(".syncpill");var label;
@@ -1711,7 +1757,7 @@ function show(id){
   window.scrollTo({top:0,behavior:"smooth"});
   if(id==="now")renderSpine();
   if(id==="dashboard"){applyLeaderUI();renderDashboard();}
-  if(id==="announcements"||id==="issue"){seenAnn=STATE.announcements.length;seenIssue=visCount(STATE.feedback);updateBadges();}
+  if(id==="announcements"||id==="issue"){seenAnn=visCount(STATE.announcements);seenIssue=visCount(STATE.feedback);updateBadges();}
   if(id==="tour")tourSeen();
   if(id==="radios")renderRadios();
   if(id==="inventory"){binsMaybeSync();renderInventory();renderInvNotes();renderInvLeader();renderPackBar();invSearchRun();}
@@ -1896,6 +1942,9 @@ function binPackToggle(id,ev){
     if(m.p||m.h)STATE.binState[id]=m;else delete STATE.binState[id];
   },function(){renderInventory();invSearchRun();renderPackBar();
     var cur=binById(id);if(cur&&document.getElementById("binModal").classList.contains("show"))binRenderBody(cur);});
+  /* Gloves, cold hands, a 150px chip: mis-taps happen, and without this the
+     only way back was to find the bin again and tap it a second time. */
+  toast((on?"✓ ":"☐ ")+binLabel(b)+(on?" on the truck":" taken off"),"Undo",function(){binPackToggle(id);});
 }
 /* Custody — "I've got it". Loose gear is what goes missing between counties,
    so this deliberately survives the reset; clearing it is an explicit tap. */
@@ -1938,6 +1987,12 @@ function renderPackBar(){
   if(btn)btn.style.display=LEADER?"":"none";
   var left=document.getElementById("invPackLeft");
   if(left)left.textContent=st.done===st.total&&st.total?"🎉 Everything's on the truck.":(st.total-st.done)+" still to load";
+  var f=document.getElementById("invLeftBtn");
+  if(f){
+    f.className="filterbtn"+(invRemainingOnly?" on":"");
+    f.textContent=invRemainingOnly?"✓ Showing what's left":"🔲 Show only what's left";
+    f.setAttribute("aria-pressed",invRemainingOnly?"true":"false");
+  }
 }
 /* ---- photos: one shot per bay, matched off the location text ---- */
 function binPhoto(b){
@@ -1953,6 +2008,40 @@ function binPhoto(b){
 }
 
 /* ---- the page ---- */
+/* "Show only what's left" — during load-out the live question is what still
+   isn't on the truck, and scanning 113 chips for unticked boxes is the slow
+   way to answer it. Sticky across reloads because a load-out spans them. */
+var invRemainingOnly=false;
+try{invRemainingOnly=localStorage.getItem("k2c_inv_left")==="1";}catch(_){}
+function invToggleRemaining(){
+  invRemainingOnly=!invRemainingOnly;
+  try{localStorage.setItem("k2c_inv_left",invRemainingOnly?"1":"0");}catch(_){}
+  renderInventory();renderPackBar();
+}
+/* One bin, as a chip in the grid. The tick sits in the chip's own top-right
+   corner rather than in a separate box alongside it: the box read as an empty
+   card of its own, and it stole width from the name on every row. */
+function binChip(b){
+  var open=binOpenFor(b.id);
+  var miss=open.filter(function(n){return n.kind==="missing";}).length;
+  var badge=open.length?'<em class="bnc'+(miss?' miss':'')+'">'+open.length+'</em>':'';
+  var packed=binPacked(b),held=binHolder(b);
+  /* Its own hit target, layered over the chip: loading the truck is a
+     two-second-per-bin job and must not cost a modal each time. It announces
+     itself as a button and takes focus, so Enter/Space work too. */
+  var tick=b.empty?'':'<i class="pk'+(packed?' on':'')+'" role="button" tabindex="0" aria-label="'+(packed?'On the truck':'Mark on the truck')+'" onclick="binPackToggle(\''+esc(b.id)+'\',event)"'
+    +' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();binPackToggle(\''+esc(b.id)+'\',event);}">'+(packed?'✓':'☐')+'</i>';
+  /* Whatever identifies the entry leads its own big, bold line so it reads at
+     arm's length off a chip in a dim trailer. For a numbered bin that's the
+     number, with the title under it. Loose gear has no number — over half the
+     roster — so there the NAME leads instead of a grid of identical tags. */
+  var name=b.empty?"(empty)":(b.title||"—");
+  var lead=b.bin?('<b>'+esc(b.bin)+'</b><span>'+esc(name)+'</span>')
+                :('<b class="nm">'+esc(name)+'</b>');
+  return '<div class="binchipwrap">'
+    +'<button class="binchip'+(b.bin?'':' loose')+(b.empty?' dim':'')+(packed?' packed':'')+'" onclick="binOpen(\''+esc(b.id)+'\')">'
+    +lead+(held?'<small>🙋 '+esc(held.by)+'</small>':'')+badge+'</button>'+tick+'</div>';
+}
 function renderInventory(){
   var m=document.getElementById("invMount");if(!m)return;
   if(!BINS.list.length){
@@ -1961,40 +2050,39 @@ function renderInventory(){
   }
   var html=BINS.trailers.map(function(tr){
     var secs=BINS.sections.filter(function(s){return s.trailer===tr.key;});
+    var mine=BINS.list.filter(function(b){var s=binSection(b.sec);return s&&s.trailer===tr.key;});
+    var empties=[];
     var body=secs.map(function(sec){
-      var list=BINS.list.filter(function(b){return b.sec===sec.key;}).sort(binSort);
-      if(!list.length)return "";
-      var chips=list.map(function(b){
-        var open=binOpenFor(b.id);
-        var miss=open.filter(function(n){return n.kind==="missing";}).length;
-        var badge=open.length?'<em class="bnc'+(miss?' miss':'')+'">'+open.length+'</em>':'';
-        var packed=binPacked(b),held=binHolder(b);
-        /* The tick is its own hit target inside the chip: loading the truck is
-           a two-second-per-bin job and must not cost a modal each time. */
-        /* An empty box, not blank space: the chip is tall now, and an unmarked
-           tick has to still look like the ☐ the load-out bar tells you to tap. */
-        var tick=b.empty?'':'<i class="pk'+(packed?' on':'')+'" role="button" tabindex="0" aria-label="'+(packed?'On the truck':'Mark on the truck')+'" onclick="binPackToggle(\''+esc(b.id)+'\',event)"'
-          /* It announces itself as a button and takes focus, so Enter/Space
-             have to work too — it was mouse/touch-only before. */
-          +' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();binPackToggle(\''+esc(b.id)+'\',event);}">'+(packed?'✓':'☐')+'</i>';
-        /* Whatever identifies the entry leads its own big, bold line so it
-           reads at arm's length off a chip in a dim trailer. For a numbered
-           bin that's the number, with the title under it. Loose gear has no
-           number — over half the roster — so there the NAME leads instead of
-           a grid full of identical "LOOSE" tags. */
-        var name=b.empty?"(empty)":(b.title||"—");
-        var lead=b.bin?('<b>'+esc(b.bin)+'</b><span>'+esc(name)+'</span>')
-                      :('<b class="nm">'+esc(name)+'</b>');
-        return '<div class="binchipwrap">'+tick
-          +'<button class="binchip'+(b.bin?'':' loose')+(b.empty?' dim':'')+(packed?' packed':'')+'" onclick="binOpen(\''+esc(b.id)+'\')">'
-          +lead
-          +(held?'<small>🙋 '+esc(held.by)+'</small>':'')+badge+'</button></div>';
-      }).join("");
-      return '<div class="seclabel" style="margin:14px 0 8px">'+esc(sec.name)+(sec.range?' <span style="opacity:.6">· '+esc(sec.range)+'</span>':'')+'</div>'
-        +'<div class="bingrid">'+chips+'</div>';
+      var all=BINS.list.filter(function(b){return b.sec===sec.key;}).sort(binSort);
+      /* Empty/unassigned bins are shelved into a per-trailer expander instead
+         of padding out the grid — they're roster bookkeeping, not something
+         anyone loads. */
+      var list=all.filter(function(b){if(b.empty){empties.push(b);return false;}return true;});
+      var hidByFilter=0;
+      if(invRemainingOnly){
+        var before=list.length;
+        list=list.filter(function(b){return !binPacked(b);});
+        hidByFilter=before-list.length;
+      }
+      if(!all.length)return "";
+      var head='<div class="seclabel" style="margin:14px 0 8px">'+esc(sec.name)+(sec.range?' <span style="opacity:.6">· '+esc(sec.range)+'</span>':'')+'</div>';
+      if(!list.length){
+        return head+'<p class="hint" style="margin:0 0 4px">'
+          +(hidByFilter?'✓ All '+hidByFilter+' on the truck.':'Nothing listed here yet.')+'</p>';
+      }
+      return head+'<div class="bingrid">'+list.map(binChip).join("")+'</div>';
     }).join("");
-    return '<div class="trailerblk"><div class="thead">'+esc(tr.icon||"📦")+' <b>'+esc(tr.name)+'</b><span class="tcount">'
-      +BINS.list.filter(function(b){var s=binSection(b.sec);return s&&s.trailer===tr.key;}).length+' entries</span></div>'+body+'</div>';
+    /* Per-trailer progress: crews split by trailer, so "12 / 66 on" beside the
+       trailer name answers "are we done over here?" without any arithmetic. */
+    var tot=0,done=0;
+    mine.forEach(function(b){if(b.empty)return;tot++;if(binPacked(b))done++;});
+    var pct=tot?Math.round(done/tot*100):0;
+    var count=tot?('<span class="tcount"><b>'+done+' / '+tot+'</b> on the truck</span>'):('<span class="tcount">'+mine.length+' entries</span>');
+    var tbar=tot?'<div class="pbar tbar"><i style="width:'+pct+'%"></i></div>':'';
+    var empt=empties.length?'<details class="emptywrap"><summary>☐ '+empties.length+' empty / unassigned '+(empties.length===1?'bin':'bins')+'</summary>'
+      +'<div class="bingrid" style="margin-top:9px">'+empties.sort(binSort).map(binChip).join("")+'</div></details>':'';
+    return '<div class="trailerblk"><div class="thead">'+esc(tr.icon||"📦")+' <b>'+esc(tr.name)+'</b>'+count+'</div>'
+      +tbar+body+empt+'</div>';
   }).join("");
   m.innerHTML=html;
 }
@@ -2039,6 +2127,42 @@ function invIndex(){
     return {b:b,hay:((b.bin||"")+" "+(b.title||"")+" "+b.items.join(" ")+" "+(b.loc||"")+" "+(b.note||"")).toLowerCase()};
   });
   return INV_INDEX;
+}
+/* Volunteers don't type the sheet's words. Someone holding zip ties searches
+   "cable ties"; someone after gaff tape types "gaffer". Each group is treated
+   as one word, so any member finds the rest. Keep these tight and field-real —
+   a loose synonym turns a precise search into a shrug. */
+var INV_SYN=[
+  ["zip tie","zip ties","ziptie","zipties","cable tie","cable ties"],
+  ["gaff","gaffer","gaffers","gaff tape","gaffer tape"],
+  ["xlr","xlrs","mic cable","mic cables","microphone cable"],
+  ["poncho","ponchos","rain gear","raincoat"],
+  ["extension cord","extension cords","ext cord","power cord"],
+  ["stake","stakes","tent stake","tent stakes","spike","spikes"],
+  ["hoodie","hoodies","sweatshirt","sweatshirts"],
+  ["radio","radios","walkie","walkies","walkie talkie"],
+  ["gas can","fuel can","jerry can","petrol can"],
+  ["tablecloth","tablecloths","table cloth","table cloths"],
+  ["velcro","hook and loop"],
+  ["sharpie","sharpies","marker","markers"],
+  ["duct tape","duck tape"],
+  ["zip lock","ziploc","ziplock","zip locks"],
+  ["trash bag","trash bags","garbage bag","garbage bags","bin bag"]
+];
+/* Every spelling this term could stand in for, itself included. */
+function invAlts(term){
+  var out=[term];
+  for(var i=0;i<INV_SYN.length;i++){
+    var g=INV_SYN[i],hit=false;
+    for(var j=0;j<g.length;j++){if(g[j]===term||g[j].indexOf(term)===0){hit=true;break;}}
+    if(hit)for(var k=0;k<g.length;k++)if(out.indexOf(g[k])<0)out.push(g[k]);
+  }
+  return out;
+}
+function invHas(hay,term){
+  var alts=invAlts(term);
+  for(var i=0;i<alts.length;i++)if(hay.indexOf(alts[i])>=0)return true;
+  return false;
 }
 function invEscRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");}
 /* Highlight matched words. Splits the RAW text on a combined regex and escapes
@@ -2090,9 +2214,22 @@ function invSearchRun(){
   }
   hide.forEach(function(id){var el=document.getElementById(id);if(el)el.style.display="none";});
   var terms=q.toLowerCase().split(/\s+/).filter(Boolean);
-  var found=invIndex().filter(function(e){
-    return terms.every(function(t){return e.hay.indexOf(t)>=0;});
+  var idx=invIndex();
+  var found=idx.filter(function(e){
+    return terms.every(function(t){return invHas(e.hay,t);});
   });
+  /* "black gaff tape" used to return nothing, because ALL words had to land
+     and "black" isn't recorded anywhere. Rather than a dead end, fall back to
+     anything matching at least one word, best match first. */
+  var loose=false;
+  if(!found.length&&terms.length>1){
+    loose=true;
+    found=idx.filter(function(e){
+      e.hits=0;
+      terms.forEach(function(t){if(invHas(e.hay,t))e.hits++;});
+      return e.hits>0;
+    }).sort(function(a,b){return b.hits-a.hits;});
+  }
   /* Rank: the bin whose number was typed, then name matches, then everything
      else; empty bins always last. */
   function rank(e){
@@ -2104,14 +2241,23 @@ function invSearchRun(){
     var hit=b.items.some(function(it){var l=it.toLowerCase();return terms.some(function(x){return l.indexOf(x)>=0;});});
     return hit?2:3;
   }
-  found.sort(function(a,b){return (rank(a)-rank(b))||binSort(a.b,b.b);});
+  /* On a loose match the word-hit count leads — rank only breaks ties, or a
+     one-word title match would outrank an entry that matched two words. */
+  if(loose)found.sort(function(a,b){return (b.hits-a.hits)||(rank(a)-rank(b))||binSort(a.b,b.b);});
+  else found.sort(function(a,b){return (rank(a)-rank(b))||binSort(a.b,b.b);});
   res.style.display="";
   if(!found.length){
     res.innerHTML='<div class="empty">Nothing matching “'+esc(q)+'”.<br><br>If you\'re holding it and it isn\'t listed, that\'s worth knowing — report it as an <b>extra</b> from whichever bin it\'s in, and leaders will add it.</div>';
     return;
   }
-  res.innerHTML='<p class="invrcount">'+found.length+' match'+(found.length>1?'es':'')+' for “'+esc(q)+'”</p>'
-    +found.map(function(e){return invResultCard(e,terms);}).join("");
+  /* Highlight every spelling the search stands for, so a hit on "zip ties"
+     still lights up when what you typed was "cable ties". */
+  var hiTerms=[];
+  terms.forEach(function(t){invAlts(t).forEach(function(a){if(hiTerms.indexOf(a)<0)hiTerms.push(a);});});
+  var head=loose
+    ? '<p class="invrcount">No entry has all of “'+esc(q)+'” — closest '+found.length+' first</p>'
+    : '<p class="invrcount">'+found.length+' match'+(found.length>1?'es':'')+' for “'+esc(q)+'”</p>';
+  res.innerHTML=head+found.map(function(e){return invResultCard(e,hiTerms);}).join("");
 }
 
 /* ---- one bin ---- */

@@ -156,6 +156,12 @@ function normAnn(x){
   body: str(x.body, 2000),
   by: str(x.by, 60),
   t: str(x.t, 12),
+  /* Same hide/acknowledge shape as praises and issues, so setAck drives all
+     three. A hidden announcement stays in the record but drops out of the
+     feed, the push bar and the badge counts. */
+  hidden: !!x.hidden,
+  ackBy: str(x.ackBy, 40),
+  ackT: str(x.ackT, 12),
   comments: normComments(x.comments)
  };
 }
@@ -717,7 +723,7 @@ const LEADER_ACTIONS = new Set([
  "addAnnouncement","ackCard","setAck","setEvent","setIOList","setDayPin","captureSetState","setCounty",
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
  "capturesList","captureMedia","captureDelete","capturePurge","revokeLeaderTokens",
- "churchEdit","churchDelete","churchFlagClear","churchTemplate","miracleDelete","binNoteAck",
+ "churchEdit","churchDelete","churchFlagClear","churchTemplate","miracleDelete","binNoteAck","annDelete",
  /* The trailer roster is the leaders' record — volunteers report against it
     (binNoteAdd) but never write it. */
  "binEdit","binAdd","binDelete","binItemAdd","binPackClear"
@@ -1614,7 +1620,7 @@ export default async (req, context) => {
     stays below for phones still on the old client. */
  case "setAck":
  await casCore(s, K, core => {
- const arr = payload.kind === "praise" ? core.praises : core.feedback;
+ const arr = payload.kind === "praise" ? core.praises : (payload.kind === "ann" ? core.announcements : core.feedback);
  const it = arr.find(x => x.id === payload.id);
  if(!it) return undefined;
  const hide = !!payload.hidden;
@@ -2043,6 +2049,16 @@ export default async (req, context) => {
  }, () => ({ list: [] }));
  break;
  }
+ /* Hiding is the reversible option and the one to reach for; this is for a
+    genuine mis-post that should not survive in the record at all. */
+ case "annDelete":
+ await casCore(s, K, core => {
+ const id = idStr(payload.id);
+ if(!core.announcements.some(a => a.id === id)) return undefined;
+ core.announcements = core.announcements.filter(a => a.id !== id);
+ return core;
+ });
+ break;
  case "miracleDelete":
  await compareAndSwap(s, "miracles", normMiracles, mr => {
  const id = idStr(payload.id);
