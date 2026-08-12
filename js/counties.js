@@ -577,7 +577,12 @@ function tpDelete(){
 }
 
 /* ---- Teleprompter overlay ---- */
-var tpCurId=null,tpFontSize=28,tpSpeed=1.0,tpBase=0.6,tpPlaying=false,tpPos=0,tpFacing="user",tpStream=null,tpRAF=null;
+/* v1.14.2 — tpBase halved (0.6 → 0.3 px/frame). Measured on a 390px phone at
+   the stock 28px font, 0.6 scrolled ~220 wpm, so filmers had to thumb the
+   speed down before every take; 0.3 lands at ~110 wpm, a natural on-camera
+   pace. The badge still reads 1.0× and the ⟨⟨ / ⟩⟩ range is unchanged, so
+   anyone who wants the old pace taps up to 2.0×. */
+var tpCurId=null,tpFontSize=28,tpSpeed=1.0,tpBase=0.3,tpPlaying=false,tpPos=0,tpFacing="user",tpStream=null,tpRAF=null;
 var tpRecorder=null,tpChunks=[],tpRecording=false,tpSecs=0,tpTimer=null,tpBlob=null,tpTipsSeen=false;
 var tpTrack=document.getElementById("tpTrack"),tpTextEl=document.getElementById("tpText");
 function tpOpen(id){

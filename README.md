@@ -330,7 +330,33 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
-## Recording Studio (Teleprompter)
+## Graphics for Sharing (v1.15.1)
+
+Under **Ambassador Resources → 🖼️ Graphics for Sharing**: a download-and-post
+strip of everything a volunteer can put on their own feed. Two formats per
+county — the tall `· Flyer` (print/story shaped) and the wide `· Banner` (built
+for a Facebook event header or cover photo) — plus the **Come and See** hero,
+the **Mission & Vision** card, and the promo video. Cards run in season order
+so the next county is near the top.
+
+Card copy (dates, venues, towns) is written from the county roster in
+`js/counties.js`, **not** transcribed off the artwork, so the page can't drift
+from the schedule the rest of the app runs on. When you add a graphic, copy the
+venue string from the roster entry.
+
+**A card whose image is missing hides itself.** `gfxMiss()` (inline at the
+bottom of `#page-graphics`) drops the whole card on an image `error`, and a
+sweep on `load` catches images that failed before the handler was parsed. So a
+graphic that hasn't been deployed yet, or an offline boot with a cold cache,
+shows a shorter list rather than a row of broken-image icons and a download
+button that 404s. The `N graphics + promo video` badge counts what actually
+rendered, so it can't go stale either.
+
+All ten graphics are live as of v1.15.1. The banners are 1920×1080 and the
+mission card 1080×1350, matching what the socials want; keep new artwork at
+those sizes and under ~300KB so the precache stays reasonable on field signal.
+
+## Recording Studio (Teleprompter) (v1.14.2)
 
 Under **Ambassador Resources → 🎬 Recording Studio**: invite-video scripts for
 every county, each with a due date and assignee, opening into a full-screen
@@ -339,6 +365,17 @@ recording, save/share). Viewing and recording is open to anyone past the Day
 PIN; **adding/editing scripts, due dates, and assignees is leader-PIN only**
 (that's Laura's board). After recording, the app reminds the filmer to save the
 video and send it to Laura, then mark the script ✅ done with their initials.
+
+**The default scroll speed halved in v1.14.2.** Measured on a 390px phone at
+the stock 28px font, `1.0×` used to scroll ~220 wpm — far faster than anyone
+reads aloud on camera — so every filmer tapped `⟨⟨` a few times before their
+first take. It now runs ~110 wpm, a natural speaking pace. The `⟨⟨` / `⟩⟩`
+range is unchanged (0.1×–4.0×), so the old pace is `2.0×`.
+
+The `~m:ss` runtime estimate beside the speed badge assumes 140 wpm at `1.0×`.
+That was a ~55% over-estimate at the old speed and is now a ~20% under-estimate
+— closer, but still an estimate; it can't know the phone's width or the reader's
+pace. Deriving it from the scroll geometry instead would make it exact.
 
 An empty board shows leaders a **Load starter scripts** button that seeds A/B/C
 scripts for all counties (Sullivan ships with `[DATE]`/`[VENUE]` placeholders —
