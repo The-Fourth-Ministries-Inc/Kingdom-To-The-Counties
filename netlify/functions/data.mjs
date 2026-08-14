@@ -647,25 +647,53 @@ const normCheckins = v => Array.isArray(v) ? v.map(normCheckin).slice(-2000) : [
    where a caller controlled both structure and size. Fields are whitelisted and
    capped like everything else, and ids are id-safe because the client renders
    them into onclick="ioToggle('<id>','<id>')". */
+const IO_MODES = new Set(["stereo","mono","none"]);
 function normIORow(r){
  r = r || {};
  return {
   id: idStr(r.id) || uid(),
   role: str(r.role, 60), gear: str(r.gear, 60), loc: str(r.loc, 60),
+  /* v1.16.0 — the routing columns the table views read. AVB is the key the
+     FOH board and the 32SC monitor console agree on; the channel numbers are
+     per-console and routinely disagree, so both are kept. */
+  avb: str(r.avb, 8), foh: str(r.foh, 16), sc: str(r.sc, 16),
+  port: str(r.port, 60), altPort: str(r.altPort, 60), src: str(r.src, 60), p48: !!r.p48,
   done: !!r.done, by: str(r.by, 40), t: str(r.t, 12)
  };
 }
+function normIOShare(s){
+ s = s || {};
+ return { pack: str(s.pack, 30), name: str(s.name, 60), dest: str(s.dest, 60) };
+}
 function normIOPerf(p){
  p = p || {};
+ const mode = IO_MODES.has(str(p.mode, 8)) ? str(p.mode, 8) : "none";
  return {
   id: idStr(p.id) || uid(),
   name: str(p.name, 60), inst: str(p.inst, 60), pack: str(p.pack, 30),
   color: /^#[0-9a-f]{3,8}$/i.test(str(p.color, 9)) ? str(p.color, 9) : "#c7c2b8",
   qmix: str(p.qmix, 20), tx: str(p.tx, 60), off: !!p.off,
+  /* IEM mix slot: a stereo mix owns an aux pair and a whole transmitter, a
+     mono mix owns one aux and one leg of one, so two people can share it. */
+  aux: str(p.aux, 20), out: str(p.out, 20), txUnit: str(p.txUnit, 8),
+  leg: /^[LR]$/i.test(str(p.leg, 1)) ? str(p.leg, 1).toUpperCase() : "",
+  mode, dest: str(p.dest, 60), kind: str(p.kind, 12),
+  share: (Array.isArray(p.share) ? p.share : []).map(normIOShare).slice(0, 8),
   rows: (Array.isArray(p.rows) ? p.rows : []).map(normIORow).slice(0, 60)
  };
 }
-export const normIO = v => ({ list: (v && Array.isArray(v.list)) ? v.list.map(normIOPerf).slice(0, 80) : [] });
+function normIOBus(b){
+ b = b || {};
+ return {
+  id: idStr(b.id) || uid(),
+  bus: str(b.bus, 40), sig: str(b.sig, 60), dest: str(b.dest, 60),
+  hw: str(b.hw, 60), purpose: str(b.purpose, 80), off: !!b.off
+ };
+}
+export const normIO = v => ({
+ list: (v && Array.isArray(v.list)) ? v.list.map(normIOPerf).slice(0, 80) : [],
+ buses: (v && Array.isArray(v.buses)) ? v.buses.map(normIOBus).slice(0, 40) : []
+});
 
 /* ---- PIN brute-force protection ----
    Per-IP sliding window kept in a blob: 15 wrong PIN entries in 10 minutes
@@ -954,7 +982,7 @@ async function migrateIfNeeded(s, K, parts){
  const old = await s.get("state", { type:"json" });
  const core = normCore(old || {});
  const checkins = normCheckins((old && old.checkins) || []);
- const io = { list: (old && old.ioList) || [] };
+ const io = { list: (old && old.ioList) || [], buses: (old && old.ioBuses) || [] };
  const prompter = normPrompter(old && old.prompter);
  await Promise.all([
  s.setJSON(K.core, core),
@@ -1132,6 +1160,7 @@ async function assemble(s, K, active, lvl){
  radios: normRadios(parts.radios).list,
  event: core.event,
  ioList: (parts.io && Array.isArray(parts.io.list)) ? parts.io.list : [],
+ ioBuses: (parts.io && Array.isArray(parts.io.buses)) ? parts.io.buses : [],
  dayPinSet: !!dayPin, // the PIN itself is never sent to clients
  county: K.cty,          // which county's board this is
  countyAuto: !active.manual,
@@ -1581,7 +1610,13 @@ export default async (req, context) => {
     list / reload defaults). Patch checkmark taps go through ioSetRow below
     so concurrent techs can't clobber each other's progress. */
  if(!Array.isArray(payload.list)) break;
- await compareAndSwap(s, K.io, normIO, io => { io.list = payload.list; return io; }, () => ({ list: [] }));
+ await compareAndSwap(s, K.io, normIO, io => {
+  io.list = payload.list;
+  /* Buses ride along on the same write — a leader edits the roster and the
+     PA output table in one pass. Absent means "unchanged", not "empty". */
+  if(Array.isArray(payload.buses)) io.buses = payload.buses;
+  return io;
+ }, () => ({ list: [], buses: [] }));
  break;
  /* v1.10.0 — per-row patch checkmark, merged server-side. Idempotent: a
     retried request that already landed is a no-op, and two techs checking
@@ -1600,7 +1635,7 @@ export default async (req, context) => {
  hit.by = done ? str(payload.by, 40) : "";
  hit.t = done ? str(payload.t, 12) : "";
  return io;
- }, () => ({ list: [] }));
+ }, () => ({ list: [], buses: [] }));
  break;
  }
  case "setDayPin":
@@ -1698,7 +1733,7 @@ export default async (req, context) => {
  }
  // The rain-date shift is day-specific — the next event starts unshifted.
  await casCore(s, K, core => ({ ...EMPTY_CORE, event: { ...core.event, shift: 0 }, dayPin: core.dayPin, funding: core.funding, praises: core.praises }));
- await compareAndSwap(s, K.io, normIO, io => { io.list = ioListClearProgress(io.list); return io; }, () => ({ list: [] }));
+ await compareAndSwap(s, K.io, normIO, io => { io.list = ioListClearProgress(io.list); return io; }, () => ({ list: [], buses: [] }));
  const [c1, c2, c3, c4] = await Promise.all([ s.list({ prefix: K.countPre }), s.list({ prefix: K.tallyPre }), s.list({ prefix: K.tal2Pre }), s.list({ prefix: K.dec2Pre }) ]);
  const doomed = [ ...((c1 && c1.blobs) || []), ...((c2 && c2.blobs) || []), ...((c3 && c3.blobs) || []), ...((c4 && c4.blobs) || []) ]
   .filter(b => b.key !== K.agg); // rewritten below, not deleted (racy otherwise)
