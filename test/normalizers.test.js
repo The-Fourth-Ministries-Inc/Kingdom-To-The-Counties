@@ -128,7 +128,9 @@ test("normIO keeps the routing and IEM-mix fields the table views need", () => {
     aux: "9", out: "9", txUnit: "9", leg: "l", mode: "mono", dest: "Add'l Vox",
     kind: "", share: [{ pack: "Spare Pack 1", name: "SPARE", dest: "Add'l Vox" }],
     rows: [{ id: "r1", role: "Overhead (L)", avb: "44", foh: "26", sc: "",
-             port: "NSB.32 - 4", altPort: "NSB.32 - 15-16", src: "Kyle", p48: 1 }]
+             port: "NSB.32 - 4", altPort: "NSB.32 - 15-16", src: "Kyle", p48: 1,
+             note: "Hybrid Drum Mic Setup", altNote: "Streamed to Aux In 1",
+             altGear: "Mac AVB Digital Return", stereo: 1 }]
   }]});
   const p = io.list[0], r = p.rows[0];
   assert.equal(p.aux, "9");
@@ -141,6 +143,10 @@ test("normIO keeps the routing and IEM-mix fields the table views need", () => {
   assert.equal(r.altPort, "NSB.32 - 15-16");
   assert.equal(r.src, "Kyle");
   assert.equal(r.p48, true);
+  assert.equal(r.note, "Hybrid Drum Mic Setup");
+  assert.equal(r.altNote, "Streamed to Aux In 1");
+  assert.equal(r.altGear, "Mac AVB Digital Return");
+  assert.equal(r.stereo, true);
 });
 
 test("normIO rejects an unknown mix mode rather than storing it", () => {

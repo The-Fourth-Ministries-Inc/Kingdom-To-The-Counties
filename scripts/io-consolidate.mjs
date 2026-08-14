@@ -116,40 +116,35 @@ function findHeader(rows, specs, within) {
 function readInputHalf(rows, section, side) {
   const { col } = section;
   const out = [];
-  let source = "";
-  let chan = "";
 
   for (let r = section.row + 1; r < rows.length; r++) {
     const row = rows[r];
-    const banner = txt(row[col.channel]);
-    if (/^part 2:/i.test(banner)) break;
+    const chan = txt(row[col.channel]);
+    if (/^part 2:/i.test(chan)) break;
     if (blank(row)) continue;
 
-    const rawSource = txt(row[col.source]);
-    if (rawSource) source = rawSource;
-
+    const source = txt(row[col.source]);
     const role = txt(row[col.role]);
     const avbCell = txt(row[col.avb]);
     const port = col.port != null ? txt(row[col.port]) : "";
     const gear = col.gear != null ? txt(row[col.gear]) : "";
     const note = col.note != null ? txt(row[col.note]) : "";
     const p48 = col.p48 != null ? /^(y|yes|true|x|48)/i.test(txt(row[col.p48])) : false;
+    /* Aux/Tape returns are console inputs, not stage patch points. */
+    const aux = /^(aux in|tape in)/i.test(chan);
 
-    /* A row with no role and no gear is a spacer or a stray merge remnant. */
-    if (!role && !gear) continue;
-
-    /* Stereo pairs and aux returns merge their channel cell across two rows —
-       the second row reads blank. Carry the label down so the right-hand leg
-       still reports the channel it lands on. */
-    const rawChan = channelLabel(row[col.channel]);
-    if (rawChan) chan = rawChan;
-    if (/^part 2:/i.test(chan)) break;
+    /* Spacer rows carry nothing. An aux or tape return is kept even when it is
+       entirely blank — "the board has a Tape In and nothing is assigned to it"
+       is a fact a tech looking for a spare stereo input wants to see. */
+    if (!role && !gear && !aux) continue;
 
     out.push({
       side,
-      chan,
-      /* Aux/Tape returns are console inputs but not stage patch points. */
-      aux: /^(aux in|tape in)/i.test(chan),
+      chan: channelLabel(chan),
+      /* The sheet marks stereo pairs and returns as "13/14 (stereo)"; keep the
+         marker, it is the only place the pairing is written down. */
+      chanLabel: chan,
+      aux,
       source,
       role,
       avb: avbNum(avbCell),
@@ -183,48 +178,50 @@ export function mergeInputs(fohRows, scRows) {
         avbLabel: row.avbLabel,
         source: row.source,
         role: row.role,
-        port: row.port,
-        gear: row.gear,
         p48: row.p48,
-        note: row.note,
         aux: row.aux,
+        stereo: false,
         foh: "",
         sc: "",
-        fohPort: "",
-        scPort: "",
+        /* Kept per console: where the two halves disagree, both readings are
+           real and the app shows them side by side rather than picking one. */
+        fohPort: "", scPort: "",
+        fohGear: "", scGear: "",
+        fohNote: "", scNote: "",
       });
     }
     return merged.get(k);
   }
 
-  for (const row of fohRows) {
+  function take(row, side) {
     const s = slot(row);
-    s.foh = row.chan;
-    s.fohPort = row.port;
+    s[side] = row.chan;
+    s[side + "Port"] = row.port;
+    s[side + "Gear"] = row.gear;
+    s[side + "Note"] = row.note;
     if (row.p48) s.p48 = true;
-    if (!s.note) s.note = row.note;
-  }
-  for (const row of scRows) {
-    const s = slot(row);
-    s.sc = row.chan;
-    s.scPort = row.port;
+    if (/\(stereo\)/i.test(row.chanLabel || "")) s.stereo = true;
     /* The monitor console names the source on rows FOH leaves blank (the raw
-       vocal splits), so let it fill in a source the FOH half never had. */
-    if (!s.source || /^n\/a$/i.test(s.source)) s.source = row.source;
-    if (!s.gear) s.gear = row.gear;
-    if (!s.port) s.port = row.port;
-    if (row.p48) s.p48 = true;
-    if (!s.note) s.note = row.note;
+       vocal splits), so let either half supply one the other never had. */
+    if ((!s.source || /^n\/a$/i.test(s.source)) && row.source) s.source = row.source;
+    if (!s.role) s.role = row.role;
+    return s;
   }
 
-  /* Physical port: the two consoles occasionally disagree (the monitor console
-     reads pre-mixed drums off different NSB ports). Keep FOH's as the patch
-     point a stagehand actually plugs, and carry the monitor one alongside. */
+  for (const row of fohRows) take(row, "foh");
+  for (const row of scRows) take(row, "sc");
+
+  /* Collapse the per-console readings to a primary plus an alternate. FOH's is
+     the primary where both exist — it is the patch a stagehand actually plugs
+     — and the 32SC's rides alongside whenever it says something different. */
   for (const s of merged.values()) {
     s.port = s.fohPort || s.scPort;
     s.altPort = s.fohPort && s.scPort && s.fohPort !== s.scPort ? s.scPort : "";
-    delete s.fohPort;
-    delete s.scPort;
+    s.gear = s.fohGear || s.scGear;
+    s.altGear = s.fohGear && s.scGear && s.fohGear !== s.scGear ? s.scGear : "";
+    s.note = s.fohNote || s.scNote;
+    s.altNote = s.fohNote && s.scNote && s.fohNote !== s.scNote ? s.scNote : "";
+    for (const k of ["fohPort","scPort","fohGear","scGear","fohNote","scNote"]) delete s[k];
   }
 
   return [...merged.values()].sort((a, b) => {
@@ -349,7 +346,8 @@ function readBuses(rows, section) {
     const dest = col.dest != null ? txt(row[col.dest]) : "";
     const hw = col.hw != null ? txt(row[col.hw]) : "";
     const purpose = col.purpose != null ? txt(row[col.purpose]) : "";
-    if (!sig && !dest && !hw && !purpose) continue;
+    /* A named bus with nothing against it is still a bus that exists. (Aux 16
+       is written this way — it shares one merged "Spares" block with Aux 15.) */
 
     buses.push({
       id: slug(`bus-${bus}`),
@@ -485,7 +483,7 @@ export function buildCards(inputs, mixes) {
       }
     }
 
-    const row = {
+    target.rows.push({
       id: uid(`${target.name}-${inp.role}-${inp.gear || inp.avb}`),
       role: inp.role,
       gear: inp.gear,
@@ -495,13 +493,16 @@ export function buildCards(inputs, mixes) {
       sc: inp.sc || "",
       port: inp.port || "",
       altPort: inp.altPort || "",
+      /* The sheet's own Source cell, verbatim — "Zach TB" and "Zach AG" are
+         how the tech tells his talkback from his acoustic, and grouped cards
+         (House, Playback, spares) cover several sources under one name. */
+      src: inp.source || "",
+      note: inp.note || "",
+      altGear: inp.altGear || "",
+      altNote: inp.altNote || "",
+      stereo: inp.stereo || false,
       p48: inp.p48 || false,
-    };
-    /* Grouped cards (House, Playback, spares) cover several sources, and the
-       sheet's own Source cell is what the table has to show. Carry it only
-       when it isn't just the card's own name repeated. */
-    if (key(displayName(inp.source)) !== key(target.name)) row.src = inp.source;
-    target.rows.push(row);
+    });
   }
 
   /* Cards that hold neither a mix nor an input are noise from a merged cell. */
@@ -566,7 +567,17 @@ export function findGutter(rows, width) {
 
 /* ---- workbook helpers ---- */
 
-/** Read a worksheet into a dense array-of-arrays, blanks included. */
+/**
+ * Read a worksheet into a dense array-of-arrays, blanks included, with merged
+ * ranges expanded.
+ *
+ * A merged cell stores its value only in the top-left slot; every other slot
+ * in the block reads back null even though the sheet DISPLAYS the value across
+ * all of them. Without expanding, a straight column read loses exactly the
+ * values a human sees: Kyle's name down the eight drum rows, the physical port
+ * and hardware for the playback returns, the stereo-pair channel labels, and
+ * every note written once against a block of rows.
+ */
 export function sheetToRows(sheet, XLSX) {
   const ref = sheet && sheet["!ref"];
   if (!ref) return [];
@@ -579,6 +590,16 @@ export function sheetToRows(sheet, XLSX) {
       row.push(cell && cell.v != null ? cell.v : null);
     }
     rows.push(row);
+  }
+  for (const m of sheet["!merges"] || []) {
+    const top = rows[m.s.r - range.s.r];
+    const v = top ? top[m.s.c - range.s.c] : null;
+    if (v == null) continue;
+    for (let r = m.s.r; r <= m.e.r; r++) {
+      const row = rows[r - range.s.r];
+      if (!row) continue;
+      for (let c = m.s.c; c <= m.e.c; c++) row[c - range.s.c] = v;
+    }
   }
   return rows;
 }
@@ -657,7 +678,11 @@ export function formatIoDefaultJs(ioList) {
         `port:${lit(r.port)}`,
       ];
       if (r.altPort) bits.push(`altPort:${lit(r.altPort)}`);
+      if (r.altGear) bits.push(`altGear:${lit(r.altGear)}`);
+      if (r.note) bits.push(`note:${lit(r.note)}`);
+      if (r.altNote) bits.push(`altNote:${lit(r.altNote)}`);
       if (r.src) bits.push(`src:${lit(r.src)}`);
+      if (r.stereo) bits.push("stereo:true");
       if (r.p48) bits.push("p48:true");
       out.push(`    {${bits.join(",")}}${i < p.rows.length - 1 ? "," : ""}`);
     });
