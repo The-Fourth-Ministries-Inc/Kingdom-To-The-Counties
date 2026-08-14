@@ -364,7 +364,10 @@ with the segmented control at the top:
 - **👤 Musicians** — the original per-pack cards. What one player needs, and the
   patch checkmarks techs tick off during line check.
 - **🎚 Inputs** — the full input list as a table, **keyed on the AVB stream
-  number**, with the FOH and 32SC channel numbers side by side.
+  number**, with the FOH and 32SC channel numbers side by side: source, role,
+  physical patch point, mic/hardware, +48V and the sheet's notes. Where the two
+  consoles wrote different things for one signal, both readings show — the
+  32SC's on its own line, labelled.
 - **🎧 Outputs** — the Ark 32R IEM mixes (transmitter, pack, assignee,
   stereo/mono) and the NSB 32.16 PA buses.
 
@@ -415,6 +418,19 @@ Two more worth knowing that the app can't detect: the Toms/overheads mixdown is
 sent on **AVB 49/50** by the FOH output table but received on **AVB 57/58** by
 the 32SC input list, and the transmitters run 1, 2, 3, 4, **9**, 6, 7, 8 — there
 is no unit 5. Fix any of these in the app and the app becomes the truth.
+
+### Merged cells are the whole ballgame
+
+A merged cell stores its value only in the top-left slot; every other slot in
+the block reads back empty even though the sheet *displays* the value on all of
+them. `sheetToRows` expands merges before anything else looks at the grid,
+because that is where a third of this sheet's content lives: Kyle's name down
+the eight drum rows, the physical port and hardware for the playback returns,
+the `13/14 (stereo)` channel labels, the `Aux 16` bus, and every note written
+once against a block of rows. Skip that step and the import looks complete
+while quietly dropping ~70 values. `test/io-consolidate.test.js` pins the
+behaviour, including that expansion never becomes a general fill-down over
+genuinely blank cells.
 
 ### Re-importing from the workbook
 

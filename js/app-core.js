@@ -118,64 +118,65 @@ function renderClock(){
 /* ===== Tech I/O List (Input / Mic / IEM Pack assignments) ===== */
 var IO_DEFAULT=[
   {id:"pack-1-orange",name:"Karielle",inst:"",pack:"Pack 1 (Orange)",color:"#ED8B0B",qmix:"1 & 2",tx:"IEM Transmitter 1",aux:"1 & 2",out:"1 & 2",txUnit:"1",leg:"",mode:"stereo",dest:"Lead Vox",share:[{pack:"\"Extra\" Pack",name:"SPARE",dest:"Add'l Vox"}],rows:[
-    {id:"karielle-lead-vox-wireless-mic-b-tuned",role:"Lead Vox",gear:"Wireless Mic B (Tuned)",loc:"AVB 2 · Ark 2",avb:"2",foh:"2",sc:"2",port:"Ark Splitter - Input 2 (from Ip7)"},
-    {id:"karielle-lead-vox-raw-split-wireless-mic-b-raw",role:"Lead Vox (Raw split)",gear:"Wireless Mic B (Raw)",loc:"AVB 7 · Ark 7",avb:"7",foh:"",sc:"29",port:"Ark Splitter - Input 7"}
+    {id:"karielle-lead-vox-wireless-mic-b-tuned",role:"Lead Vox",gear:"Wireless Mic B (Tuned)",loc:"AVB 2 · Ark 2",avb:"2",foh:"2",sc:"2",port:"Ark Splitter - Input 2 (from Ip7)",note:"Primary Lead Vocalist",src:"Karielle"},
+    {id:"karielle-lead-vox-raw-split-wireless-mic-b-raw",role:"Lead Vox (Raw split)",gear:"Wireless Mic B (Raw)",loc:"AVB 7 · Ark 7",avb:"7",foh:"",sc:"29",port:"Ark Splitter - Input 7",note:"Uncorrected raw vocal split path",src:"Karielle"}
   ]},
   {id:"pack-2-red",name:"Zach",inst:"Acoustic Guitar 1",pack:"Pack 2 (Red)",color:"#E23B2E",qmix:"3 & 4",tx:"IEM Transmitter 2",aux:"3 & 4",out:"3 & 4",txUnit:"2",leg:"",mode:"stereo",dest:"Acoustic 1",rows:[
-    {id:"zach-lead-vox-wireless-mic-a-tuned",role:"Lead Vox",gear:"Wireless Mic A (Tuned)",loc:"AVB 1 · Ark 1",avb:"1",foh:"1",sc:"1",port:"Ark Splitter - Input 1 (from Ip6)"},
-    {id:"zach-lead-vox-raw-split-wireless-mic-a-raw",role:"Lead Vox (Raw split)",gear:"Wireless Mic A (Raw)",loc:"AVB 6 · Ark 6",avb:"6",foh:"",sc:"28",port:"Ark Splitter - Input 6"},
-    {id:"zach-stage-talkback-wired-tb-1",role:"Stage Talkback",gear:"Wired TB 1",loc:"AVB 14 · Ark 14",avb:"14",foh:"9",sc:"9",port:"Ark Splitter - Input 14"},
-    {id:"zach-acoustic-guitar-1-1x-active-di",role:"Acoustic Guitar 1",gear:"1x Active DI",loc:"AVB 21 · Ark 21",avb:"21",foh:"18",sc:"18",port:"Ark Splitter - Input 21"}
+    {id:"zach-lead-vox-wireless-mic-a-tuned",role:"Lead Vox",gear:"Wireless Mic A (Tuned)",loc:"AVB 1 · Ark 1",avb:"1",foh:"1",sc:"1",port:"Ark Splitter - Input 1 (from Ip6)",note:"Primary Lead Vocalist",src:"Zach"},
+    {id:"zach-lead-vox-raw-split-wireless-mic-a-raw",role:"Lead Vox (Raw split)",gear:"Wireless Mic A (Raw)",loc:"AVB 6 · Ark 6",avb:"6",foh:"",sc:"28",port:"Ark Splitter - Input 6",note:"Uncorrected raw vocal split path",src:"Zach"},
+    {id:"zach-stage-talkback-wired-tb-1",role:"Stage Talkback",gear:"Wired TB 1",loc:"AVB 14 · Ark 14",avb:"14",foh:"9",sc:"9",port:"Ark Splitter - Input 14",note:"Switched talkback mic",src:"Zach TB"},
+    {id:"zach-acoustic-guitar-1-1x-active-di",role:"Acoustic Guitar 1",gear:"1x Active DI",loc:"AVB 21 · Ark 21",avb:"21",foh:"18",sc:"18",port:"Ark Splitter - Input 21",note:"Acoustic path",src:"Zach AG"}
   ]},
   {id:"pack-3-green",name:"Annie",inst:"",pack:"Pack 3 (Green)",color:"#79C24A",qmix:"5 & 6",tx:"IEM Transmitter 3",aux:"5 & 6",out:"5 & 6",txUnit:"3",leg:"",mode:"stereo",dest:"Add'l Vox",share:[{pack:"Spare Pack 1",name:"SPARE",dest:"Add'l Vox"}],rows:[
-    {id:"annie-add-l-vox-wireless-mic-c-tuned",role:"Add'l Vox",gear:"Wireless Mic C (Tuned)",loc:"AVB 3 · Ark 3",avb:"3",foh:"3",sc:"3",port:"Ark Splitter - Input 3 (from Ip8)"},
-    {id:"annie-add-l-vox-raw-split-wireless-mic-c-raw",role:"Add'l Vox (Raw split)",gear:"Wireless Mic C (Raw)",loc:"AVB 8 · Ark 8",avb:"8",foh:"",sc:"30",port:"Ark Splitter - Input 8"}
+    {id:"annie-add-l-vox-wireless-mic-c-tuned",role:"Add'l Vox",gear:"Wireless Mic C (Tuned)",loc:"AVB 3 · Ark 3",avb:"3",foh:"3",sc:"3",port:"Ark Splitter - Input 3 (from Ip8)",note:"Additional Tuned Vocals",altNote:"Additional Vocals",src:"Annie"},
+    {id:"annie-add-l-vox-raw-split-wireless-mic-c-raw",role:"Add'l Vox (Raw split)",gear:"Wireless Mic C (Raw)",loc:"AVB 8 · Ark 8",avb:"8",foh:"",sc:"30",port:"Ark Splitter - Input 8",note:"Uncorrected raw vocal split path",src:"Annie"}
   ]},
   {id:"pack-4-brown",name:"Mike",inst:"",pack:"Pack 4 (Brown)",color:"#9E6B33",qmix:"7 & 8",tx:"IEM Transmitter 4",aux:"7 & 8",out:"7 & 8",txUnit:"4",leg:"",mode:"stereo",dest:"Add'l Vox",share:[{pack:"Spare Pack 2",name:"SPARE",dest:"Acoustic 2"}],rows:[
-    {id:"mike-add-l-vox-wireless-mic-d-tuned",role:"Add'l Vox",gear:"Wireless Mic D (Tuned)",loc:"AVB 4 · Ark 4",avb:"4",foh:"4",sc:"4",port:"Ark Splitter - Input 4 (from Ip9)"},
-    {id:"mike-add-l-vox-raw-split-wireless-mic-d-raw",role:"Add'l Vox (Raw split)",gear:"Wireless Mic D (Raw)",loc:"AVB 9 · Ark 9",avb:"9",foh:"",sc:"31",port:"Ark Splitter - Input 9"},
-    {id:"mike-stage-talkback-wired-tb-3",role:"Stage Talkback",gear:"Wired TB 3",loc:"AVB 16 · Ark 16",avb:"16",foh:"11",sc:"11",port:"Ark Splitter - Input 16"}
+    {id:"mike-add-l-vox-wireless-mic-d-tuned",role:"Add'l Vox",gear:"Wireless Mic D (Tuned)",loc:"AVB 4 · Ark 4",avb:"4",foh:"4",sc:"4",port:"Ark Splitter - Input 4 (from Ip9)",note:"Additional Tuned Vocals",altNote:"Additional Vocals",src:"Mike"},
+    {id:"mike-add-l-vox-raw-split-wireless-mic-d-raw",role:"Add'l Vox (Raw split)",gear:"Wireless Mic D (Raw)",loc:"AVB 9 · Ark 9",avb:"9",foh:"",sc:"31",port:"Ark Splitter - Input 9",note:"Uncorrected raw vocal split path",src:"Mike"},
+    {id:"mike-stage-talkback-wired-tb-3",role:"Stage Talkback",gear:"Wired TB 3",loc:"AVB 16 · Ark 16",avb:"16",foh:"11",sc:"11",port:"Ark Splitter - Input 16",note:"Switched talkback mic",src:"Mike TB"}
   ]},
   {id:"pack-5-yellow",name:"Jeanne",inst:"",pack:"Pack 5 (Yellow)",color:"#F2CB05",qmix:"9",tx:"IEM Transmitter 9 (L)",aux:"9",out:"9",txUnit:"9",leg:"L",mode:"mono",dest:"Add'l Vox",rows:[
-    {id:"jeanne-acoustic-guitar-2-1x-active-di",role:"Acoustic Guitar 2",gear:"1x Active DI",loc:"AVB 22 · Ark 22",avb:"22",foh:"19",sc:"19",port:"Ark Splitter - Input 22"}
+    {id:"jeanne-acoustic-guitar-2-1x-active-di",role:"Acoustic Guitar 2",gear:"1x Active DI",loc:"AVB 22 · Ark 22",avb:"22",foh:"19",sc:"19",port:"Ark Splitter - Input 22",note:"Secondary Acoustic line",src:"Jeanne AG"}
   ]},
   {id:"spare-pack-3",name:"Sean",inst:"Bass Guitar",pack:"Spare Pack 3",color:"#c7c2b8",qmix:"10",tx:"IEM Transmitter 9 (R)",aux:"10",out:"10",txUnit:"9",leg:"R",mode:"mono",dest:"Bass",rows:[
-    {id:"sean-bass-guitar-1x-active-di-modeler",role:"Bass Guitar",gear:"1x Active DI / Modeler",loc:"AVB 18 · Ark 18",avb:"18",foh:"17",sc:"17",port:"Ark Splitter - Input 18"}
+    {id:"sean-bass-guitar-1x-active-di-modeler",role:"Bass Guitar",gear:"1x Active DI / Modeler",loc:"AVB 18 · Ark 18",avb:"18",foh:"17",sc:"17",port:"Ark Splitter - Input 18",note:"Bass platform routing",src:"Sean"}
   ]},
   {id:"pack-6-grey",name:"Brett",inst:"Electric Guitar",pack:"Pack 6 (Grey)",color:"#9AA0A6",qmix:"11 & 12",tx:"IEM Transmitter 6",aux:"11 & 12",out:"11 & 12",txUnit:"6",leg:"",mode:"stereo",dest:"Electric Guitar",rows:[
-    {id:"brett-electric-guitar-l-stereo-di-modeler-left",role:"Electric Guitar (L)",gear:"Stereo DI / Modeler (Left)",loc:"AVB 19 · Ark 19",avb:"19",foh:"13/14",sc:"13/14",port:"Ark Splitter - Input 19"},
-    {id:"brett-electric-guitar-r-stereo-di-modeler-right",role:"Electric Guitar (R)",gear:"Stereo DI / Modeler (Right)",loc:"AVB 20 · Ark 20",avb:"20",foh:"13/14",sc:"13/14",port:"Ark Splitter - Input 20"}
+    {id:"brett-electric-guitar-l-stereo-di-modeler-left",role:"Electric Guitar (L)",gear:"Stereo DI / Modeler (Left)",loc:"AVB 19 · Ark 19",avb:"19",foh:"13/14",sc:"13/14",port:"Ark Splitter - Input 19",note:"Guitar platform routing",src:"Brett",stereo:true},
+    {id:"brett-electric-guitar-r-stereo-di-modeler-right",role:"Electric Guitar (R)",gear:"Stereo DI / Modeler (Right)",loc:"AVB 20 · Ark 20",avb:"20",foh:"13/14",sc:"13/14",port:"Ark Splitter - Input 20",note:"Guitar platform routing",src:"Brett",stereo:true}
   ]},
   {id:"pack-7-purple",name:"John",inst:"Keys",pack:"Pack 7 (Purple)",color:"#7B3FF2",qmix:"13 & 14",tx:"IEM Transmitter 7",aux:"13 & 14",out:"13 & 14",txUnit:"7",leg:"",mode:"stereo",dest:"Keyboard Platform",rows:[
-    {id:"john-stage-talkback-wired-tb-2",role:"Stage Talkback",gear:"Wired TB 2",loc:"AVB 15 · Ark 15",avb:"15",foh:"10",sc:"10",port:"Ark Splitter - Input 15"},
-    {id:"john-keys-l-2x-stereo-di-left",role:"Keys (L)",gear:"2x Stereo DI (Left)",loc:"AVB 23 · Ark 23",avb:"23",foh:"15/16",sc:"15/16",port:"Ark Splitter - Input 23"},
-    {id:"john-keys-r-2x-stereo-di-right",role:"Keys (R)",gear:"2x Stereo DI (Right)",loc:"AVB 24 · Ark 24",avb:"24",foh:"15/16",sc:"15/16",port:"Ark Splitter - Input 24"}
+    {id:"john-stage-talkback-wired-tb-2",role:"Stage Talkback",gear:"Wired TB 2",loc:"AVB 15 · Ark 15",avb:"15",foh:"10",sc:"10",port:"Ark Splitter - Input 15",note:"Switched talkback mic",src:"John TB"},
+    {id:"john-keys-l-2x-stereo-di-left",role:"Keys (L)",gear:"2x Stereo DI (Left)",loc:"AVB 23 · Ark 23",avb:"23",foh:"15/16",sc:"15/16",port:"Ark Splitter - Input 23",note:"Keyboard line",src:"John",stereo:true},
+    {id:"john-keys-r-2x-stereo-di-right",role:"Keys (R)",gear:"2x Stereo DI (Right)",loc:"AVB 24 · Ark 24",avb:"24",foh:"15/16",sc:"15/16",port:"Ark Splitter - Input 24",note:"Keyboard line",src:"John",stereo:true}
   ]},
   {id:"pack-8-blue",name:"Kyle",inst:"Drums",pack:"Pack 8 (Blue)",color:"#2E7CD6",qmix:"15 & 16",tx:"IEM Transmitter 8",aux:"15 & 16",out:"15 & 16",txUnit:"8",leg:"",mode:"stereo",dest:"Drums Platform",rows:[
-    {id:"kyle-kick-drum-1-kick-mic",role:"Kick Drum",gear:"1. Kick Mic",loc:"AVB 25 · Ark 25",avb:"25",foh:"20",sc:"20",port:"Ark Splitter - Input 25"},
-    {id:"kyle-snare-top-2-snare-top-mic",role:"Snare Top",gear:"2. Snare Top Mic",loc:"AVB 26 · Ark 26",avb:"26",foh:"21",sc:"21",port:"Ark Splitter - Input 26"},
-    {id:"kyle-snare-bottom-3-snare-bottom-mic",role:"Snare Bottom",gear:"3. Snare Bottom Mic",loc:"AVB 27 · Ark 27",avb:"27",foh:"22",sc:"22",port:"Ark Splitter - Input 27"},
-    {id:"kyle-tom-1-4-tom-1-mic",role:"Tom 1",gear:"4. Tom 1 Mic",loc:"AVB 41 · NSB 1",avb:"41",foh:"23",sc:"",port:"NSB.32 - 1"},
-    {id:"kyle-tom-2-5-tom-2-mic",role:"Tom 2",gear:"5. Tom 2 Mic",loc:"AVB 42 · NSB 2",avb:"42",foh:"24",sc:"",port:"NSB.32 - 2"},
-    {id:"kyle-tom-3-6-tom-3-mic",role:"Tom 3",gear:"6. Tom 3 Mic",loc:"AVB 43 · NSB 3",avb:"43",foh:"25",sc:"",port:"NSB.32 - 3"},
-    {id:"kyle-overhead-l-7-overhead-l-condenser",role:"Overhead (L)",gear:"7. Overhead (L) Condenser",loc:"AVB 44 · NSB 4",avb:"44",foh:"26",sc:"",port:"NSB.32 - 4",p48:true},
-    {id:"kyle-overhead-r-8-overhead-r-condenser",role:"Overhead (R)",gear:"8. Overhead (R) Condenser",loc:"AVB 45 · NSB 5",avb:"45",foh:"27",sc:"",port:"NSB.32 - 5",p48:true},
-    {id:"kyle-toms-mixdown-4-6-tom-mics",role:"Toms - Mixdown",gear:"4-6. Tom Mics",loc:"AVB 57 · NSB 12-14",avb:"57",foh:"",sc:"23",port:"NSB.32 - 12-14"},
-    {id:"kyle-overheads-mixdown-7-8-overhead-lr-condenser",role:"Overheads - Mixdown",gear:"7-8. Overhead (LR) Condensers",loc:"AVB 58 · NSB 15-16",avb:"58",foh:"",sc:"24",port:"NSB.32 - 15-16"}
+    {id:"kyle-kick-drum-1-kick-mic",role:"Kick Drum",gear:"1. Kick Mic",loc:"AVB 25 · Ark 25",avb:"25",foh:"20",sc:"20",port:"Ark Splitter - Input 25",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-snare-top-2-snare-top-mic",role:"Snare Top",gear:"2. Snare Top Mic",loc:"AVB 26 · Ark 26",avb:"26",foh:"21",sc:"21",port:"Ark Splitter - Input 26",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-snare-bottom-3-snare-bottom-mic",role:"Snare Bottom",gear:"3. Snare Bottom Mic",loc:"AVB 27 · Ark 27",avb:"27",foh:"22",sc:"22",port:"Ark Splitter - Input 27",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-tom-1-4-tom-1-mic",role:"Tom 1",gear:"4. Tom 1 Mic",loc:"AVB 41 · NSB 1",avb:"41",foh:"23",sc:"",port:"NSB.32 - 1",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-tom-2-5-tom-2-mic",role:"Tom 2",gear:"5. Tom 2 Mic",loc:"AVB 42 · NSB 2",avb:"42",foh:"24",sc:"",port:"NSB.32 - 2",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-tom-3-6-tom-3-mic",role:"Tom 3",gear:"6. Tom 3 Mic",loc:"AVB 43 · NSB 3",avb:"43",foh:"25",sc:"",port:"NSB.32 - 3",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-overhead-l-7-overhead-l-condenser",role:"Overhead (L)",gear:"7. Overhead (L) Condenser",loc:"AVB 44 · NSB 4",avb:"44",foh:"26",sc:"",port:"NSB.32 - 4",note:"Hybrid Drum Mic Setup",src:"Kyle",p48:true},
+    {id:"kyle-overhead-r-8-overhead-r-condenser",role:"Overhead (R)",gear:"8. Overhead (R) Condenser",loc:"AVB 45 · NSB 5",avb:"45",foh:"27",sc:"",port:"NSB.32 - 5",note:"Hybrid Drum Mic Setup",src:"Kyle",p48:true},
+    {id:"kyle-toms-mixdown-4-6-tom-mics",role:"Toms - Mixdown",gear:"4-6. Tom Mics",loc:"AVB 57 · NSB 12-14",avb:"57",foh:"",sc:"23",port:"NSB.32 - 12-14",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-overheads-mixdown-7-8-overhead-lr-condenser",role:"Overheads - Mixdown",gear:"7-8. Overhead (LR) Condensers",loc:"AVB 58 · NSB 15-16",avb:"58",foh:"",sc:"24",port:"NSB.32 - 15-16",note:"Hybrid Drum Mic Setup",src:"Kyle"}
   ]},
   {id:"spare",name:"Spare / open inputs",inst:"",pack:"",color:"#c7c2b8",qmix:"",tx:"",aux:"",out:"",txUnit:"",leg:"",mode:"none",dest:"",kind:"group",rows:[
-    {id:"spare-open-inputs-add-l-vox-wireless-mic-e-tuned",role:"Add'l Vox",gear:"Wireless Mic E (Tuned)",loc:"AVB 5 · Ark 5",avb:"5",foh:"5",sc:"5",port:"Ark Splitter - Input 5 (from Ip10)",src:"SPARE"},
-    {id:"spare-open-inputs-add-l-vox-raw-split-wireless-m",role:"Add'l Vox (Raw split)",gear:"Wireless Mic E (Raw)",loc:"AVB 10 · Ark 10",avb:"10",foh:"",sc:"32",port:"Ark Splitter - Input 10",src:"SPARE"},
-    {id:"spare-open-inputs-add-l-vox-wireless-mic-f",role:"Add'l Vox",gear:"Wireless Mic F",loc:"AVB 11 · Ark 11",avb:"11",foh:"6",sc:"6",port:"Ark Splitter - Input 11",src:"SPARE"},
+    {id:"spare-open-inputs-add-l-vox-wireless-mic-e-tuned",role:"Add'l Vox",gear:"Wireless Mic E (Tuned)",loc:"AVB 5 · Ark 5",avb:"5",foh:"5",sc:"5",port:"Ark Splitter - Input 5 (from Ip10)",note:"Additional Tuned Vocals",altNote:"Additional Vocals",src:"SPARE"},
+    {id:"spare-open-inputs-add-l-vox-raw-split-wireless-m",role:"Add'l Vox (Raw split)",gear:"Wireless Mic E (Raw)",loc:"AVB 10 · Ark 10",avb:"10",foh:"",sc:"32",port:"Ark Splitter - Input 10",note:"Uncorrected raw vocal split path",src:"SPARE"},
+    {id:"spare-open-inputs-add-l-vox-wireless-mic-f",role:"Add'l Vox",gear:"Wireless Mic F",loc:"AVB 11 · Ark 11",avb:"11",foh:"6",sc:"6",port:"Ark Splitter - Input 11",note:"Additional RAW Vocals",altNote:"Additional Vocals (untuned)",src:"SPARE"},
     {id:"spare-open-inputs-saxophone-28",role:"Saxophone",gear:"",loc:"AVB 28 · Ark 28",avb:"28",foh:"",sc:"25",port:"Ark Splitter - Input 28",src:"N/A"},
     {id:"spare-open-inputs-saxophone-clip-on-sax-mic",role:"Saxophone",gear:"Clip-on Sax Mic",loc:"AVB 37 · Ark 28",avb:"37",foh:"28",sc:"",port:"Ark Splitter - Input 28",src:"SPARE"},
     {id:"spare-open-inputs-spare-38",role:"Spare",gear:"",loc:"AVB 38 · NSB 4",avb:"38",foh:"",sc:"26",port:"NSB.32 - 4",src:"N/A"},
-    {id:"spare-open-inputs-spare-39",role:"Spare",gear:"",loc:"AVB 39 · NSB 5",avb:"39",foh:"",sc:"27",port:"NSB.32 - 5",src:"N/A"}
+    {id:"spare-open-inputs-spare-39",role:"Spare",gear:"",loc:"AVB 39 · NSB 5",avb:"39",foh:"",sc:"27",port:"NSB.32 - 5",src:"N/A"},
+    {id:"spare-open-inputs-0",role:"",gear:"",loc:"",avb:"",foh:"Tape In",sc:"",port:"",stereo:true}
   ]},
   {id:"house",name:"House / Host",inst:"",pack:"",color:"#5c574f",qmix:"",tx:"",aux:"",out:"",txUnit:"",leg:"",mode:"none",dest:"",kind:"group",rows:[
-    {id:"house-host-speaking-mic-wireless-mic-g",role:"Speaking Mic",gear:"Wireless Mic G",loc:"AVB 12 · Ark 12",avb:"12",foh:"7",sc:"7",port:"Ark Splitter - Input 12",src:"Host 1"},
-    {id:"house-host-speaking-mic-wireless-mic-h",role:"Speaking Mic",gear:"Wireless Mic H",loc:"AVB 13 · Ark 13",avb:"13",foh:"8",sc:"8",port:"Ark Splitter - Input 13",src:"Host 2"},
-    {id:"house-host-tech-talkback-wired-tb-4",role:"Tech Talkback",gear:"Wired TB 4",loc:"AVB 17 · Ark 17",avb:"17",foh:"12",sc:"12",port:"Ark Splitter - Input 17",src:"FOH TB"}
+    {id:"house-host-speaking-mic-wireless-mic-g",role:"Speaking Mic",gear:"Wireless Mic G",loc:"AVB 12 · Ark 12",avb:"12",foh:"7",sc:"7",port:"Ark Splitter - Input 12",note:"Stage host mic 1",src:"Host 1"},
+    {id:"house-host-speaking-mic-wireless-mic-h",role:"Speaking Mic",gear:"Wireless Mic H",loc:"AVB 13 · Ark 13",avb:"13",foh:"8",sc:"8",port:"Ark Splitter - Input 13",note:"Stage host mic 2",src:"Host 2"},
+    {id:"house-host-tech-talkback-wired-tb-4",role:"Tech Talkback",gear:"Wired TB 4",loc:"AVB 17 · Ark 17",avb:"17",foh:"12",sc:"12",port:"Ark Splitter - Input 17",note:"Switched talkback mic",src:"FOH TB"}
   ]},
   {id:"unused",name:"Unused channels",inst:"",pack:"",color:"#c7c2b8",qmix:"",tx:"",aux:"",out:"",txUnit:"",leg:"",mode:"none",dest:"",kind:"group",off:true,rows:[
     {id:"unused-channels-unused-channel-none",role:"Unused Channel",gear:"None",loc:"AVB 38 · Ark 29",avb:"38",foh:"29",sc:"",port:"Ark Splitter - Input 29",src:"SPARE"},
@@ -184,12 +185,12 @@ var IO_DEFAULT=[
     {id:"unused-channels-unused-channel-none-4",role:"Unused Channel",gear:"None",loc:"AVB 41 · Ark 32",avb:"41",foh:"32",sc:"",port:"Ark Splitter - Input 32",src:"SPARE"}
   ]},
   {id:"playback",name:"Playback",inst:"",pack:"",color:"#5c574f",qmix:"",tx:"",aux:"",out:"",txUnit:"",leg:"",mode:"none",dest:"",kind:"group",rows:[
-    {id:"playback-tracks-l-mac-avb-coreaudio-send",role:"Tracks (L)",gear:"Mac AVB CoreAudio Send",loc:"AVB 33 · Personal MBP Network",avb:"33",foh:"Aux In 1",sc:"Aux In 1",port:"Personal MBP Network"},
-    {id:"playback-tracks-r-mac-avb-coreaudio-send",role:"Tracks (R)",gear:"Mac AVB CoreAudio Send",loc:"AVB 34 · Personal MBP Network",avb:"34",foh:"Aux In 1",sc:"Aux In 1",port:"Personal MBP Network"},
-    {id:"playback-click-35",role:"Click",gear:"",loc:"AVB 35",avb:"35",foh:"",sc:"Aux In 2 (L)",port:""},
-    {id:"playback-guide-36",role:"Guide",gear:"",loc:"AVB 36",avb:"36",foh:"",sc:"Aux In 2 (R)",port:""},
-    {id:"playback-spotify-l-laptop-audio",role:"Spotify (L)",gear:"Laptop Audio",loc:"Local Aux In Input",avb:"",foh:"Aux In 2",sc:"",port:"Local Aux In Input",src:"Laptop"},
-    {id:"playback-spotify-r-0",role:"Spotify (R)",gear:"",loc:"",avb:"",foh:"Aux In 2",sc:"",port:"",src:"Laptop"}
+    {id:"playback-tracks-l-mac-avb-coreaudio-send",role:"Tracks (L)",gear:"Mac AVB CoreAudio Send",loc:"AVB 33 · Personal MBP Network",avb:"33",foh:"Aux In 1",sc:"Aux In 1",port:"Personal MBP Network",altGear:"Mac AVB Digital Return",note:"MultiTracks Playback stem (Left)",altNote:"Streamed to Aux In 1 to preserve main faders",src:"Playback",stereo:true},
+    {id:"playback-tracks-r-mac-avb-coreaudio-send",role:"Tracks (R)",gear:"Mac AVB CoreAudio Send",loc:"AVB 34 · Personal MBP Network",avb:"34",foh:"Aux In 1",sc:"Aux In 1",port:"Personal MBP Network",altGear:"Mac AVB Digital Return",note:"MultiTracks Playback stem (Right)",altNote:"Streamed to Aux In 1 to preserve main faders",src:"Playback",stereo:true},
+    {id:"playback-click-mac-avb-digital-return",role:"Click",gear:"Mac AVB Digital Return",loc:"AVB 35 · Personal MBP Network",avb:"35",foh:"",sc:"Aux In 2 (L)",port:"Personal MBP Network",note:"Streamed to Aux In 2 to preserve main faders",src:"Playback"},
+    {id:"playback-guide-mac-avb-digital-return",role:"Guide",gear:"Mac AVB Digital Return",loc:"AVB 36 · Personal MBP Network",avb:"36",foh:"",sc:"Aux In 2 (R)",port:"Personal MBP Network",note:"Streamed to Aux In 2 to preserve main faders",src:"Playback"},
+    {id:"playback-spotify-l-laptop-audio",role:"Spotify (L)",gear:"Laptop Audio",loc:"Local Aux In Input",avb:"",foh:"Aux In 2",sc:"",port:"Local Aux In Input",note:"Audio from Papa V's Laptop for Spotify",src:"Laptop",stereo:true},
+    {id:"playback-spotify-r-laptop-audio",role:"Spotify (R)",gear:"Laptop Audio",loc:"Local Aux In Input",avb:"",foh:"Aux In 2",sc:"",port:"Local Aux In Input",note:"Audio from Papa V's Laptop for Spotify",src:"Laptop",stereo:true}
   ]},
 ];
 /* The FOH board's own output buses — PA, stage fill and the hardwired IEM
@@ -208,6 +209,7 @@ var IO_BUSES=[
   {id:"bus-aux-13",bus:"Aux 13",sig:"Mono Auxiliary",dest:"NSB 32.16 - Output 13",hw:"Hardwired Mono IEM",purpose:""},
   {id:"bus-aux-14",bus:"Aux 14",sig:"Mono Auxiliary",dest:"NSB 32.16 - Output 14",hw:"Hardwired Mono IEM",purpose:""},
   {id:"bus-aux-15",bus:"Aux 15",sig:"Spares",dest:"NSB 32.16 - Output 15 & 16",hw:"Open Physical XLR Ports",purpose:"(Maybe) FOH IEM Packs"},
+  {id:"bus-aux-16",bus:"Aux 16",sig:"Spares",dest:"NSB 32.16 - Output 15 & 16",hw:"Open Physical XLR Ports",purpose:"(Maybe) FOH IEM Packs"},
 ];
 var ioEditing=false, ioBuf=null, ioBusBuf=null;
 function ioClone(o){return JSON.parse(JSON.stringify(o));}
@@ -220,7 +222,8 @@ function ioListClearProgress(list){
     return{id:p.id,name:p.name,inst:p.inst,pack:p.pack,color:p.color,qmix:p.qmix,tx:p.tx,
       aux:p.aux,out:p.out,txUnit:p.txUnit,leg:p.leg,mode:p.mode,dest:p.dest,share:p.share,kind:p.kind,off:p.off,
       rows:(p.rows||[]).map(function(r){
-        return{id:r.id,role:r.role,gear:r.gear,loc:r.loc,avb:r.avb,foh:r.foh,sc:r.sc,port:r.port,altPort:r.altPort,src:r.src,p48:r.p48};
+        return{id:r.id,role:r.role,gear:r.gear,loc:r.loc,avb:r.avb,foh:r.foh,sc:r.sc,port:r.port,altPort:r.altPort,
+          note:r.note,altNote:r.altNote,altGear:r.altGear,src:r.src,stereo:r.stereo,p48:r.p48};
     })};
   });
 }
@@ -425,7 +428,7 @@ function renderIOInputs(list){
     return x-y;
   });
 
-  var head='<tr><th class="c stick">✓</th><th class="stick2">AVB</th><th>FOH</th><th>32SC</th><th>Source</th><th>Role / instrument</th><th>Physical input</th><th>Mic / hardware</th><th class="c">48V</th></tr>';
+  var head='<tr><th class="c stick">✓</th><th class="stick2">AVB</th><th>FOH</th><th>32SC</th><th>Source</th><th>Role / instrument</th><th>Physical input</th><th>Mic / hardware</th><th class="c">48V</th><th>Notes</th></tr>';
   var body=rows.map(function(e){
     var p=e.p,r=e.r,n=ioAvbNum(r),pk=ioPortKey(r);
     var avbWarn=cf.avb[n]?' <span class="iowarn" title="AVB '+n+' is used by more than one input">⚠</span>':"";
@@ -433,16 +436,21 @@ function renderIOInputs(list){
     var tap=p.off?"":' onclick="ioToggle(\''+esc(p.id)+'\',\''+esc(r.id)+'\')"';
     var src=r.src||p.name;
     var stamp=(r.done&&r.by)?'<span class="iostamp">✓ '+esc(r.by)+(r.t?(" · "+esc(r.t)):"")+'</span>':"";
+    /* Where the two consoles wrote different things for the same signal, both
+       readings show — the 32SC's on its own line, labelled. */
+    function alt(v){return v?'<span class="alt">32SC: '+esc(v)+'</span>':"";}
+    var chan=r.foh||"—";
     return '<tr class="'+(r.done?"done":"")+(p.off?" off":" tap")+'"'+tap+'>'+
       '<td class="c stick"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg></span></td>'+
       '<td class="num k stick2">'+(r.avb?("AVB "+esc(String(r.avb))):"—")+avbWarn+'</td>'+
-      '<td class="num">'+esc(r.foh||"—")+'</td>'+
+      '<td class="num">'+esc(chan)+(r.stereo?'<span class="alt">stereo pair</span>':"")+'</td>'+
       '<td class="num">'+esc(r.sc||"—")+'</td>'+
       '<td><b>'+esc(src)+'</b>'+stamp+'</td>'+
-      '<td>'+esc(r.role||"")+'</td>'+
-      '<td class="sm">'+esc(r.port||"—")+portWarn+(r.altPort?'<span class="alt">32SC: '+esc(r.altPort)+'</span>':"")+'</td>'+
-      '<td class="sm">'+esc(r.gear||"—")+'</td>'+
-      '<td class="c">'+(r.p48?'<span class="p48">48V</span>':"")+'</td></tr>';
+      '<td>'+esc(r.role||"—")+'</td>'+
+      '<td class="sm">'+esc(r.port||"—")+portWarn+alt(r.altPort)+'</td>'+
+      '<td class="sm">'+esc(r.gear||"—")+alt(r.altGear)+'</td>'+
+      '<td class="c">'+(r.p48?'<span class="p48">48V</span>':"")+'</td>'+
+      '<td class="sm note">'+esc(r.note||"")+alt(r.altNote)+'</td></tr>';
   }).join("");
 
   return ioConsoleBar()+ioConflictNote(cf)+
@@ -515,13 +523,13 @@ function renderIOOutputs(list){
       '<td class="sm">'+esc(b.dest||"—")+'</td><td class="sm">'+esc(b.hw||"—")+'</td><td class="sm">'+esc(b.purpose||"")+'</td></tr>';
   }).join("");
 
-  return '<div class="iosec"><h3>🎧 Ark 32R · IEM mixes</h3>'+
+  return '<div class="iosec"><h3>🎧 Ark 32R Outputs (Stereo IEM Mixes)</h3>'+
       '<p class="iohint">'+used+' of 16 outputs in use · '+mixes.length+' mixes'+
       (LEADER?" — collapse a stereo mix to two mono legs when there are more musicians than pairs."
              :" — leaders can collapse a mix to mono to fit another musician.")+'</p>'+
       '<div class="iotable"><table class="iotbl out"><thead><tr><th class="stick">Mix</th><th>Ark out</th><th>Transmitter</th><th>Pack</th><th>Assignee</th><th class="c">Mode</th></tr></thead>'+
       '<tbody>'+mixRows+noMix+'</tbody></table></div></div>'+
-    '<div class="iosec"><h3>🔊 NSB 32.16 · PA &amp; stage box</h3>'+
+    '<div class="iosec"><h3>🔊 NSB 32.16 Stage Box Outputs (PA &amp; Hardwired IEMs)</h3>'+
       '<p class="iohint">FOH output buses — the house system, not personal mixes.</p>'+
       '<div class="iotable"><table class="iotbl out"><thead><tr><th class="stick">Bus</th><th>Signal</th><th>Patch destination</th><th>Hardware</th><th>Purpose</th></tr></thead>'+
       '<tbody>'+buses+'</tbody></table></div></div>';
@@ -618,9 +626,9 @@ function ioSet(pi,ri,field,val){
 }
 function ioSetFlag(pi,ri,field,on){ioBuf[pi].rows[ri][field]=!!on;}
 function ioBusSet(bi,field,val){(ioBusBuf=ioBusBuf||ioClone(ioBusCurrent()))[bi][field]=val;}
-function ioAddRow(pi){ioBuf[pi].rows.push({id:ioUid(),role:"",gear:"",loc:"",avb:"",foh:"",sc:"",port:""});renderIOList();}
+function ioAddRow(pi){ioBuf[pi].rows.push({id:ioUid(),role:"",gear:"",loc:"",avb:"",foh:"",sc:"",port:"",note:"",src:""});renderIOList();}
 function ioDelRow(pi,ri){ioBuf[pi].rows.splice(ri,1);renderIOList();}
-function ioAddPerf(){ioBuf.push({id:ioUid(),name:"New Performer",inst:"",pack:"",color:"#2E7CD6",qmix:"",tx:"",mode:"none",rows:[{id:ioUid(),role:"",gear:"",loc:"",avb:"",foh:"",sc:"",port:""}]});renderIOList();}
+function ioAddPerf(){ioBuf.push({id:ioUid(),name:"New Performer",inst:"",pack:"",color:"#2E7CD6",qmix:"",tx:"",mode:"none",rows:[{id:ioUid(),role:"",gear:"",loc:"",avb:"",foh:"",sc:"",port:"",note:"",src:""}]});renderIOList();}
 function ioDelPerf(pi){if(confirm("Remove this performer and all their inputs?")){ioBuf.splice(pi,1);renderIOList();}}
 function renderIOEdit(mount){
   var bar='<div class="ioedbar"><button class="cancel" onclick="ioCancelEdit()">Cancel</button><button class="save" onclick="ioSaveEdit()">✓ Save list</button></div>';
@@ -645,6 +653,7 @@ function renderIOEdit(mount){
         '<label class="iofield w4"><span>FOH ch</span><input value="'+esc(r.foh||"")+'" oninput="ioSet('+pi+','+ri+',\'foh\',this.value)"></label>'+
         '<label class="iofield w4"><span>32SC ch</span><input value="'+esc(r.sc||"")+'" oninput="ioSet('+pi+','+ri+',\'sc\',this.value)"></label>'+
         '<label class="iofield grow"><span>Physical input</span><input value="'+esc(r.port||"")+'" oninput="ioSet('+pi+','+ri+',\'port\',this.value)"></label>'+
+        '<label class="iofield grow"><span>Notes</span><input value="'+esc(r.note||"")+'" oninput="ioSet('+pi+','+ri+',\'note\',this.value)"></label>'+
         '<label class="io48"><input type="checkbox"'+(r.p48?" checked":"")+' onchange="ioSetFlag('+pi+','+ri+',\'p48\',this.checked)">48V</label>'+
         '</span><button class="iodel" onclick="ioDelRow('+pi+','+ri+')" title="Remove input">✕</button></div>';
     }).join("");
@@ -661,7 +670,7 @@ function renderIOEdit(mount){
       '</span></div>';
   }).join("");
   mount.innerHTML=bar+body+'<button class="ioaddperf" onclick="ioAddPerf()">＋ Add performer</button>'+
-    '<div class="ioperf ed"><div class="ph ioph"><span class="pn">🔊 NSB 32.16 · PA &amp; stage box</span></div>'+buses+'</div>'+bar;
+    '<div class="ioperf ed"><div class="ph ioph"><span class="pn">🔊 NSB 32.16 Stage Box Outputs</span></div>'+buses+'</div>'+bar;
 }
 /* Real numbers & emails — keep in sync with the Playbook's Leadership Contacts */
 var LEADERS=[

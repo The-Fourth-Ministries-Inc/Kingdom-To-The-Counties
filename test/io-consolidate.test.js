@@ -13,10 +13,57 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   mergeInputs, buildCards, auxLabel, parseTransmitter, avbNum, locLabel, findGutter,
+  sheetToRows,
 } from "../scripts/io-consolidate.mjs";
 
-const foh = (o) => ({ side: "foh", chan: "", source: "", role: "", avb: 0, port: "", gear: "", p48: false, note: "", aux: false, ...o });
+const foh = (o) => ({ side: "foh", chan: "", chanLabel: "", source: "", role: "", avb: 0, port: "", gear: "", p48: false, note: "", aux: false, ...o });
 const sc = (o) => foh({ side: "sc", ...o });
+
+/* Minimal stand-in for the bits of the xlsx API sheetToRows touches. */
+const XLSX_STUB = {
+  utils: {
+    decode_range: (ref) => {
+      const [a, b] = ref.split(":");
+      const cell = (s) => {
+        const m = s.match(/^([A-Z]+)(\d+)$/);
+        let c = 0;
+        for (const ch of m[1]) c = c * 26 + (ch.charCodeAt(0) - 64);
+        return { c: c - 1, r: Number(m[2]) - 1 };
+      };
+      return { s: cell(a), e: cell(b) };
+    },
+    encode_cell: ({ r, c }) => {
+      let s = "", n = c + 1;
+      while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = ((n - m) / 26) | 0; }
+      return s + (r + 1);
+    },
+  },
+};
+
+/* This is the bug that silently emptied a third of the import: a merged cell
+   stores its value ONLY in the top-left slot, so every other row in the block
+   read back null even though the sheet shows the value on all of them. That is
+   where the source names down the drum block, the playback ports and every
+   note written once against a group of rows lived. */
+test("sheetToRows expands merged cells the way the sheet renders them", () => {
+  const sheet = {
+    "!ref": "A1:C3",
+    "!merges": [{ s: { r: 0, c: 0 }, e: { r: 2, c: 0 } }],  // A1:A3 = "Kyle"
+    A1: { v: "Kyle" },
+    B1: { v: "Kick" }, B2: { v: "Snare" }, B3: { v: "Tom 1" },
+    C1: { v: "Hybrid Drum Mic Setup" },
+  };
+  const rows = sheetToRows(sheet, XLSX_STUB);
+  assert.deepEqual(rows.map((r) => r[0]), ["Kyle", "Kyle", "Kyle"]);
+  assert.deepEqual(rows.map((r) => r[1]), ["Kick", "Snare", "Tom 1"]);
+  // Unmerged blanks stay blank — expansion must not become a general fill-down.
+  assert.deepEqual(rows.map((r) => r[2]), ["Hybrid Drum Mic Setup", null, null]);
+});
+
+test("sheetToRows leaves a sheet with no merges untouched", () => {
+  const rows = sheetToRows({ "!ref": "A1:B2", A1: { v: "a" }, B2: { v: "d" } }, XLSX_STUB);
+  assert.deepEqual(rows, [["a", null], [null, "d"]]);
+});
 
 test("avbNum and auxLabel read the sheet's own phrasing", () => {
   assert.equal(avbNum("AVB 41"), 41);
@@ -70,6 +117,45 @@ test("when the consoles disagree on the port, FOH is the patch point and 32SC ri
   );
   assert.equal(merged[0].port, "NSB.32 - 1");
   assert.equal(merged[0].altPort, "NSB.32 - 12-14");
+});
+
+test("both consoles' hardware and notes survive when they disagree", () => {
+  // Real case: the playback Mac is a "CoreAudio Send" to FOH and a "Digital
+  // Return" to the 32SC, and each half writes its own note about it.
+  const merged = mergeInputs(
+    [foh({ chan: "Aux In 1", role: "Tracks (L)", avb: 33, gear: "Mac AVB CoreAudio Send", note: "MultiTracks Playback stem (Left)", aux: true })],
+    [sc({ chan: "Aux In 1", role: "Tracks (L)", avb: 33, gear: "Mac AVB Digital Return", note: "Streamed to Aux In 1", aux: true })]
+  );
+  assert.equal(merged[0].gear, "Mac AVB CoreAudio Send");
+  assert.equal(merged[0].altGear, "Mac AVB Digital Return");
+  assert.equal(merged[0].note, "MultiTracks Playback stem (Left)");
+  assert.equal(merged[0].altNote, "Streamed to Aux In 1");
+});
+
+test("agreeing halves don't produce a redundant alternate", () => {
+  const merged = mergeInputs(
+    [foh({ chan: "1", role: "Lead Vox", avb: 1, gear: "Wireless Mic A", note: "Primary Lead Vocalist" })],
+    [sc({ chan: "1", role: "Lead Vox", avb: 1, gear: "Wireless Mic A", note: "Primary Lead Vocalist" })]
+  );
+  assert.equal(merged[0].altGear, "");
+  assert.equal(merged[0].altNote, "");
+});
+
+test("a signal only one half carries still keeps that half's hardware and note", () => {
+  const merged = mergeInputs([], [sc({ chan: "Aux In 2 (L)", role: "Click", avb: 35, gear: "Mac AVB Digital Return", port: "Personal MBP Network", note: "Streamed to Aux In 2", aux: true })]);
+  assert.equal(merged[0].gear, "Mac AVB Digital Return");
+  assert.equal(merged[0].port, "Personal MBP Network");
+  assert.equal(merged[0].note, "Streamed to Aux In 2");
+  assert.equal(merged[0].altGear, "", "nothing to compare against, so no alternate");
+});
+
+test("the stereo-pair marker on a channel label is kept", () => {
+  const merged = mergeInputs([
+    foh({ chan: "13/14", chanLabel: "13/14 (stereo)", role: "Electric Guitar (L)", avb: 19 }),
+    foh({ chan: "20", chanLabel: "20", role: "Kick Drum", avb: 25 }),
+  ], []);
+  assert.equal(merged.find((r) => r.avb === 19).stereo, true);
+  assert.equal(merged.find((r) => r.avb === 25).stereo, false);
 });
 
 test("rows sort by AVB, with the aux returns after the stage patch", () => {
@@ -126,6 +212,26 @@ test("house mics and playback are tagged as groups, never as mix holders", () =>
   // Both hosts share a card, so each row has to remember its own source.
   assert.deepEqual(house.rows.map((r) => r.src), ["Host 1", "Host 2"]);
   assert.equal(cards.find((c) => c.name === "Playback").kind, "group");
+});
+
+test("the sheet's own Source wording is kept even on a person's own card", () => {
+  // "Zach TB" and "Zach AG" are how the sheet tells his talkback from his
+  // acoustic; collapsing both to "Zach" loses the distinction at the patch bay.
+  const cards = buildCards([
+    { avb: 14, foh: "9", source: "Zach TB", role: "Stage Talkback", gear: "Wired TB 1" },
+    { avb: 21, foh: "18", source: "Zach AG", role: "Acoustic Guitar 1", gear: "1x Active DI" },
+  ], [mix({ aux: "3 & 4", txUnit: "2", txLabel: "IEM Transmitter 2", pack: "Pack 2 (Red)", name: "Zach" })]);
+  const zach = cards.find((c) => c.name === "Zach");
+  assert.equal(zach.rows.length, 2, "both aliases resolve to the one card");
+  assert.deepEqual(zach.rows.map((r) => r.src), ["Zach TB", "Zach AG"]);
+});
+
+test("notes ride along on the emitted rows", () => {
+  const cards = buildCards(
+    [{ avb: 25, foh: "20", source: "Kyle", role: "Kick Drum", gear: "1. Kick Mic", note: "Hybrid Drum Mic Setup" }],
+    [mix({ aux: "15 & 16", txUnit: "8", txLabel: "IEM Transmitter 8", pack: "Pack 8 (Blue)", name: "Kyle" })]
+  );
+  assert.equal(cards.find((c) => c.name === "Kyle").rows[0].note, "Hybrid Drum Mic Setup");
 });
 
 test("an unassigned mix becomes an open slot rather than vanishing", () => {

@@ -655,9 +655,13 @@ function normIORow(r){
   role: str(r.role, 60), gear: str(r.gear, 60), loc: str(r.loc, 60),
   /* v1.16.0 — the routing columns the table views read. AVB is the key the
      FOH board and the 32SC monitor console agree on; the channel numbers are
-     per-console and routinely disagree, so both are kept. */
+     per-console and routinely disagree, so both are kept. The alt* fields hold
+     the 32SC's reading wherever it differs from the FOH one, so neither
+     console's version of the truth is thrown away. */
   avb: str(r.avb, 8), foh: str(r.foh, 16), sc: str(r.sc, 16),
-  port: str(r.port, 60), altPort: str(r.altPort, 60), src: str(r.src, 60), p48: !!r.p48,
+  port: str(r.port, 60), altPort: str(r.altPort, 60),
+  note: str(r.note, 80), altNote: str(r.altNote, 80), altGear: str(r.altGear, 60),
+  src: str(r.src, 60), stereo: !!r.stereo, p48: !!r.p48,
   done: !!r.done, by: str(r.by, 40), t: str(r.t, 12)
  };
 }
