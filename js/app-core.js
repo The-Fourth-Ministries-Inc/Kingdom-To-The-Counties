@@ -213,7 +213,24 @@ var IO_BUSES=[
 ];
 var ioEditing=false, ioBuf=null, ioBusBuf=null;
 function ioClone(o){return JSON.parse(JSON.stringify(o));}
-function ioCurrent(){return (STATE.ioList&&STATE.ioList.length)?STATE.ioList:IO_DEFAULT;}
+/* A roster stored before v1.16.0 holds only role/gear/loc — no AVB, no channel
+   numbers, no physical port. It cannot fill the tables, so a phone reading one
+   would show a short, half-empty input list and look like the import had
+   failed. Treat it as stale and fall back to the deployed defaults; the first
+   write upgrades the server copy (see the `seed` payload in ioToggle). */
+function ioIsLegacy(list){
+  if(!list||!list.length)return false;
+  for(var i=0;i<list.length;i++){
+    var rows=list[i].rows||[];
+    for(var j=0;j<rows.length;j++)if(rows[j].avb)return false;
+  }
+  return true;
+}
+function ioStale(){return ioIsLegacy(STATE.ioList);}
+function ioCurrent(){
+  var s=STATE.ioList;
+  return (s&&s.length&&!ioIsLegacy(s))?s:IO_DEFAULT;
+}
 function ioBusCurrent(){return (STATE.ioBuses&&STATE.ioBuses.length)?STATE.ioBuses:IO_BUSES;}
 function ioCounts(list){var d=0,t=0;list.forEach(function(p){if(p.off)return;p.rows.forEach(function(r){t++;if(r.done)d++;});});return{done:d,total:t};}
 function ioListClearProgress(list){
@@ -235,7 +252,14 @@ function ioListClearProgress(list){
 var ioView="cards";      /* cards | inputs | outputs */
 var ioConsole="all";     /* all | foh | sc — which console's channel numbers matter */
 
-function ioSetView(v){ioView=v;renderIOList();}
+/* The tables are the authoring surface — they hold the routing the musician
+   cards are built from, so editing one rewrites what every player sees. That
+   makes them a leader tool: volunteers get the Musicians view, which is the
+   same data rendered for the person holding the pack. */
+function ioSetView(v){
+  if(v!=="cards"&&!LEADER){askPin(function(){ioView=v;renderIOList();});return;}
+  ioView=v;renderIOList();
+}
 function ioSetConsole(v){ioConsole=v;renderIOList();}
 
 /* Flatten to one entry per input row, carrying its owning card. */
@@ -403,8 +427,19 @@ function ioMixAssign(pid,toId){
 function ioViewBar(){
   var tabs=[["cards","👤 Musicians"],["inputs","🎚 Inputs"],["outputs","🎧 Outputs"]];
   return '<div class="ioviews" role="tablist">'+tabs.map(function(t){
-    return '<button role="tab" aria-selected="'+(ioView===t[0])+'" class="'+(ioView===t[0]?"on":"")+'" onclick="ioSetView(\''+t[0]+'\')">'+t[1]+'</button>';
+    var lock=(t[0]!=="cards"&&!LEADER)?'<span class="lk">🔒</span>':"";
+    return '<button role="tab" aria-selected="'+(ioView===t[0])+'" class="'+(ioView===t[0]?"on":"")+'" onclick="ioSetView(\''+t[0]+'\')">'+t[1]+lock+'</button>';
   }).join("")+'</div>';
+}
+/* The roster the server holds is older than the table views and has no routing
+   on it. The app is showing the deployed defaults so the tables aren't blank —
+   say so plainly rather than letting a leader wonder which one is real. */
+function ioStaleNote(){
+  if(!ioStale())return "";
+  return '<div class="ioclash stale"><b>⚠ Showing the deployed roster, not the saved one</b>'+
+    '<span>The roster saved on the server predates the Inputs and Outputs tables — it has no AVB streams, channel numbers or patch points, so it can\'t fill them. '+
+    (LEADER?'Tap <b>↺ Reload defaults</b> to replace it with the imported sheet for everyone. Ticking any input off does the same thing automatically.'
+           :'A leader can replace it with <b>Reload defaults</b>.')+'</span></div>';
 }
 function ioConsoleBar(){
   var opts=[["all","All"],["foh","FOH board"],["sc","32SC monitors"]];
@@ -540,10 +575,10 @@ function renderIOList(){
   if(!mount)return;
   if(ioEditing){renderIOEdit(mount);return;}
   var list=ioCurrent();
-  if(ioView==="inputs"){mount.innerHTML=ioViewBar()+ioProgBar(list)+renderIOInputs(list);return;}
-  if(ioView==="outputs"){mount.innerHTML=ioViewBar()+renderIOOutputs(list);return;}
+  if(ioView==="inputs"){mount.innerHTML=ioViewBar()+ioStaleNote()+ioProgBar(list)+renderIOInputs(list);return;}
+  if(ioView==="outputs"){mount.innerHTML=ioViewBar()+ioStaleNote()+renderIOOutputs(list);return;}
   var c=ioCounts(list);
-  var bar=ioViewBar()+'<div class="iobar"><span class="prog"><b>'+c.done+'</b> / '+c.total+' inputs patched &amp; checked</span>'+
+  var bar=ioViewBar()+ioStaleNote()+'<div class="iobar"><span class="prog"><b>'+c.done+'</b> / '+c.total+' inputs patched &amp; checked</span>'+
     (LEADER?'<span class="ioacts"><button class="iobtn reload" onclick="ioReloadDefaults()">↺ Reload defaults</button><button class="iobtn" onclick="ioStartEdit()">✏️ Edit list</button></span>'
            :'<span class="iolock">🔒 Leaders can edit<button onclick="askPin(function(){renderIOList();})">Unlock</button></span>')+'</div>';
   var body=list.map(function(p){
@@ -574,7 +609,10 @@ function ioToggle(pid,rid){
      to a poll interval stale). Now only this row's final state goes up and the
      server merges it in. The full list rides along as a seed ONLY when the
      server has no roster yet (first ever write). */
-  var hadList=!!(STATE.ioList&&STATE.ioList.length);
+  /* Seed the server when it has no roster at all, and also when what it holds
+     predates the routing fields — otherwise the tap would be matched against a
+     stale roster whose row ids no longer exist and silently do nothing. */
+  var hadList=!!(STATE.ioList&&STATE.ioList.length)&&!ioIsLegacy(STATE.ioList);
   var list=ioClone(ioCurrent());
   var row=null;
   list.forEach(function(p){if(p.id===pid)(p.rows||[]).forEach(function(r){if(r.id===rid)row=r;});});
