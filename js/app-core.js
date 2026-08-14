@@ -1540,7 +1540,7 @@ function renderNameBars(){
 }
 /* v1.5.0 — the per-tool initials inputs are gone; identity is the saved name
    ("working as" bars, rendered by renderNameBars). */
-document.getElementById("ciBtn").addEventListener("click",function(){var name=document.getElementById("ciName").value.trim(),team=document.getElementById("ciTeam").value;if(!name){flash("ciName");return;}if(!document.getElementById("ciAttest").checked){document.getElementById("ciAttestMsg").classList.add("show");document.getElementById("ciAttestRow").classList.add("nudge");setTimeout(function(){document.getElementById("ciAttestRow").classList.remove("nudge");},600);return;}rememberName(name);var rec={id:uid(),name:name,team:team,attested:true,t:nowLabel()};queueWrite("addCheckin",rec,function(){STATE.checkins.push(rec);},function(){renderDynamic();});document.getElementById("ciName").value="";document.getElementById("ciAttest").checked=false;document.getElementById("ciAttestMsg").classList.remove("show");prefillNames();toast(tourDone()?"✅ Checked in!":"✅ Checked in! New to the app? Take the 2-min App Tour under Resources 🧭");});
+document.getElementById("ciBtn").addEventListener("click",function(){var name=document.getElementById("ciName").value.trim(),team=document.getElementById("ciTeam").value;if(!name){flash("ciName");return;}if(!document.getElementById("ciAttest").checked){document.getElementById("ciAttestMsg").classList.add("show");document.getElementById("ciAttestRow").classList.add("nudge");setTimeout(function(){document.getElementById("ciAttestRow").classList.remove("nudge");},600);return;}rememberName(name);var rec={id:uid(),name:name,team:team,attested:true,t:nowLabel()};queueWrite("addCheckin",rec,function(){STATE.checkins.push(rec);},function(){renderDynamic();});document.getElementById("ciName").value="";document.getElementById("ciAttest").checked=false;document.getElementById("ciAttestMsg").classList.remove("show");prefillNames();toast(tourDone()?"✅ Checked in!":"✅ Checked in! New to the app? Take the 3-min App Tour under Resources 🧭");});
 document.getElementById("aBtn").addEventListener("click",function(){if(!LEADER){askPin(function(){});return;}var by=document.getElementById("aName").value.trim()||"Leadership",title=document.getElementById("aTitle").value.trim(),body=document.getElementById("aBody").value.trim(),pri=document.getElementById("aPri").value;if(!title||!body){flash(title?"aBody":"aTitle");return;}rememberName(by);var rec={id:uid(),pri:pri,title:title,body:body,by:by,t:nowLabel()};annBarDismissedId="";queueWrite("addAnnouncement",rec,function(){STATE.announcements.unshift(rec);},function(){renderDynamic();});document.getElementById("aTitle").value="";document.getElementById("aBody").value="";prefillNames();});
 document.getElementById("pBtn").addEventListener("click",function(){var name=document.getElementById("pName").value.trim()||"Anonymous",body=document.getElementById("pBody").value.trim();if(!body){flash("pBody");return;}rememberName(name);var rec={id:uid(),name:name,body:body,t:nowLabel()};queueWrite("addPraise",rec,function(){STATE.praises.unshift(rec);},function(){renderDynamic();});document.getElementById("pBody").value="";prefillNames();toast("🎉 Praise posted!");});
 /* Page-level FYI: anything not tied to one bin (or when someone knows the bin
@@ -1806,7 +1806,7 @@ document.getElementById("annBarX").addEventListener("click",function(e){
 });
 var annBarMode="checkin";
 document.getElementById("annBar").addEventListener("click",function(){show(annBarMode==="checkin"?"checkin":"announcements");});
-var PARENT={dashboard:"crew",checkin:"guides",count:"crew",setup:"crew",techio:"crew",inventory:"crew",announcements:"board",praise:"board",issue:"board",leaders:"guides",graphics:"guides",donate:"guides",playbook:"guides",handbook:"guides",tour:"guides",radios:"crew",shareapp:"guides",capture:"guides",church:"mobilize",faith:"guides"};
+var PARENT={dashboard:"crew",checkin:"guides",count:"crew",setup:"crew",techio:"crew",inventory:"crew",announcements:"board",praise:"board",miracles:"board",issue:"board",leaders:"guides",graphics:"guides",donate:"guides",playbook:"guides",handbook:"guides",tour:"guides",radios:"crew",shareapp:"guides",capture:"guides",church:"mobilize",faith:"guides"};
 function show(id){
   if(id==="dashboard"&&!LEADER){askPin(function(){show("dashboard");});}
   var pages=document.querySelectorAll(".page");for(var i=0;i<pages.length;i++)pages[i].classList.remove("active");
@@ -2595,18 +2595,27 @@ function updateTourPrompts(){var d=tourDone()?"none":"flex";var a=document.getEl
 /* ===== v1.5.0 — guided spotlight tour: pop-ups around the whole app, one
    step at a time. Each step opens the right page, highlights the element,
    and explains it. Runs once for new folks (Skip anytime); can be replayed
-   from Resources → App Tour. ===== */
+   from Resources → App Tour.
+   When you ship a feature a volunteer touches, add it here AND as a
+   .tourstop on #page-tour — the two are the app's only onboarding, and a
+   tour that omits a tool is why nobody uses it. Keep the highlighted
+   selector one that always exists (not something rendered from data, which
+   is empty on a fresh board). ===== */
 var GUIDE_STEPS=[
  {page:"now",sel:".brand",title:"🏠 Event Day",text:"This is home. It follows the clock all day — what's happening Now, what's Next, and the full order of events. No refreshing needed."},
- {page:"now",sel:".tabbar",title:"🧭 Getting around",text:"Five tabs: Pre-Crusade Mobilization (the church list — “Repair the Net”), Now (home), Specialists (work tools), Post (praise, issues & announcements), and Ambassador Resources (guides & contacts)."},
+ {page:"now",sel:".tabbar",title:"🧭 Getting around",text:"Five tabs: Pre-Crusade Mobilization (the church list — “Repair the Net”), Now (home), Specialists (work tools), Post (praise, miracles, issues & announcements), and Ambassador Resources (guides & contacts)."},
  {page:"checkin",sel:"#ciBtn",title:"🙋 Check in first",text:"When you arrive, check yourself in here. It tells leadership you're on the field and puts you on the day's roster."},
- {page:"board",sel:"#page-board .hub",title:"📣 Post",text:"Three boards: the Praise Wall (celebrate God moments), Report an Issue (flag problems to leadership fast), and Announcements from leaders. You can comment on any post."},
+ {page:"capture",sel:"#capLanes",title:"📇 Quick Capture",text:"Met someone on the street? Capture them three ways: 🎙️ speak a voice note, 📷 photograph their contact card, or ⌨️ type it. Say their name, their phone or email, and what happened — then tap their response (salvation, rededication, dedication, prayer) and get back out there. Leadership does the follow-up."},
+ {page:"board",sel:"#page-board .hub",title:"📣 Post",text:"Four boards: the Praise Wall (celebrate God moments), the Miracle Tracker (the season record), Report an Issue (flag problems to leadership fast), and Announcements from leaders. You can comment on any post."},
+ {page:"miracles",sel:"#page-miracles .stat",title:"🙌 Miracle Tracker",text:"One season-long record of salvations, rededications and healings across all eight counties. Report what you saw — the person's name is optional on purpose. It joins the confirmed tally once two other people who were there tap “I witnessed this too,” the way Scripture establishes a matter."},
  {page:"crew",sel:"#page-crew .hub",title:"🧰 Specialists",text:"Work tools live here: the Attendance Counter, Setup Checklist, Radio Checkout, Trailer Load List and the Tech I/O list."},
  {page:"count",sel:"#countPlus",title:"👥 Counting attendance",text:"Tap +1 for every non-volunteer attendee. Every tap is logged to your name, so several people can count at once and nothing is lost."},
+ {page:"inventory",sel:"#invSearchWrap",title:"📦 Trailer Load List",text:"Both trailers, bin by bin. Search two ways — the bin number (“109”) or the thing in your hand (“gaff tape”) — and the result tells you which trailer, which bin and where it rides. Open a bin for its contents, a photo of its actual spot, and 🔺 to flag anything missing."},
+ {page:"inventory",sel:"#invPackBar",title:"🚚 Ticking it onto the truck",text:"As a bin goes on the truck, tick its ☐ — it lights up on everyone's phone in seconds and the bar shows what's left. Mis-tap? Every tick offers Undo. Carrying something loose like the generator? Tap 🙋 I've got this so the team knows who has it."},
  {page:"prompter",sel:"#tpBoard",title:"🎬 Recording Studio",text:"Pick your county's script and record an invite video with the built-in teleprompter — then send it to Laura (Marketing) and mark it done."},
  {page:"mobilize",sel:"#chViews",title:"⛪ Pre-Crusade Mobilization",text:"The master church list. Tap a church to call, text or email them (it's logged automatically) — the text and email open pre-written from the master template. Say who you know there and score their interest."},
- {page:"guides",sel:"#page-guides .hub",title:"📘 Resources",text:"The Ambassador Playbook, Counselor Booklet, leader contacts, shareable graphics and ways to give all live here."},
- {page:"now",sel:".tabbar",title:"🎉 You're ready!",text:"That's the whole app. Set your name once and everything you do is credited to you. Have an amazing event day!"}
+ {page:"guides",sel:"#page-guides .hub",title:"📘 Resources",text:"The Ambassador Playbook, Counselor Booklet, leader contacts and the Statement of Faith — plus 🖼️ Graphics for Sharing (county flyers and banners, ready to post), 📲 the QR code that gets another ambassador on this app, and ways to give."},
+ {page:"now",sel:".tabbar",title:"🎉 You're ready!",text:"That's the whole app. Set your name once and every checkmark, count and capture is credited to you. Lose signal? Keep working — everything you do queues on your phone and sends itself when the bars come back. Have an amazing event day!"}
 ];
 var guideIdx=-1;
 function guideStart(){guideIdx=-1;tourSeen();guideNext();}

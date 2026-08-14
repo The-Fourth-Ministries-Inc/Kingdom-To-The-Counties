@@ -14,6 +14,43 @@ all stay in sync across phones within a few seconds.
 - **`netlify.toml`** — tells Netlify where the site and functions live.
 - **`package.json`** — lists the `@netlify/blobs` dependency.
 
+## App Tour (v1.16.0)
+
+Under **Ambassador Resources → 🧭 App Tour**, and offered automatically to
+anyone who hasn't taken it (a prompt on Event Day, one on the check-in page,
+and a nudge in the toast after their first check-in). It comes in two forms
+that cover the same ground:
+
+- **The guided tour** (`guideStart()`) — a spotlight walkthrough that opens
+  each page in turn, dims everything except the thing it's describing, and
+  explains it. Back / Skip / Next, with a step counter. Taking it (or opening
+  the tour page) sets `k2c_tour` in `localStorage` and retires the prompts.
+- **The written stops** on `#page-tour` — the same fourteen ideas as twelve
+  numbered cards, each with a button that jumps straight to that page, for
+  someone who'd rather read than be walked.
+
+**When you ship something a volunteer touches, add it to both.** The tour is
+the app's only onboarding; a tool that isn't in it is a tool most of the team
+never finds. As of v1.16.0 the tour covers Event Day, the five tabs, check-in,
+Quick Capture, the four Post boards, the Miracle Tracker, Specialists, the
+Attendance Counter, Trailer Load List search, load-out ticks, the Recording
+Studio, Mobilization, Resources, graphics & app sharing, and the
+offline/Day-PIN/per-county behaviour.
+
+Two things to keep right when adding a guided step:
+
+- **Highlight a selector that always exists.** `guidePlace()` falls back to a
+  centred box when the element is missing, so a step pointed at something
+  rendered from data (an empty feed, a leader-only card) silently degrades on
+  a fresh board. Point at the static shell instead — a hub, a form, a search
+  box.
+- **The page must be reachable by `show(id)` without a leader PIN**, and the
+  id needs an entry in `PARENT` so the right bottom tab stays lit while the
+  tour is standing on it.
+
+For screen-sharing the app to leaders or a new county's team, `docs/DEMO-SCRIPT.md`
+is a timed five-minute walkthrough with the click path and what to say.
+
 ## Ambassador Quick Capture (v1.7.0)
 
 Under **Ambassador Resources → 📇 Quick Capture** (also one tap from the Event
