@@ -1,0 +1,4 @@
+# Blank issues stay on. Someone standing next to a trailer with a dead phone
+# should be able to type one sentence and send it — the triage workflow will
+# ask for the rest.
+blank_issues_enabled: true

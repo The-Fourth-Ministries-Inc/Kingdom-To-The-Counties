@@ -1,0 +1,119 @@
+name: Something is broken
+description: A part of the Ambassador Companion is not doing what it should
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fill in what you can. The fields below are the ones that usually decide
+        whether a fix can be written straight away or whether someone has to
+        come back and ask you more questions.
+
+        **In a hurry, in the field?** Write the first box and send it. Someone
+        will follow up.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, and what the app did.
+      placeholder: |
+        I tapped a bin on the Trailer Load List to mark it loaded, and the
+        count at the top stayed at 12.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+      placeholder: The count should have gone to 13.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version badge
+      description: >
+        The small version number next to "Ambassador Companion" in the header,
+        top-left. This matters more than anything else here — phones cache the
+        app, so two people can be running different copies.
+      placeholder: "v1.15.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the app?
+      options:
+        - Trailer Load List
+        - Ambassador Quick Capture
+        - Pre-Crusade Mobilization
+        - Miracle Tracker
+        - Announcements
+        - Graphics for Sharing
+        - Recording Studio / teleprompter
+        - Day PIN / getting in
+        - Leader Dashboard
+        - Somewhere else / not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: Were you signed in as a leader or a volunteer?
+      description: Some actions only work for leaders, so this changes the answer.
+      options:
+        - Volunteer
+        - Leader
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: signal
+    attributes:
+      label: Signal at the time
+      options:
+        - Online, signal was fine
+        - Offline or a dead zone
+        - Patchy — it came and went
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Phone or computer, and browser
+      placeholder: "iPhone 13, Safari — or Windows laptop, Chrome"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      description: Leave blank if it only happened once.
+      placeholder: |
+        1. Open the Trailer Load List
+        2. Search for bin 14
+        3. Tap "Loaded"
+
+  - type: input
+    id: county
+    attributes:
+      label: County or bin number
+      description: If it only happens on one county or one bin, say which.
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: >
+        Screenshots help a lot — drag them in here. Please blur out any
+        names or phone numbers first.

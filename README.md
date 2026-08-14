@@ -576,3 +576,18 @@ Runs two things, neither needing a network or a Netlify account:
 ## Contributing
 
 Push changes to a branch and open a pull request, or commit to `main` to deploy.
+
+### Reporting something broken
+
+Open an issue. The bug form asks for the version badge, whether you were a
+leader or a volunteer, and whether you had signal — those three answer most of
+the questions a fix would otherwise have to come back and ask.
+
+Issues are picked up automatically: a workflow reads the report, finds the
+cause in the code, and either opens a pull request with the fix or comments
+saying exactly what it still needs to know. It runs `npm test` before it opens
+anything, and it is set up to ask rather than guess, so a `needs-info` comment
+is a normal outcome and not a failure. Answer it, swap the `needs-info` label
+for `claude-fix`, and it takes another run at it.
+
+Setup and tuning: [`.github/AUTOMATION.md`](.github/AUTOMATION.md).

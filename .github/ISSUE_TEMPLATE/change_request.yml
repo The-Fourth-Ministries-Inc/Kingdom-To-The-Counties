@@ -1,0 +1,78 @@
+name: Ask for a change
+description: Something should work differently, or something is missing
+title: "[change] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The more specific you are about what a volunteer should see, the more
+        likely this gets built correctly the first time.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is the problem in the field?
+      description: >
+        Describe what goes wrong for a real person, not the feature you have in
+        mind. That usually leads to a better answer than the fix people expect.
+      placeholder: |
+        Leaders keep getting asked "which bin has the extension cords" over the
+        radio, because searching only matches bin numbers.
+    validations:
+      required: true
+
+  - type: textarea
+    id: want
+    attributes:
+      label: What should happen instead?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the app?
+      options:
+        - Trailer Load List
+        - Ambassador Quick Capture
+        - Pre-Crusade Mobilization
+        - Miracle Tracker
+        - Announcements
+        - Graphics for Sharing
+        - Recording Studio / teleprompter
+        - Day PIN / getting in
+        - Leader Dashboard
+        - Somewhere new
+    validations:
+      required: true
+
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who should be able to do this?
+      options:
+        - Everyone
+        - Leaders only
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: wording
+    attributes:
+      label: Exact wording, if a volunteer will read it
+      description: >
+        Button labels, headings, warnings. If you leave this blank someone has
+        to guess, and guessed wording tends to come back around.
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: When is this needed?
+      options:
+        - Before the next crusade date
+        - This season, no rush
+        - Someday
+    validations:
+      required: true
