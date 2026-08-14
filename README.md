@@ -371,8 +371,11 @@ with the segmented control at the top:
 - **🎧 Outputs** — the Ark 32R IEM mixes (transmitter, pack, assignee,
   stereo/mono) and the NSB 32.16 PA buses.
 
-All three read and write the same objects, so a checkmark ticked in a table
-shows on the musician card, and a leader's edit shows everywhere.
+**The tables are the master routing and the musician cards are built from
+them** — one set of objects underneath, so an edit in a table rewrites what
+every player sees. That makes the two tables a leader tool: they sit behind
+the **leader PIN**, while the Musicians view stays open to any tech past the
+Day PIN, along with the patch checkmarks they tick during line check.
 
 ### Why AVB is the left-hand column
 
@@ -418,6 +421,20 @@ Two more worth knowing that the app can't detect: the Toms/overheads mixdown is
 sent on **AVB 49/50** by the FOH output table but received on **AVB 57/58** by
 the 32SC input list, and the transmitters run 1, 2, 3, 4, **9**, 6, 7, 8 — there
 is no unit 5. Fix any of these in the app and the app becomes the truth.
+
+### An older stored roster upgrades itself
+
+A roster saved before v1.16.0 carries only role / gear / location — no AVB, no
+channel numbers, no patch point — so it cannot fill the tables. Because the
+stored roster overrides the deployed defaults, a phone reading one would show a
+short, half-empty input list and look like the import had failed.
+
+The app detects that (no AVB anywhere in the list), falls back to the deployed
+defaults so the tables are right immediately, and says so in a banner rather
+than leaving a leader guessing which roster is real. The first patch tap sends
+the defaults as a `seed` and the server swaps the stale roster out — the same
+mechanism that seeds a first-ever write. A roster that already carries routing
+is never replaced by a seed.
 
 ### Merged cells are the whole ballgame
 
@@ -604,6 +621,10 @@ automatically on deploy.
   announcements, check-ins and comments have their fields whitelisted, lengths
   capped, and `priority`/`pri` validated against a fixed set. Clients can't
   inject markup through a priority class or pre-set a report as acknowledged.
+  **The Tech I/O roster is included as of v1.16.0.** `setIOList` replaces a
+  whole blob from the client and used to store the array verbatim, so the
+  roster was the one stored collection that never met the field whitelist. It
+  is now normalized on write, on seed, and on read.
 - **`sw.js`** is a network-first service worker: online behavior is identical to
   having no cache (fresh deploys always win), but if the field signal drops the
   app shell, fonts, and images still load.

@@ -1158,8 +1158,10 @@ async function assemble(s, K, active, lvl){
  tallyEpoch,
  radios: normRadios(parts.radios).list,
  event: core.event,
- ioList: (parts.io && Array.isArray(parts.io.list)) ? parts.io.list : [],
- ioBuses: (parts.io && Array.isArray(parts.io.buses)) ? parts.io.buses : [],
+ /* Normalized on the way out too, so a roster written by an older deploy —
+    before setIOList normalized on write — is neutralized on read. */
+ ioList: normIO(parts.io).list,
+ ioBuses: normIO(parts.io).buses,
  dayPinSet: !!dayPin, // the PIN itself is never sent to clients
  county: K.cty,          // which county's board this is
  countyAuto: !active.manual,
@@ -1610,10 +1612,13 @@ export default async (req, context) => {
     so concurrent techs can't clobber each other's progress. */
  if(!Array.isArray(payload.list)) break;
  await compareAndSwap(s, K.io, normIO, io => {
-  io.list = payload.list;
+  /* Normalize on the way in. This used to store the client's array verbatim,
+     which quietly bypassed the field whitelist for the entire roster — the
+     one blob a leader can rewrite wholesale. */
+  io.list = normIO({ list: payload.list }).list;
   /* Buses ride along on the same write — a leader edits the roster and the
      PA output table in one pass. Absent means "unchanged", not "empty". */
-  if(Array.isArray(payload.buses)) io.buses = payload.buses;
+  if(Array.isArray(payload.buses)) io.buses = normIO({ buses: payload.buses }).buses;
   return io;
  }, () => ({ list: [], buses: [] }));
  break;
@@ -1621,10 +1626,15 @@ export default async (req, context) => {
     retried request that already landed is a no-op, and two techs checking
     DIFFERENT rows at the same time both stick (the old full-list setIOList
     was last-write-wins across the whole roster). `seed` carries the client's
-    full roster only for the first-ever write, when the server list is empty. */
+    full roster for the first-ever write, when the server list is empty — and
+    (v1.16.0) when the stored roster predates the routing fields. A pre-v1.16
+    roster has no AVB anywhere, so it cannot drive the table views and its row
+    ids no longer match the current defaults; the first tap upgrades it instead
+    of silently no-opping against a roster nobody can see. */
  case "ioSetRow": {
  await compareAndSwap(s, K.io, normIO, io => {
- if(!io.list.length && Array.isArray(payload.seed) && payload.seed.length) io.list = payload.seed;
+ const staleIO = io.list.length && !io.list.some(p => (p.rows || []).some(r => r && r.avb));
+ if((!io.list.length || staleIO) && Array.isArray(payload.seed) && payload.seed.length) io.list = normIO({ list: payload.seed }).list;
  let hit = null;
  for(const p of io.list) if(p && p.id === payload.pid) for(const r of (p.rows || [])) if(r && r.id === payload.rid) hit = r;
  if(!hit) return undefined;

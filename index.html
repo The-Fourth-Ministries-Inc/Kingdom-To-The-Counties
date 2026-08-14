@@ -647,6 +647,9 @@ textarea, select { font-size: 16px !important; }
   .ioviews{display:flex;gap:4px;background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:12px}
   .ioviews button{flex:1;min-height:44px;border:none;background:none;border-radius:9px;font-family:var(--sans);font-size:12.5px;font-weight:800;color:var(--muted);cursor:pointer;padding:0 6px}
   .ioviews button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+  .ioviews button .lk{font-size:10px;margin-left:3px;opacity:.75}
+  .ioclash.stale{background:#f7edd0;border-color:#e3d3a4;color:#5c4715}
+  .ioclash.stale span{color:#6e5311}
   .iofilter{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px}
   .iofilter span{font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
   .iofilter button{min-height:32px;padding:0 11px;border:1px solid var(--line);background:var(--card);border-radius:8px;font-family:var(--sans);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
@@ -686,7 +689,7 @@ textarea, select { font-size: 16px !important; }
   .iotbl .chip.sm.none{background:#e6e2d8;color:var(--muted);box-shadow:none}
   .iowarn{color:var(--bad);font-weight:800;cursor:help}
   .ioclash{background:#f6e2e0;border:1px solid #e6c4c0;border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:12px;line-height:1.45;color:#6d2a24}
-  .ioclash b{display:block;font-size:12.5px;margin-bottom:5px}
+  .ioclash>b{display:block;font-size:12.5px;margin-bottom:5px}
   .ioclash ul{margin:0 0 6px;padding-left:17px}
   .ioclash li{margin:2px 0;font-variant-numeric:tabular-nums}
   .ioclash span{display:block;color:#8a4a42;font-size:11px}
@@ -1199,7 +1202,7 @@ textarea, select { font-size: 16px !important; }
   <section class="page" id="page-techio">
     <button class="back" onclick="show('crew')">‹ Specialists</button>
     <p class="eyebrow">Tech · FOH · Worship</p><h1 class="title">Tech I/O List</h1>
-    <div class="ionote">🎛️ <b>Input / Mic / IEM Pack assignments</b> — Michael Nelson (Tech/FOH).<br>Set your name, then tap each input to check it off as it's patched &amp; line-checked — your name &amp; time are logged on the card.<br>Leaders can <b>Edit list</b> or <b>Reload roster from defaults</b> after entering the PIN.</div>
+    <div class="ionote">🎛️ <b>Input / Mic / IEM Pack assignments</b> — Michael Nelson (Tech/FOH).<br>Set your name, then tap each input to check it off as it's patched &amp; line-checked — your name &amp; time are logged on the card.<br>🔒 The <b>Inputs</b> and <b>Outputs</b> tables are the master routing — what's in them builds every musician's card — so they're leader-PIN only.</div>
     <div class="namebar" id="namebar-io"></div>
     <div id="ioMount"></div>
   </section>
