@@ -356,6 +356,80 @@ All ten graphics are live as of v1.15.1. The banners are 1920×1080 and the
 mission card 1080×1350, matching what the socials want; keep new artwork at
 those sizes and under ~300KB so the precache stays reasonable on field signal.
 
+## Tech I/O List (v1.16.0)
+
+Under **Specialists → 🎛️ Tech I/O List**. Three views of one dataset, switched
+with the segmented control at the top:
+
+- **👤 Musicians** — the original per-pack cards. What one player needs, and the
+  patch checkmarks techs tick off during line check.
+- **🎚 Inputs** — the full input list as a table, **keyed on the AVB stream
+  number**, with the FOH and 32SC channel numbers side by side.
+- **🎧 Outputs** — the Ark 32R IEM mixes (transmitter, pack, assignee,
+  stereo/mono) and the NSB 32.16 PA buses.
+
+All three read and write the same objects, so a checkmark ticked in a table
+shows on the musician card, and a leader's edit shows everywhere.
+
+### Why AVB is the left-hand column
+
+We run three consoles — the FOH board, a 32SC for monitors, and a 32R mostly
+for patching — and **their channel numbers disagree**. The FOH board takes drums
+discrete (Tom 1–3 and overheads on channels 23–27); the 32SC takes them
+pre-mixed on 23–24 and spends the freed channels on the raw vocal splits. The
+one identifier both consoles name for the same signal is the AVB stream, so
+that's the key the table sorts and merges on. Each row still shows both channel
+numbers, and the **Console** filter narrows to just the FOH or just the 32SC
+view when you're standing at one of them.
+
+### Collapsing an IEM mix to mono
+
+Everyone wants stereo — an aux pair, a whole transmitter, two outputs. But the
+32R has sixteen outputs, so with more musicians than pairs somebody has to go
+mono. On the **Outputs** view a leader taps **Split to mono →** on a stereo mix:
+the current owner keeps the left leg, and the right leg opens as a free mono
+slot on the same transmitter. **← Back to stereo** merges the two legs again.
+
+Splitting doesn't consume more outputs — it buys another *mix* out of the same
+pair, which is why the header counts both ("16 of 16 outputs in use · 9 mixes").
+Going back to stereo always costs somebody their mix, so the app names who and
+asks first; that person keeps all their inputs and drops to "no mix assigned"
+until a leader hands them another. The assignee dropdown moves a mix between
+people, swapping if the target already holds one.
+
+### The sheet is canon — including where it disagrees with itself
+
+The roster is imported from `The Fourth Routing and Input Lists — K2C.xlsx`,
+tab `K2C Cheshire - INP-OUT Map`, and imported **verbatim**. That sheet
+contradicts itself in a few places, so rather than guess a winner the importer
+keeps both readings and the Inputs view flags them in a banner at the top:
+
+- **AVB 41** is written as both Tom 1 (FOH ch 23, NSB.32-1) and a spare channel
+  (FOH ch 32, Ark splitter 32).
+- **AVB 38 / 39** appear as both 32SC spares on NSB.32-4/5 and FOH unused
+  channels on Ark splitter 29/30 — and NSB.32-4/5 are also the overheads.
+- **The saxophone** is AVB 37 on FOH and AVB 28 on the 32SC, off one splitter
+  port.
+
+Two more worth knowing that the app can't detect: the Toms/overheads mixdown is
+sent on **AVB 49/50** by the FOH output table but received on **AVB 57/58** by
+the 32SC input list, and the transmitters run 1, 2, 3, 4, **9**, 6, 7, 8 — there
+is no unit 5. Fix any of these in the app and the app becomes the truth.
+
+### Re-importing from the workbook
+
+```bash
+node scripts/excel-to-io.mjs --workbook "The Fourth Routing and Input Lists — K2C.xlsx" \
+  --sheet "K2C Cheshire - INP-OUT Map" \
+  --output data/io-default.json --write-index --verbose
+```
+
+`--write-index` rewrites `IO_DEFAULT` and `IO_BUSES` in `js/app-core.js`; both
+halves of the sheet, the IEM table and the PA bus table are discovered by their
+header text, not by hard-coded row numbers, so the other county tabs import with
+`--sheet`. Note that this only changes the *defaults* — phones keep whatever
+roster is stored on the server until a leader taps **Reload defaults**.
+
 ## Recording Studio (Teleprompter) (v1.14.2)
 
 Under **Ambassador Resources → 🎬 Recording Studio**: invite-video scripts for
@@ -450,7 +524,9 @@ automatically on deploy.
   stored roster — the previous design uploaded the whole roster per tap
   (last-write-wins), so two techs patching simultaneously erased each other's
   checkmarks. Wholesale `setIOList` is still used for structural edits
-  (edit list / reload defaults), which are single-leader operations.
+  (edit list / reload defaults / collapsing an IEM mix to mono), which are
+  single-leader operations and leader-PIN gated. The PA output buses ride along
+  on that same write.
 - **The Day PIN and the active county follow the schedule (v1.11.0).** The Day
   PIN is simply the event's Saturday as `MMDD` (Jul 25 → `0725`). An event stays
   current **through its Sunday** — so a rain-date Sunday keeps the same PIN and
@@ -579,6 +655,10 @@ Runs two things, neither needing a network or a Netlify account:
    and the legacy tally conversion. These encode rules the rest of the app
    relies on — e.g. if `idStr` stopped stripping quotes, the `onclick`
    handlers in the client would become injectable again.
+   `test/io-consolidate.test.js` covers the routing-sheet importer: that the
+   FOH and 32SC halves merge on AVB, that both channel numbers survive, and
+   that the places where the sheet contradicts itself stay as two rows instead
+   of being quietly resolved.
 
 ## Contributing
 

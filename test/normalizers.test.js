@@ -119,6 +119,48 @@ test("normIO whitelists roster fields and makes row ids attribute-safe", () => {
   assert.deepEqual(normIO(null).list, []);
 });
 
+/* v1.16.0 — the table views read these fields off the stored roster. If the
+   normalizer drops one, the Inputs table loses a whole column and the
+   mono/stereo collapse silently forgets which transmitter leg a mix is on. */
+test("normIO keeps the routing and IEM-mix fields the table views need", () => {
+  const io = normIO({ list: [{
+    id: "pack5", name: "Jeanne", pack: "Pack 5", color: "#F2CB05",
+    aux: "9", out: "9", txUnit: "9", leg: "l", mode: "mono", dest: "Add'l Vox",
+    kind: "", share: [{ pack: "Spare Pack 1", name: "SPARE", dest: "Add'l Vox" }],
+    rows: [{ id: "r1", role: "Overhead (L)", avb: "44", foh: "26", sc: "",
+             port: "NSB.32 - 4", altPort: "NSB.32 - 15-16", src: "Kyle", p48: 1 }]
+  }]});
+  const p = io.list[0], r = p.rows[0];
+  assert.equal(p.aux, "9");
+  assert.equal(p.leg, "L");                 // normalised to upper case
+  assert.equal(p.mode, "mono");
+  assert.equal(p.share[0].pack, "Spare Pack 1");
+  assert.equal(r.avb, "44");
+  assert.equal(r.foh, "26");
+  assert.equal(r.port, "NSB.32 - 4");
+  assert.equal(r.altPort, "NSB.32 - 15-16");
+  assert.equal(r.src, "Kyle");
+  assert.equal(r.p48, true);
+});
+
+test("normIO rejects an unknown mix mode rather than storing it", () => {
+  assert.equal(normIO({ list: [{ id: "a", mode: "quadraphonic" }] }).list[0].mode, "none");
+  assert.equal(normIO({ list: [{ id: "a", leg: "X" }] }).list[0].leg, "");
+});
+
+test("normIO carries the PA output buses alongside the roster", () => {
+  const io = normIO({ buses: [
+    { id: "b'1", bus: "Aux 1 & 2", sig: "Stereo Subgroup", dest: "NSB 32.16 - Output 1 & 2",
+      hw: "Main Venue Subwoofers L/R", purpose: "Low-frequency system punch", evil: "gone" },
+    { id: "b2", bus: "Aux 7 - Unused", off: 1 }
+  ]});
+  assert.equal(io.buses[0].id, "b1");
+  assert.equal(io.buses[0].hw, "Main Venue Subwoofers L/R");
+  assert.ok(!("evil" in io.buses[0]));
+  assert.equal(io.buses[1].off, true);
+  assert.deepEqual(normIO(null).buses, []);
+});
+
 test("compactTally converts legacy delta logs and clamps negatives", () => {
   const legacy = compactTally([{ delta: 3, by: "Amy" }, { delta: 2, by: "Amy" }, { delta: 1, by: "Bo" }]);
   assert.equal(legacy.total, 6);

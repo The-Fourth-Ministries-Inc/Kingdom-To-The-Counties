@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Import Tech I/O List from K2C Input-Output Excel workbook.
+ * Import the Tech I/O list from a K2C routing workbook.
  *
  * Usage:
  *   node scripts/excel-to-io.mjs --workbook "path/to/file.xlsx"
- *   node scripts/excel-to-io.mjs --workbook file.xlsx --sheet "K2C Grafton - INPUT-OUTPUT Maps"
+ *   node scripts/excel-to-io.mjs --workbook file.xlsx --sheet "K2C Cheshire - INP-OUT Map"
  *   node scripts/excel-to-io.mjs --workbook file.xlsx --write-index
  *   node scripts/excel-to-io.mjs --workbook file.xlsx --output data/io-default.json
  */
@@ -13,10 +13,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import XLSX from "xlsx";
 import {
-  loadWorkbookIoList,
-  patchIndexHtml,
-  formatIoDefaultJs,
-} from "./io-import-lib.mjs";
+  sheetToRows,
+  pickEventSheet,
+  consolidateSheet,
+  patchAppCore,
+} from "./io-consolidate.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -24,13 +25,15 @@ const ROOT = path.resolve(__dirname, "..");
 function usage(code = 0) {
   console.log(`Import Tech I/O List from Excel
 
+Merges the sheet's two input halves (FOH board and 32SC monitor console) on
+the AVB stream number, and reads both output tables — the NSB 32.16 PA buses
+and the Ark 32R IEM mixes.
+
 Options:
   --workbook, -w   Path to .xlsx workbook (required)
-  --sheet, -s      Sheet name (default: best matching event INPUT-OUTPUT Maps tab)
+  --sheet, -s      Sheet name (default: best matching event INP-OUT Map tab)
   --output, -o     Write JSON to this path
-  --write-index    Patch IO_DEFAULT in index.html
-  --include-spares Include N/A spare / sax rows
-  --no-roster      Skip Event Roster name resolution
+  --write-index    Patch IO_DEFAULT and IO_BUSES in js/app-core.js
   --verbose, -v    Print section discovery details
   --help, -h       Show this help
 `);
@@ -43,8 +46,6 @@ function parseArgs(argv) {
     sheet: "",
     output: "",
     writeIndex: false,
-    includeSpares: false,
-    useRoster: true,
     verbose: false,
   };
 
@@ -69,12 +70,6 @@ function parseArgs(argv) {
         break;
       case "--write-index":
         opts.writeIndex = true;
-        break;
-      case "--include-spares":
-        opts.includeSpares = true;
-        break;
-      case "--no-roster":
-        opts.useRoster = false;
         break;
       case "--verbose":
       case "-v":
@@ -105,45 +100,43 @@ function main() {
     process.exit(1);
   }
 
-  const { ioList, meta, sheetName } = loadWorkbookIoList(XLSX, workbookPath, {
-    sheet: opts.sheet || undefined,
-    includeSpares: opts.includeSpares,
-    useRoster: opts.useRoster,
-  });
+  const wb = XLSX.readFile(workbookPath, { cellDates: true });
+  const sheetName = pickEventSheet(wb, opts.sheet || undefined);
+  const { ioList, buses, meta } = consolidateSheet(sheetToRows(wb.Sheets[sheetName], XLSX));
 
   if (opts.verbose) {
     console.error(`Workbook: ${workbookPath}`);
     console.error(`Sheet:    ${sheetName}`);
     console.error(
-      `Sections: inputs @ row ${meta.inputSection}` +
-        (meta.iemSection ? `, IEM @ row ${meta.iemSection}` : ", IEM section not found")
+      `Headers:  FOH inputs @ ${meta.fohHeader}, 32SC inputs @ ${meta.scHeader}, ` +
+        `IEM @ ${meta.iemHeader}, PA buses @ ${meta.busHeader} (gutter col ${meta.gutter})`
     );
     console.error(
-      `Parsed:   ${meta.inputCount} input rows, ${meta.iemCount} IEM assignments → ${meta.performerCount} performer cards`
+      `Parsed:   ${meta.fohInputs} FOH + ${meta.scInputs} 32SC rows → ${meta.mergedInputs} merged inputs, ` +
+        `${meta.mixes} IEM mixes, ${meta.buses} PA buses → ${meta.cards} cards`
     );
   }
 
-  const json = JSON.stringify(ioList, null, 2);
+  const json = JSON.stringify({ ioList, buses }, null, 2);
 
   if (opts.output) {
     const outPath = path.resolve(opts.output);
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
-    fs.writeFileSync(outPath, json, "utf8");
-    console.error(`Wrote ${ioList.length} performers to ${outPath}`);
+    fs.writeFileSync(outPath, json + "\n", "utf8");
+    console.error(`Wrote ${ioList.length} cards and ${buses.length} buses to ${outPath}`);
   }
 
   if (opts.writeIndex) {
-    const indexPath = path.join(ROOT, "index.html");
-    const html = fs.readFileSync(indexPath, "utf8");
-    const next = patchIndexHtml(html, ioList);
-    fs.writeFileSync(indexPath, next, "utf8");
-    console.error(`Updated IO_DEFAULT in ${indexPath}`);
+    const corePath = path.join(ROOT, "js", "app-core.js");
+    const src = fs.readFileSync(corePath, "utf8");
+    fs.writeFileSync(corePath, patchAppCore(src, ioList, buses), "utf8");
+    console.error(`Updated IO_DEFAULT and IO_BUSES in ${corePath}`);
   }
 
   if (!opts.output && !opts.writeIndex) {
     process.stdout.write(json + "\n");
-  } else if (opts.verbose || opts.writeIndex || opts.output) {
-    console.error(`Done — ${ioList.length} performer cards.`);
+  } else {
+    console.error(`Done — ${ioList.length} cards, ${buses.length} buses.`);
   }
 }
 
