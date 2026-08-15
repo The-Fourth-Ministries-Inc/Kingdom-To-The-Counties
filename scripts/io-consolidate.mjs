@@ -483,12 +483,23 @@ export function buildCards(inputs, mixes) {
       }
     }
 
+    /* Split the sheet's one free-text port column into the three ways a
+       signal actually gets in: the stage snake, the Ark XLR splitter, or
+       straight onto AVB from a computer. */
+    const entry = parseEntry(inp.port);
     target.rows.push({
       id: uid(`${target.name}-${inp.role}-${inp.gear || inp.avb}`),
       role: inp.role,
       gear: inp.gear,
       loc: locLabel(inp),
       avb: inp.avb || "",
+      snake: entry.snake,
+      split: entry.split,
+      /* The Ark splitter feeds the 32R, but the sheet never writes the 32R's
+         own channel number, so it is left empty to be filled in rather than
+         guessed at. */
+      r32: "",
+      path: entry.path,
       foh: inp.foh || "",
       sc: inp.sc || "",
       port: inp.port || "",
@@ -507,6 +518,30 @@ export function buildCards(inputs, mixes) {
 
   /* Cards that hold neither a mix nor an input are noise from a merged cell. */
   return cards.filter((c) => c.rows.length || c.pack || c.mode !== "none");
+}
+
+/**
+ * Where a signal physically enters the system.
+ *
+ * There are three ways in and a row uses exactly one of them:
+ *   - the on-stage snake (a PreSonus NSB 32.16 stage box port),
+ *   - the Ark XLR splitter, which feeds the 32R,
+ *   - or straight onto the AVB network from a computer (tracks, click, guide).
+ *
+ * The sheet writes all three into one free-text "physical input" column, so
+ * they are split into their own numbers here and the original text is kept for
+ * anything that doesn't match a known form.
+ */
+export function parseEntry(port) {
+  const s = txt(port);
+  if (!s) return { snake: "", split: "", path: "" };
+  const nsb = s.match(/nsb\.?\s*32(?:\.16)?\s*[-–]?\s*(\d+(?:\s*[-–]\s*\d+)?)/i);
+  if (nsb) return { snake: nsb[1].replace(/\s*[-–]\s*/, "-"), split: "", path: "snake" };
+  const ark = s.match(/splitter\s*[-–]?\s*input\s*(\d+)/i);
+  if (ark) return { snake: "", split: ark[1], path: "split" };
+  /* A computer feeding the AVB network directly, or a local analogue return. */
+  if (/mbp|mac\b|network|laptop|local aux/i.test(s)) return { snake: "", split: "", path: "direct" };
+  return { snake: "", split: "", path: "other" };
 }
 
 /**
@@ -676,6 +711,10 @@ export function formatIoDefaultJs(ioList) {
         `foh:${lit(r.foh)}`,
         `sc:${lit(r.sc)}`,
         `port:${lit(r.port)}`,
+        `snake:${lit(r.snake)}`,
+        `split:${lit(r.split)}`,
+        `r32:${lit(r.r32)}`,
+        `path:${lit(r.path)}`,
       ];
       if (r.altPort) bits.push(`altPort:${lit(r.altPort)}`);
       if (r.altGear) bits.push(`altGear:${lit(r.altGear)}`);
