@@ -356,7 +356,7 @@ All ten graphics are live as of v1.15.1. The banners are 1920×1080 and the
 mission card 1080×1350, matching what the socials want; keep new artwork at
 those sizes and under ~300KB so the precache stays reasonable on field signal.
 
-## Recording Studio (Teleprompter) (v1.14.2)
+## Recording Studio (Teleprompter) (v1.16.0)
 
 Under **Ambassador Resources → 🎬 Recording Studio**: invite-video scripts for
 every county, each with a due date and assignee, opening into a full-screen
@@ -377,9 +377,32 @@ That was a ~55% over-estimate at the old speed and is now a ~20% under-estimate
 — closer, but still an estimate; it can't know the phone's width or the reader's
 pace. Deriving it from the scroll geometry instead would make it exact.
 
+**Counties we've already been to drop off the board by themselves (v1.16.0).**
+The board is season-long, so before this it only grew: by August a volunteer
+opening the Studio scrolled past Sullivan, Grafton and Strafford — invitations
+to Saturdays that had already happened — to reach the county they were actually
+filming for. A county's scripts now retire on exactly the schedule the Day PIN
+rolls over: current **through the event's Sunday** (the rain date), gone on the
+**Monday following**. Nobody deletes anything, and next season only the dates in
+`SCHEDULE` change.
+
+That applies everywhere the scripts show up: the board, the ▶ pill's
+outstanding-script count, the **Load starter scripts** seed, and the county
+dropdown in the script editor (you can't write a new invite for a Saturday
+that's past). Scripts a leader wrote against **Other / custom event…** have no
+county, so they never expire.
+
+They're *filtered, not deleted* — the stored board keeps them. Correcting a date
+in `SCHEDULE` brings a county straight back, and Laura's record of who filmed
+what survives the season. `data/scripts.json` likewise still carries all 8
+counties; it's the schedule, not the file, that decides what's on the board.
+Retired counties are simply never re-seeded, so they can't come back on the next
+read.
+
 An empty board shows leaders a **Load starter scripts** button that seeds A/B/C
-scripts for all counties (Sullivan ships with `[DATE]`/`[VENUE]` placeholders —
-edit once confirmed).
+scripts for the counties still ahead (Sullivan ships with `[DATE]`/`[VENUE]`
+placeholders — edit once confirmed). Once the last county is behind us the board
+reads *"That's a wrap"* rather than sitting empty.
 
 The script editor (v1.7.0) is dropdown-driven — no typing county/venue strings:
 the **county/event** is a dropdown of all 8 counties (plus "Other / custom"),
@@ -407,10 +430,13 @@ automatically on deploy.
   IP blocks further PIN checks (HTTP 429) until the window slides past. Empty
   PINs never count and a correct leader PIN clears the record, so shared event
   WiFi and morning-huddle typos won't lock real volunteers out.
-- **The Recording Studio board self-seeds.** Starter scripts for all 8 counties
-  are merged into the shared board on read, so every user sees every county
-  without a leader having to seed anything; a script a leader deletes is
-  tombstoned and stays deleted.
+- **The Recording Studio board self-seeds — and self-retires (v1.16.0).**
+  Starter scripts are merged into the shared board on read, so every user sees
+  every county still ahead without a leader having to seed anything; a script a
+  leader deletes is tombstoned and stays deleted. Counties whose event weekend
+  has passed are neither seeded nor sent to phones (`countyRetired` in
+  `data.mjs`, mirrored client-side in `js/counties.js` for the offline board) —
+  a stale phone re-seeding the whole season is filtered server-side too.
 - **Storage is split by domain** (`core`, `checkins`, `io`, `prompter`, plus one
   `count-<device>` / `tally-<device>` shard per phone) so concurrent writes can't
   clobber each other. Old single-blob data migrates automatically on first read.
@@ -455,9 +481,11 @@ automatically on deploy.
   PIN is simply the event's Saturday as `MMDD` (Jul 25 → `0725`). An event stays
   current **through its Sunday** — so a rain-date Sunday keeps the same PIN and
   the same board — and the next county takes over on the **Monday following**.
-  Nobody has to set anything between events. Dates live in `SCHEDULE` in
-  `data.mjs` (keep in step with `COUNTIES` in `js/counties.js`) and roll over on
-  New Hampshire time, not UTC, so the change never lands mid-teardown. Leaders
+  Nobody has to set anything between events. The same rule retires a county's
+  Recording Studio scripts. Dates live in `SCHEDULE` in `data.mjs` (keep the
+  `date` on each `COUNTIES` entry in `js/counties.js` in step —
+  `test/scripts-retire.test.js` fails the build if the two drift) and roll over
+  on New Hampshire time, not UTC, so the change never lands mid-teardown. Leaders
   see the live PIN and exactly when it rolls over in the dashboard; volunteers
   never receive it. Either can be pinned by hand and switched back to automatic.
 - **Each county is its own board (v1.11.0).** A leader picks the current county
@@ -572,9 +600,11 @@ Runs two things, neither needing a network or a Netlify account:
    With no build step this is the only thing standing between a typo and a
    phone in a field.
 2. **`node --test test/`** — unit tests over the server-side normalizers plus
-   an integration test that drives the real request handler against an
+   integration tests that drive the real request handler against an
    in-memory blob store (per-county isolation, shared Day PIN, season-long
-   data, reset scoping). Normalizer coverage: id
+   data, reset scoping, and the retirement of a past county's Recording Studio
+   scripts — which also checks the `COUNTIES` dates the phone ships with
+   against `SCHEDULE`). Normalizer coverage: id
    sanitization, URL scheme filtering, field whitelisting, clamping, tombstones
    and the legacy tally conversion. These encode rules the rest of the app
    relies on — e.g. if `idStr` stopped stripping quotes, the `onclick`

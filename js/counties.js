@@ -1,16 +1,20 @@
 /* ================= Shared county roster (v1.7.0) =================
    One source of truth for every county dropdown (Quick Capture + the
    Recording Studio script editor) and for the 10 script templates.
-   `event` strings match data/scripts.json exactly so board grouping holds. */
+   `event` strings match data/scripts.json exactly so board grouping holds.
+   `date` (v1.16.0) is the event Saturday in ISO — the machine-readable twin of
+   dateLong/dateShort, and what tells the Recording Studio a county is behind
+   us. It must match SCHEDULE in netlify/functions/data.mjs, which is the
+   authority; test/scripts-retire.test.js fails the build if the two drift. */
 var COUNTIES=[
-  {key:"sullivan",  county:"Sullivan County",  event:"Sullivan County — Jun 13 · Monadnock Park",         dateLong:"Saturday, June 13th",    dateShort:"June 13th",     venue:"Monadnock Park",              town:"Claremont", the:false, vshort:"Monadnock Park"},
-  {key:"grafton",   county:"Grafton County",   event:"Grafton County — Jun 27 · Loon Mountain Resort",    dateLong:"Saturday, June 27th",    dateShort:"June 27th",     venue:"Loon Mountain Resort",        town:"Lincoln",   the:false, vshort:"Loon Mountain"},
-  {key:"strafford", county:"Strafford County", event:"Strafford County — Jul 11 · Rochester Fairgrounds", dateLong:"Saturday, July 11th",    dateShort:"July 11th",     venue:"Rochester Fairgrounds",       town:"",          the:true,  vshort:"Rochester Fairgrounds"},
-  {key:"carroll",   county:"Carroll County",   event:"Carroll County — Jul 25 · King Pine Ski Area",      dateLong:"Saturday, July 25th",    dateShort:"July 25th",     venue:"King Pine Ski Area",          town:"Madison",   the:false, vshort:"King Pine"},
-  {key:"cheshire",  county:"Cheshire County",  event:"Cheshire County — Aug 15 · Cheshire Fair",          dateLong:"Saturday, August 15th",  dateShort:"August 15th",   venue:"Cheshire Fair",               town:"Swanzey",   the:true,  vshort:"Cheshire Fair"},
-  {key:"belknap",   county:"Belknap County",   event:"Belknap County — Aug 22 · Belknap 4-H Fairgrounds", dateLong:"Saturday, August 22nd",  dateShort:"August 22nd",   venue:"Belknap County 4-H Fairgrounds",town:"Belmont", the:true,  vshort:"Belknap 4-H Fairgrounds"},
-  {key:"coos",      county:"Coös County",      event:"Coös County — Sep 5 · Gorham Town Common",          dateLong:"Saturday, September 5th",dateShort:"September 5th", venue:"Gorham Town Common",          town:"",          the:true,  vshort:"Gorham Town Common"},
-  {key:"rockingham",county:"Rockingham County",event:"Rockingham County — Oct 10 · Star Speedway",        dateLong:"Saturday, October 10th", dateShort:"October 10th",  venue:"Star Speedway",               town:"Epping",    the:false, vshort:"Star Speedway"}
+  {key:"sullivan",  date:"2026-06-13", county:"Sullivan County",  event:"Sullivan County — Jun 13 · Monadnock Park",         dateLong:"Saturday, June 13th",    dateShort:"June 13th",     venue:"Monadnock Park",              town:"Claremont", the:false, vshort:"Monadnock Park"},
+  {key:"grafton",   date:"2026-06-27", county:"Grafton County",   event:"Grafton County — Jun 27 · Loon Mountain Resort",    dateLong:"Saturday, June 27th",    dateShort:"June 27th",     venue:"Loon Mountain Resort",        town:"Lincoln",   the:false, vshort:"Loon Mountain"},
+  {key:"strafford", date:"2026-07-11", county:"Strafford County", event:"Strafford County — Jul 11 · Rochester Fairgrounds", dateLong:"Saturday, July 11th",    dateShort:"July 11th",     venue:"Rochester Fairgrounds",       town:"",          the:true,  vshort:"Rochester Fairgrounds"},
+  {key:"carroll",   date:"2026-07-25", county:"Carroll County",   event:"Carroll County — Jul 25 · King Pine Ski Area",      dateLong:"Saturday, July 25th",    dateShort:"July 25th",     venue:"King Pine Ski Area",          town:"Madison",   the:false, vshort:"King Pine"},
+  {key:"cheshire",  date:"2026-08-15", county:"Cheshire County",  event:"Cheshire County — Aug 15 · Cheshire Fair",          dateLong:"Saturday, August 15th",  dateShort:"August 15th",   venue:"Cheshire Fair",               town:"Swanzey",   the:true,  vshort:"Cheshire Fair"},
+  {key:"belknap",   date:"2026-08-22", county:"Belknap County",   event:"Belknap County — Aug 22 · Belknap 4-H Fairgrounds", dateLong:"Saturday, August 22nd",  dateShort:"August 22nd",   venue:"Belknap County 4-H Fairgrounds",town:"Belmont", the:true,  vshort:"Belknap 4-H Fairgrounds"},
+  {key:"coos",      date:"2026-09-05", county:"Coös County",      event:"Coös County — Sep 5 · Gorham Town Common",          dateLong:"Saturday, September 5th",dateShort:"September 5th", venue:"Gorham Town Common",          town:"",          the:true,  vshort:"Gorham Town Common"},
+  {key:"rockingham",date:"2026-10-10", county:"Rockingham County",event:"Rockingham County — Oct 10 · Star Speedway",        dateLong:"Saturday, October 10th", dateShort:"October 10th",  venue:"Star Speedway",               town:"Epping",    the:false, vshort:"Star Speedway"}
 ];
 function countyPlace(c){return (c.the?"the ":"")+c.venue+(c.town?(" in "+c.town):"");}
 
@@ -429,6 +433,31 @@ fetch("data/scripts.json").then(function(r){return r.ok?r.json():null;}).then(fu
 function tpScripts(){return (STATE.prompter&&STATE.prompter.scripts)||[];}
 function tpById(id){return tpScripts().filter(function(x){return x.id===id;})[0]||TP_SEED.filter(function(x){return x.id===id;})[0];}
 function tpTodayISO(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+/* ---- counties we've already been to drop off the board (v1.16.0) ----
+   Mirrors countyRetired()/scriptCounty() in netlify/functions/data.mjs — the
+   server already filters the shared board, this keeps the offline preview and
+   a stale cached payload honest too. The rule is the Day PIN's rule: a county
+   is current through its Sunday (the rain date) and behind us on the Monday
+   following. A script for a past Saturday is an invitation to a date that has
+   already happened, so it goes; nobody has to delete it by hand.
+   Anything we can't place in the season — a leader's "Other / custom event…"
+   script — is never retired. */
+function tpDeburr(s){return (s||"").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
+function tpDayAfter(iso){var d=new Date(iso+"T12:00:00Z");d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10);}
+function countyRetired(c,today){return !!(c&&c.date)&&(today||tpTodayISO())>tpDayAfter(c.date);}
+function tpCountyOf(s){
+  /* Starter ids are "<key>-A"; an editor-written script has a uid() instead,
+     so its county has to come from the event line ("Coös County — Sep 5 · …",
+     deburred so the ö matches the "coos" key). */
+  var id=tpDeburr(s&&s.id),cut=id.lastIndexOf("-"),key=cut>0?id.slice(0,cut):"";
+  var ev=tpDeburr(s&&s.event),i;
+  for(i=0;i<COUNTIES.length;i++){
+    if(key===COUNTIES[i].key||ev.indexOf(COUNTIES[i].key+" county")===0)return COUNTIES[i];
+  }
+  return null;
+}
+function tpRetired(s,today){return countyRetired(tpCountyOf(s),today);}
+function tpLive(list,today){return (list||[]).filter(function(s){return !tpRetired(s,today);});}
 function tpDueChip(s){
   if(s.done)return '<span class="duechip good">✅ done</span>';
   if(!s.due)return '<span class="duechip" style="background:#ece9df;color:var(--muted)">no due date</span>';
@@ -442,11 +471,20 @@ function tpDueChip(s){
 function renderPrompt(){
   var board=document.getElementById("tpBoard");if(!board)return;
   var lock=document.getElementById("tpLock"),bar=document.getElementById("tpAddBar"),seedBtn=document.getElementById("tpSeedBtn");
-  if(LEADER){lock.innerHTML="";bar.style.display="flex";seedBtn.style.display=tpScripts().length?"none":"block";}
+  var seedable=tpLive(TP_SEED).length;
+  if(LEADER){lock.innerHTML="";bar.style.display="flex";seedBtn.style.display=(!tpScripts().length&&seedable)?"block":"none";}
   else{lock.innerHTML='<div class="lockbar">🔒 Scripts, due dates &amp; assignees are managed by leaders (Laura/Marketing).<button onclick="askPin(function(){})">Unlock</button></div>';bar.style.display="none";}
-  var list=tpScripts(),localOnly=false;
-  if(!list.length&&TP_SEED.length){list=TP_SEED.slice();localOnly=true;}
-  if(!list.length){board.innerHTML='<div class="empty">No scripts yet. '+(LEADER?'Tap <b>Load starter scripts</b> above to seed all 8 counties.':'Leaders will load them shortly. 🎬')+'</div>';tpBadge();return;}
+  var raw=tpScripts(),localOnly=false;
+  if(!raw.length&&TP_SEED.length){raw=TP_SEED.slice();localOnly=true;}
+  /* Counties we've already been to come off the board automatically. */
+  var list=tpLive(raw);
+  if(!list.length){
+    var wrapped=raw.length>0;   // there were scripts — every county is simply behind us now
+    board.innerHTML='<div class="empty">'+(wrapped
+      ?'🎬 That’s a wrap — every county on the schedule is behind us. Scripts retire the Monday after their event.'
+      :'No scripts yet. '+(LEADER?'Tap <b>Load starter scripts</b> above to seed the counties still ahead.':'Leaders will load them shortly. 🎬'))+'</div>';
+    tpBadge();return;
+  }
   var groups=[],map={};
   list.forEach(function(s){if(!(s.event in map)){map[s.event]=[];groups.push(s.event);}map[s.event].push(s);});
   board.innerHTML=(localOnly?'<div class="empty">👀 Previewing the built-in starter scripts (read-only board). Leaders: tap <b>Load starter scripts</b> to publish them for everyone.</div>':"")+groups.map(function(g){
@@ -464,10 +502,14 @@ function renderPrompt(){
   }).join("");
   tpBadge();
 }
-function tpBadge(){var e=document.getElementById("tpPill");if(!e)return;var n=tpScripts().filter(function(s){return !s.done;}).length;e.textContent=n;e.style.display=n?"flex":"none";}
+/* The pill counts what's still to film — a past county's unfilmed script is
+   not outstanding work, it's over. */
+function tpBadge(){var e=document.getElementById("tpPill");if(!e)return;var n=tpLive(tpScripts()).filter(function(s){return !s.done;}).length;e.textContent=n;e.style.display=n?"flex":"none";}
 function tpSeed(){
   if(!LEADER){askPin(tpSeed);return;}
-  doAction("promptSeed",{scripts:TP_SEED},function(){if(!tpScripts().length)STATE.prompter={scripts:JSON.parse(JSON.stringify(TP_SEED))};});
+  var seed=tpLive(TP_SEED);   // never publish counties the season has passed
+  if(!seed.length){toast("🎬 Every county on the schedule is behind us — nothing left to seed");return;}
+  doAction("promptSeed",{scripts:seed},function(){if(!tpScripts().length)STATE.prompter={scripts:JSON.parse(JSON.stringify(seed))};});
 }
 
 /* ---- 10 script templates (v1.7.0) ----
@@ -493,7 +535,9 @@ var tpEdId=null;
    names) with an "Other…" escape hatch that reveals a free-text input. */
 function tpFillEditorSelects(){
   var ev=document.getElementById("tpEdEvent");
-  if(!ev.options.length)ev.innerHTML='<option value="">County / event…</option>'+COUNTIES.map(function(c){return '<option value="'+esc(c.event)+'">'+esc(c.event)+'</option>';}).join("")+'<option value="__other">Other / custom event…</option>';
+  /* Rebuilt every open (not once) so the list sheds a county the morning after
+     its event — there is nothing to write an invite script for. */
+  ev.innerHTML='<option value="">County / event…</option>'+COUNTIES.filter(function(c){return !countyRetired(c);}).map(function(c){return '<option value="'+esc(c.event)+'">'+esc(c.event)+'</option>';}).join("")+'<option value="__other">Other / custom event…</option>';
   var who=document.getElementById("tpEdWho");
   if(!who.options.length)who.innerHTML='<option value="">Assignee — unassigned</option>'+LEADERS.map(function(l){return '<option value="'+esc(l.name)+'">'+esc(l.name)+'</option>';}).join("")+'<option value="__other">Other…</option>';
   var tpl=document.getElementById("tpEdTpl");
@@ -504,7 +548,12 @@ function tpEdWhoChange(){document.getElementById("tpEdWhoOther").style.display=d
 function tpEdSetEvent(evStr){
   var sel=document.getElementById("tpEdEvent"),oth=document.getElementById("tpEdEventOther");
   oth.value="";
-  if(evStr&&COUNTIES.some(function(c){return c.event===evStr;}))sel.value=evStr;
+  /* Match against the options actually offered, not COUNTIES — a retired
+     county is no longer in the list, and it must land in the free-text box
+     rather than silently blanking the field. */
+  var known=false;
+  for(var i=0;i<sel.options.length;i++)if(sel.options[i].value===evStr)known=true;
+  if(evStr&&known)sel.value=evStr;
   else if(evStr){sel.value="__other";oth.value=evStr;}
   else sel.value="";
   tpEdEventChange();

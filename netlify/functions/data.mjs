@@ -24,7 +24,10 @@ const LEADER_PIN = () => process.env.LEADER_PIN || "2026";
              event, dayPin, funding
  checkins  — check-in list
  io        — Tech I/O roster + patch progress
- prompter  — Recording Studio scripts
+ prompter  — Recording Studio scripts. Season-long, but a county's scripts
+             stop being seeded and stop being sent once its event weekend has
+             passed — an invite script for a past Saturday is not something a
+             volunteer should be reading to camera (see countyRetired)
  radios    — 10-radio checkout board (initials + times)
  captures  — Ambassador Quick Capture contact records (text fields only)
  miracles  — season-long Miracle Tracker: {list}. Every report (salvation,
@@ -611,14 +614,15 @@ export function normPrompter(p){
  })).slice(0, 200) };
 }
 
-/* Merge any starter script whose id is neither on the board nor tombstoned.
+/* Merge any starter script whose id is neither on the board nor tombstoned —
+   and whose county the season hasn't already driven past (see countyRetired).
    Returns true when something was added (i.e. a write is warranted). */
 function mergeStarterScripts(p){
  const have = new Set(p.scripts.map(x => x.id));
  const gone = new Set(p.removed);
  let added = false;
  for(const sc of STARTER_SCRIPTS){
-  if(!sc || !sc.id || have.has(sc.id) || gone.has(sc.id)) continue;
+  if(!sc || !sc.id || have.has(sc.id) || gone.has(sc.id) || scriptRetired(sc)) continue;
   p.scripts.push(normPrompter({ scripts: [sc] }).scripts[0]);
   added = true;
  }
@@ -782,6 +786,38 @@ export function currentEvent(todayISO){
 /* Day PIN for an event = its Saturday as MMDD. */
 export const pinForDate = iso => (iso || "").slice(5, 7) + (iso || "").slice(8, 10);
 export const autoDayPin = todayISO => pinForDate(currentEvent(todayISO).date);
+
+/* ---------------- retiring a past county's scripts (v1.16.0) ----------------
+ The Recording Studio board is season-long, so left alone it only ever grows:
+ by August a volunteer opening it scrolls past Sullivan, Grafton and Strafford
+ — invitations to Saturdays that already happened — to reach the county they
+ are actually filming for. An invite script IS an invitation, and reading a
+ dead one to camera invites people to a date that has passed.
+ So a county's scripts leave the board on exactly the schedule the Day PIN
+ rolls over: current through the event's Sunday (the rain date), retired on the
+ Monday following. Nobody has to delete anything.
+ They are FILTERED, not deleted: the stored board keeps them, so correcting a
+ date in SCHEDULE brings a county straight back, and Laura's record of who
+ filmed what survives the season. Retired counties are simply never re-seeded. */
+const deburr = s => (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+export function countyRetired(key, todayISO){
+ const e = SCHEDULE.find(x => x.key === key);
+ if(!e) return false;                       // not a scheduled county — leave it alone
+ return (todayISO || todayLocalISO()) > addDaysISO(e.date, 1);
+}
+/* Which county a script belongs to. Starter ids are "<key>-A"; a script written
+   in the editor carries the county's `event` string ("Coös County — Sep 5 · …",
+   deburred so the ö matches the "coos" key). A leader's custom-event script
+   places as nothing and therefore never retires. */
+export function scriptCounty(sc){
+ const id = deburr(sc && sc.id), cut = id.lastIndexOf("-");
+ if(cut > 0 && COUNTY_KEYS.has(id.slice(0, cut))) return id.slice(0, cut);
+ const ev = deburr(sc && sc.event);
+ for(const e of SCHEDULE) if(ev.indexOf(e.key + " county") === 0) return e.key;
+ return "";
+}
+export const scriptRetired = (sc, todayISO) => countyRetired(scriptCounty(sc), todayISO);
+const liveScripts = (list, todayISO) => (list || []).filter(sc => !scriptRetired(sc, todayISO));
 const scopeSuffix = cty => (cty ? "~" + cty : "");
 function mkKeys(cty){
  const x = scopeSuffix(cty);
@@ -1108,9 +1144,12 @@ async function assemble(s, K, active, lvl){
  const churchesRev = Math.max(0, Math.round(Number(churchesRaw && churchesRaw.rev) || 0));
  const churchCount = (churchesRaw && Array.isArray(churchesRaw.list)) ? churchesRaw.list.length : 0;
  // Self-seeding script board: fill in any missing starter scripts (no-op
- // write when nothing is missing, so the usual GET stays read-only).
- const prompter = await compareAndSwap(s, "prompter", normPrompter,
+ // write when nothing is missing, so the usual GET stays read-only). Counties
+ // the season has already driven past are neither seeded nor sent — the board
+ // a volunteer opens is only the counties still ahead.
+ const prompterAll = await compareAndSwap(s, "prompter", normPrompter,
   p => mergeStarterScripts(p) ? p : undefined, () => ({ scripts: [] }));
+ const prompter = { ...prompterAll, scripts: liveScripts(prompterAll.scripts) };
  return {
  checklist: core.checklist,
  extras: core.extras,
@@ -1724,8 +1763,10 @@ export default async (req, context) => {
  }
  /* ---- Recording Studio ---- */
  case "promptSeed":
+ // A phone running yesterday's cached copy would seed the whole season,
+ // past counties included, so the retirement filter applies here too.
  if(Array.isArray(payload.scripts))
- await compareAndSwap(s, "prompter", normPrompter, p => p.scripts.length ? undefined : normPrompter({ scripts: payload.scripts }), () => ({ scripts: [] }));
+ await compareAndSwap(s, "prompter", normPrompter, p => p.scripts.length ? undefined : normPrompter({ scripts: liveScripts(payload.scripts) }), () => ({ scripts: [] }));
  break;
  case "promptAdd":
  if(payload.script && payload.script.id)
