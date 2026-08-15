@@ -466,7 +466,17 @@ sent on **AVB 49/50** by the FOH output table but received on **AVB 57/58** by
 the 32SC input list, and the transmitters run 1, 2, 3, 4, **9**, 6, 7, 8 — there
 is no unit 5. Fix any of these in the app and the app becomes the truth.
 
-### An older stored roster upgrades itself
+### Non-production deploys get their own data
+
+Netlify Blobs are **site-wide, not deploy-scoped**. Every deploy preview and
+branch deploy used to read and write the live event data, so opening a preview
+link and tapping anything edited production — which is exactly how a preview of
+this feature overwrote the team's Tech I/O roster. `storeName()` now namespaces
+the store by `CONTEXT` and branch, so only the real production deploy touches
+`k2c-ambassador`; anything else lands in
+`k2c-ambassador--deploy-preview--<branch>` and is safe to poke at.
+
+### An older stored roster is shown, never silently replaced
 
 A roster saved before v1.16.0 carries only role / gear / location — no AVB, no
 channel numbers, no patch point — so it cannot fill the tables. Because the
@@ -474,11 +484,15 @@ stored roster overrides the deployed defaults, a phone reading one would show a
 short, half-empty input list and look like the import had failed.
 
 The app detects that (no AVB anywhere in the list), falls back to the deployed
-defaults so the tables are right immediately, and says so in a banner rather
-than leaving a leader guessing which roster is real. The first patch tap sends
-the defaults as a `seed` and the server swaps the stale roster out — the same
-mechanism that seeds a first-ever write. A roster that already carries routing
-is never replaced by a seed.
+defaults **for display only**, and says so in a banner rather than leaving a
+leader guessing which roster is real. Replacing the stored roster takes a
+deliberate **Reload defaults**.
+
+An earlier revision tried to be clever here and upgraded the roster
+automatically on the first patch tap. `ioSetRow` is open to any tech behind the
+Day PIN, so that turned one checkbox into a silent overwrite of the team's own
+I/O map, and it destroyed a real roster. The `seed` payload now only populates
+a server that has **no** roster at all.
 
 ### Merged cells are the whole ballgame
 

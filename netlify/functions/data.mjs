@@ -1251,7 +1251,21 @@ async function authLevel(s, K, req, body){
    Production always takes the getStore() path. */
 let _storeFactory = null;
 export function __setStoreFactory(fn){ _storeFactory = fn; }
-const openStore = () => _storeFactory ? _storeFactory() : getStore(STORE, { consistency: "strong" });
+/* Deploy previews and branch deploys get their OWN store.
+
+   Netlify Blobs are site-wide, not deploy-scoped, so every preview build used
+   to read and write the live event data: opening a preview link and tapping
+   anything edited production. That is how a preview of this very feature
+   overwrote the team's Tech I/O roster. CONTEXT is "production" only for the
+   real site; everything else is namespaced and therefore harmless to test. */
+function storeName(){
+ const ctx = (typeof process !== "undefined" && process.env && process.env.CONTEXT) || "";
+ if(!ctx || ctx === "production") return STORE;
+ const branch = (process.env.BRANCH || process.env.HEAD || process.env.DEPLOY_ID || "preview")
+  .toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 40);
+ return `${STORE}--${ctx}--${branch}`;
+}
+const openStore = () => _storeFactory ? _storeFactory() : getStore(storeName(), { consistency: "strong" });
 
 export default async (req, context) => {
  const s = openStore();
@@ -1629,15 +1643,18 @@ export default async (req, context) => {
     retried request that already landed is a no-op, and two techs checking
     DIFFERENT rows at the same time both stick (the old full-list setIOList
     was last-write-wins across the whole roster). `seed` carries the client's
-    full roster for the first-ever write, when the server list is empty — and
-    (v1.16.0) when the stored roster predates the routing fields. A pre-v1.16
-    roster has no AVB anywhere, so it cannot drive the table views and its row
-    ids no longer match the current defaults; the first tap upgrades it instead
-    of silently no-opping against a roster nobody can see. */
+    full roster ONLY for the first-ever write, when the server list is empty.
+
+    It deliberately does not upgrade a roster that is merely out of date. An
+    earlier revision did: a stored roster with no AVB field was treated as
+    stale and the first patch tap replaced it wholesale. ioSetRow is open to
+    any tech behind the Day PIN, so that turned a single checkbox into a
+    silent overwrite of the team's own I/O map — and it did exactly that once.
+    Replacing the roster is a leader decision (setIOList), never a side effect
+    of ticking an input off. */
  case "ioSetRow": {
  await compareAndSwap(s, K.io, normIO, io => {
- const staleIO = io.list.length && !io.list.some(p => (p.rows || []).some(r => r && r.avb));
- if((!io.list.length || staleIO) && Array.isArray(payload.seed) && payload.seed.length) io.list = normIO({ list: payload.seed }).list;
+ if(!io.list.length && Array.isArray(payload.seed) && payload.seed.length) io.list = normIO({ list: payload.seed }).list;
  let hit = null;
  for(const p of io.list) if(p && p.id === payload.pid) for(const r of (p.rows || [])) if(r && r.id === payload.rid) hit = r;
  if(!hit) return undefined;

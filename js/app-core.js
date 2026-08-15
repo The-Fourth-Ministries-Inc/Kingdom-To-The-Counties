@@ -427,7 +427,7 @@ function ioStaleNote(){
   if(!ioStale())return "";
   return '<div class="ioclash stale"><b>⚠ Showing the deployed roster, not the saved one</b>'+
     '<span>The roster saved on the server predates the Inputs and Outputs tables — it has no AVB streams, channel numbers or patch points, so it can\'t fill them. '+
-    (LEADER?'Tap <b>↺ Reload defaults</b> to replace it with the imported sheet for everyone. Ticking any input off does the same thing automatically.'
+    (LEADER?'Tap <b>↺ Reload defaults</b> to replace it with the imported sheet for everyone. Nothing else will overwrite it — replacing the roster is always a deliberate choice.'
            :'A leader can replace it with <b>Reload defaults</b>.')+'</span></div>';
 }
 function ioConsoleBar(){
@@ -681,10 +681,10 @@ function ioToggle(pid,rid){
      to a poll interval stale). Now only this row's final state goes up and the
      server merges it in. The full list rides along as a seed ONLY when the
      server has no roster yet (first ever write). */
-  /* Seed the server when it has no roster at all, and also when what it holds
-     predates the routing fields — otherwise the tap would be matched against a
-     stale roster whose row ids no longer exist and silently do nothing. */
-  var hadList=!!(STATE.ioList&&STATE.ioList.length)&&!ioIsLegacy(STATE.ioList);
+  /* Seed ONLY when the server has no roster at all. A roster that is merely
+     out of date is left alone: replacing it is a leader decision, not
+     something a checkbox does on someone's behalf. */
+  var hadList=!!(STATE.ioList&&STATE.ioList.length);
   var list=ioClone(ioCurrent());
   var row=null;
   list.forEach(function(p){if(p.id===pid)(p.rows||[]).forEach(function(r){if(r.id===rid)row=r;});});
