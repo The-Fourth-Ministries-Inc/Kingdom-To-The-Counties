@@ -215,83 +215,36 @@ test("with nothing set by hand, the automatic Day PIN is what actually unlocks t
   }
 });
 
-/* v1.16.0 — the table views need routing (AVB, channel numbers, patch point)
-   on every input row. A roster stored before those fields existed can't fill
-   them, and its row ids no longer match the current defaults, so a patch tap
-   against it would match nothing and silently do nothing. The first tap has to
-   upgrade the stored roster instead. */
-test("a pre-v1.16 roster is replaced by the client's seed on the first patch tap", async () => {
+/* v1.15.2 — the Tech I/O section is the tech team's own record of how the rig
+   is wired. It is maintained outside the event-day cycle, so the end-of-day
+   reset must not touch any part of it: not the roster, and not the patch
+   checkmarks it used to clear. */
+test("reset leaves the entire Tech I/O section alone", async () => {
   await post("setCounty", { county: "sullivan" });
-
-  // What the server holds from an older deploy: no avb anywhere.
   await post("setIOList", { list: [{
-    id: "Pack1", name: "Karielle", pack: "Pack 1", color: "#ED8B0B", qmix: "1 / 2", tx: "Tx 1",
-    rows: [{ id: "old-row", role: "Lead Vox", gear: "Wireless Mic B (Tuned)", loc: "Ch 2 · AVB 2 · Ark 7" }]
-  }] });
-  let s = await get();
-  assert.equal(s.ioList.length, 1);
-  assert.equal(s.ioList[0].rows[0].avb, "", "the old roster genuinely has no routing on it");
-
-  // A tech ticks an input off. The client sends the current defaults as a seed.
-  const seed = [{
-    id: "pack-1-orange", name: "Karielle", pack: "Pack 1 (Orange)", color: "#ED8B0B",
-    aux: "1 & 2", out: "1 & 2", txUnit: "1", mode: "stereo",
+    id: "Pack8", name: "Tyler", inst: "Drums", pack: "Pack 8", color: "#2E7CD6", qmix: "15 / 16", tx: "Tx 8",
     rows: [
-      { id: "karielle-lead-vox", role: "Lead Vox", gear: "Wireless Mic B (Tuned)", avb: "2", foh: "2", sc: "2", port: "Ark Splitter - Input 2 (from Ip7)" },
-      { id: "karielle-raw", role: "Lead Vox (Raw split)", gear: "Wireless Mic B (Raw)", avb: "7", foh: "", sc: "29", port: "Ark Splitter - Input 7" }
+      { id: "tyler-toms-mixdown", role: "Toms - Mixdown", gear: "4-6. Tom Mics", loc: "Ch 23 · AVB 57 · NSB 1-3" },
+      { id: "tyler-overheads-mixdown", role: "Overheads - Mixdown", gear: "7-8. Overhead (LR) Condensers", loc: "Ch 24 · AVB 58 · NSB 4-5" }
     ]
-  }];
-  await post("ioSetRow", { pid: "pack-1-orange", rid: "karielle-lead-vox", done: true, by: "MN", t: "9:12 AM", seed });
+  }] });
+  // A tech works through the line check.
+  await post("ioSetRow", { pid: "Pack8", rid: "tyler-toms-mixdown", done: true, by: "MN", t: "9:12 AM" });
+  await post("addCheckin", { id: "s1", name: "Sam", team: "Tech", t: "9:00 AM" });
+
+  let s = await get();
+  assert.equal(s.ioList[0].rows[0].done, true);
+
+  await post("reset", {});
 
   s = await get();
-  assert.equal(s.ioList[0].id, "pack-1-orange", "the stale roster should have been replaced");
-  assert.equal(s.ioList[0].rows.length, 2);
-  assert.equal(s.ioList[0].rows[0].avb, "2", "routing survives the upgrade");
-  assert.equal(s.ioList[0].rows[0].done, true, "and the tap that triggered it still lands");
-  assert.equal(s.ioList[0].rows[1].done, false);
-});
-
-test("a roster that already carries routing is never clobbered by a seed", async () => {
-  await post("setCounty", { county: "grafton" });
-  await post("setIOList", { list: [{
-    id: "pack-8-blue", name: "Kyle", pack: "Pack 8 (Blue)",
-    rows: [{ id: "kyle-kick", role: "Kick Drum", gear: "1. Kick Mic", avb: "25", foh: "20", sc: "20" }]
-  }] });
-
-  // Someone on an older client (or a retry) sends a seed anyway.
-  await post("ioSetRow", { pid: "kyle-kick-x", rid: "nope", done: true, by: "MN", t: "9:20 AM",
-    seed: [{ id: "wiped", name: "Should not appear", rows: [] }] });
-
-  const s = await get();
-  assert.equal(s.ioList.length, 1);
-  assert.equal(s.ioList[0].id, "pack-8-blue", "a live roster must win over any seed");
-  assert.equal(s.ioList[0].rows[0].avb, "25");
-});
-
-/* setIOList is the one write that replaces a whole blob's contents from the
-   client. It used to store the array verbatim, so the roster — alone among the
-   stored collections — never passed through the field whitelist. */
-test("setIOList normalizes the roster instead of storing the client's array verbatim", async () => {
-  await post("setCounty", { county: "belknap" });
-  await post("setIOList", {
-    list: [{
-      id: "p'1", name: "Kyle", color: "javascript:x", mode: "quadraphonic", leg: "X", evil: "gone",
-      rows: [{ id: "r'1", role: "Kick Drum", avb: "25", p48: "truthy", nasty: "gone" }]
-    }],
-    buses: [{ id: "b'1", bus: "Aux 1 & 2", sig: "Stereo Subgroup", junk: "gone" }]
-  });
-
-  const s = await get();
-  const p = s.ioList[0], r = p.rows[0];
-  assert.equal(p.id, "p1", "ids are stripped to what's safe in an onclick attribute");
-  assert.equal(p.color, "#c7c2b8", "an invalid colour falls back rather than reaching a style attribute");
-  assert.equal(p.mode, "none", "an unknown mix mode is rejected");
-  assert.equal(p.leg, "");
-  assert.ok(!("evil" in p), "unknown performer fields are dropped");
-  assert.equal(r.id, "r1");
-  assert.equal(r.avb, "25");
-  assert.equal(r.p48, true);
-  assert.ok(!("nasty" in r), "unknown row fields are dropped");
-  assert.equal(s.ioBuses[0].id, "b1");
-  assert.ok(!("junk" in s.ioBuses[0]), "unknown bus fields are dropped");
+  assert.equal(s.checkins.length, 0, "event-day data still clears");
+  assert.equal(s.ioList.length, 1, "the roster survives");
+  assert.equal(s.ioList[0].name, "Tyler");
+  assert.equal(s.ioList[0].rows.length, 2, "every input row survives");
+  assert.equal(s.ioList[0].rows[0].loc, "Ch 23 · AVB 57 · NSB 1-3", "snake references survive");
+  assert.equal(s.ioList[0].rows[1].loc, "Ch 24 · AVB 58 · NSB 4-5");
+  assert.equal(s.ioList[0].rows[0].done, true, "the patch checkmark survives — reset used to clear it");
+  assert.equal(s.ioList[0].rows[0].by, "MN", "and so does who ticked it");
+  assert.equal(s.ioList[0].rows[0].t, "9:12 AM");
 });

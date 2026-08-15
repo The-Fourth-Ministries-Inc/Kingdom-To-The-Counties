@@ -1,4 +1,4 @@
-/* K2C Ambassador Companion — service worker (v46 · app v1.16.0)
+/* K2C Ambassador Companion — service worker (v46 · app v1.15.2)
  Strategy: NETWORK-FIRST for everything, cache as fallback.
  When online, behavior is byte-for-byte identical to having no SW —
  fresh code always wins, so a deploy can never be masked by stale cache.
