@@ -685,8 +685,8 @@ textarea, select { font-size: 16px !important; }
   .iotbl tr.done .box{background:var(--rust);border-color:var(--rust)}.iotbl tr.done .box svg{opacity:1;transform:scale(1)}
   .iotbl .iostamp{display:block;font-size:10px;font-weight:700;color:var(--good);margin-top:2px}
   .iotbl .p48{font-size:9.5px;font-weight:800;letter-spacing:.3px;color:#fff;background:var(--rust);border-radius:5px;padding:2px 5px;white-space:nowrap}
-  .iotbl .chip.sm{display:inline-flex;min-width:0;height:22px;padding:0 8px;font-size:10px;border-radius:7px}
-  .iotbl .chip.sm.none{background:#e6e2d8;color:var(--muted);box-shadow:none}
+  .iotbl .chip.sm{display:inline-flex;align-items:center;justify-content:center;min-width:0;height:22px;padding:0 8px;font-size:10px;font-weight:800;letter-spacing:.3px;border-radius:7px;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+  .iotbl .chip.sm.none{background:#e6e2d8;color:var(--muted);box-shadow:none;font-weight:700}
   .iowarn{color:var(--bad);font-weight:800;cursor:help}
   .ioclash{background:#f6e2e0;border:1px solid #e6c4c0;border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:12px;line-height:1.45;color:#6d2a24}
   .ioclash>b{display:block;font-size:12.5px;margin-bottom:5px}
@@ -723,6 +723,30 @@ textarea, select { font-size: 16px !important; }
   .iotbl .packed input:not([type=color]){min-width:74px}
   .iotbl .packed input[type=color]{width:30px;height:30px;flex:none;padding:2px;border-radius:7px}
   .ioro{font-size:11.5px;font-weight:700;color:var(--muted)}
+  /* ---- Desktop (>=900px) ----
+     The phone layout letterboxes everything into a 560px column. Tech I/O is
+     the one page people work at a laptop, so it gets the screen: the tables
+     stop scrolling sideways and the musician cards flow into columns instead
+     of stretching to absurd line lengths. */
+  @media (min-width:900px){
+    main.wide{max-width:1480px}
+    main.wide .iotbl{font-size:13px}
+    main.wide .iotbl td{height:46px}
+    main.wide .iotbl td.sm{max-width:none}
+    main.wide .iotbl td.note{max-width:280px}
+    main.wide .iotbl td input:not([type=color]):not([type=checkbox]){min-width:90px}
+    main.wide .iotbl td select.iopick{max-width:none}
+    /* Enough room for the whole table: nothing needs to be pinned any more,
+       and a sticky cell over a non-scrolling table just casts a stray edge. */
+    main.wide .iotbl .stick,main.wide .iotbl .stick2{position:static;box-shadow:none;width:auto;min-width:0}
+    main.wide .iocards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;align-items:start}
+    main.wide .iocards .ioperf{margin-bottom:0}
+    main.wide .ioviews{max-width:560px}
+    main.wide .ionote,main.wide .namebar,main.wide .iobar,main.wide .ioclash,main.wide .iofilter{max-width:900px}
+  }
+  @media (min-width:1280px){
+    main.wide .iocards{grid-template-columns:repeat(auto-fill,minmax(360px,1fr))}
+  }
   .iofield{display:flex;flex-direction:column;gap:2px;min-width:0}
   .iofield.grow{flex:1;min-width:120px}
   .iofield>span{font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}

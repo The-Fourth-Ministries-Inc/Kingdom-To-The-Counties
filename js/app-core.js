@@ -322,6 +322,21 @@ function ioModeLabel(p){
   return "—";
 }
 function ioIsOpen(p){return !p.name||p.name==="— open —";}
+/* Pack colours come off the physical belt packs, so they run the whole way
+   from the yellow pack to the purple one. Pick the label colour from the
+   background's brightness instead of assuming white — white on the yellow
+   pack is unreadable, and dark ink on the purple one is worse. */
+function ioInk(hex){
+  var m=/^#([0-9a-f]{6})$/i.exec(String(hex||""));
+  if(!m)return "#3a352d";
+  var n=parseInt(m[1],16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  return (r*299+g*587+b*114)/1000>150?"#2b2721":"#fff";
+}
+function ioChip(pack,color,cls){
+  var c=/^#[0-9a-fA-F]{6}$/.test(color||"")?color:"#c7c2b8";
+  if(!pack)return '<span class="chip '+(cls||"")+' none">no pack</span>';
+  return '<span class="chip '+(cls||"")+'" style="background:'+esc(c)+';color:'+ioInk(c)+'">'+esc(pack)+'</span>';
+}
 /* The other leg of the same transmitter, if the unit is running dual-mono. */
 function ioSibling(list,p){
   if(p.mode!=="mono"||!p.txUnit)return null;
@@ -593,7 +608,7 @@ function renderIOOutputs(list,ed){
     var chip=ed
       ? '<span class="packed"><input value="'+esc(p.pack||"")+'" placeholder="Pack" oninput="ioSet('+pi+',-1,\'pack\',this.value)">'+
         '<input type="color" value="'+(/^#[0-9a-fA-F]{6}$/.test(p.color||"")?p.color:"#c7c2b8")+'" oninput="ioSet('+pi+',-1,\'color\',this.value)"></span>'
-      : (p.pack?'<span class="chip sm" style="background:'+esc(p.color||"#c7c2b8")+'">'+esc(p.pack)+'</span>':'<span class="chip sm none">no pack</span>');
+      : ioChip(p.pack,p.color,"sm");
     var main='<tr class="'+(stereo?"st":"mo")+'">'+
       '<td class="num k stick">'+(ed?'<input class="w5" value="'+esc(p.aux||"")+'" placeholder="Aux" oninput="ioSet('+pi+',-1,\'aux\',this.value);ioSet('+pi+',-1,\'qmix\',this.value)">':'Aux '+esc(p.aux||p.qmix||"—"))+'</td>'+
       '<td class="num">'+(ed?'<input class="w5" value="'+esc(p.out||"")+'" placeholder="Out" oninput="ioSet('+pi+',-1,\'out\',this.value)">':esc(p.out||"—"))+'</td>'+
@@ -662,14 +677,16 @@ function renderIOList(){
         '<span class="w"><b>'+esc(prim)+'</b>'+(sec?'<span>'+esc(sec)+'</span>':'')+stamp+'</span>'+
         (r.loc?'<span class="loc">'+esc(r.loc)+'</span>':'')+'</div>';
     }).join("");
-    var chip='<span class="chip" style="background:'+esc(p.color||'#c7c2b8')+'">'+esc(p.id || "—")+'</span>';
+    /* The importer's card id is a slug ("pack-1-orange"); the pack label is what
+     is written on the belt pack itself. */
+    var chip=ioChip(p.pack||p.id||"—",p.color,"");
     var txLine=p.tx?'<span class="iotx">'+esc(p.tx)+'</span>':'';
     var qx=p.qmix?'<span class="qx">Aux '+esc(p.qmix)+'</span>':'';
     var tag=p.off?'<span class="iotag">Not used</span>':'';
     return '<div class="ioperf'+(p.off?' off':'')+'"><div class="ph">'+chip+
       '<span class="pn">'+esc(p.name)+tag+(p.inst?'<small>'+esc(p.inst)+'</small>':'')+txLine+'</span>'+qx+'</div>'+rows+'</div>';
   }).join("");
-  mount.innerHTML=bar+body;
+  mount.innerHTML=bar+'<div class="iocards">'+body+'</div>';
 }
 function ioNudgeInit(){askName();}
 function ioToggle(pid,rid){
@@ -2292,6 +2309,9 @@ function show(id){
   if(id==="dashboard"&&!LEADER){askPin(function(){show("dashboard");});}
   var pages=document.querySelectorAll(".page");for(var i=0;i<pages.length;i++)pages[i].classList.remove("active");
   var el=document.getElementById("page-"+id);if(el)el.classList.add("active");
+  /* Tech I/O is the one page routinely used at a laptop — the tables are wider
+     than a phone column and there is no reason to letterbox them on a desktop. */
+  var mainEl=document.querySelector("main");if(mainEl)mainEl.classList.toggle("wide",id==="techio");
   var tab=PARENT[id]||id;var tabs=document.querySelectorAll(".tab");for(var j=0;j<tabs.length;j++)tabs[j].classList.toggle("active",tabs[j].getAttribute("data-tab")===tab);
   window.scrollTo({top:0,behavior:"smooth"});
   if(id==="now")renderSpine();

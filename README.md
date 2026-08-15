@@ -379,6 +379,15 @@ open to any tech past the Day PIN, along with the patch checkmarks they tick
 during line check. (Ticking an input off is progress, not a change to the
 routing, which is why it stays on the open view.)
 
+### It works at a laptop, not just a phone
+
+The rest of the app is a 560px phone column. Tech I/O is the one page people
+actually work at a desk, so from 900px up it takes the screen (`main.wide`, up
+to 1480px): the tables stop scrolling sideways and show every column at once,
+and the musician cards flow into a 2–3 column grid instead of stretching to
+absurd line lengths. Below 900px nothing changes — the tables scroll sideways
+with the AVB and tick columns pinned, exactly as before.
+
 ### The columns follow the signal
 
 Left to right, the Inputs table runs the way the signal does — the stream it
@@ -431,6 +440,13 @@ The belt packs are colour-coded on the hardware and the team reads them that
 way, so the colour is a real field, not a label: the Outputs table shows the
 pack as a coloured chip, and in edit mode the chip becomes a text field plus a
 colour swatch. Change the pack a musician is on and the chip follows.
+
+The chip's **label colour is computed from the background** (`ioInk`), because
+the packs run from the yellow one to the purple one and no single ink works for
+both — white on yellow is unreadable, dark ink on purple is worse. The table
+chips also inherit the card chips' weight and border now; they previously
+picked up neither, which is why the same pack looked like two different styles
+depending on which view you were in.
 
 ### Collapsing an IEM mix to mono
 
