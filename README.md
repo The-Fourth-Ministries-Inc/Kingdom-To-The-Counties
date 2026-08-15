@@ -619,6 +619,10 @@ automatically on deploy.
   server dedupes on, so a retry can't create duplicates. (The old
   toggle-style `toggleCheck`/`ackCard`/`radioToggle` actions remain server-side
   for phones still running an older client.)
+- **Media upload link on the homepage (v1.16.1).** The Event Day page now has
+  a one-tap shortcut to the SharePoint media dump (`bit.ly/uploadk2c`) right
+  next to Quick Capture, so ambassadors don't have to dig into the Playbook to
+  find it after shooting photos or video.
 - **Reset never touches Tech I/O (v1.15.2).** The end-of-day reset clears
   checklists, check-ins, counts, radios, praise, announcements and issues. It
   leaves the **entire** Tech I/O section alone — the roster *and* the patch
