@@ -356,6 +356,187 @@ All ten graphics are live as of v1.15.1. The banners are 1920×1080 and the
 mission card 1080×1350, matching what the socials want; keep new artwork at
 those sizes and under ~300KB so the precache stays reasonable on field signal.
 
+## Tech I/O List (v1.16.0)
+
+Under **Specialists → 🎛️ Tech I/O List**. Three views of one dataset, switched
+with the segmented control at the top:
+
+- **👤 Musicians** — the original per-pack cards. What one player needs, and the
+  patch checkmarks techs tick off during line check.
+- **🎚 Inputs** — the full input list as a table, **keyed on the AVB stream
+  number**, with the FOH and 32SC channel numbers side by side: source, role,
+  physical patch point, mic/hardware, +48V and the sheet's notes. Where the two
+  consoles wrote different things for one signal, both readings show — the
+  32SC's on its own line, labelled.
+- **🎧 Outputs** — the Ark 32R IEM mixes (transmitter, pack, assignee,
+  stereo/mono) and the NSB 32.16 PA buses.
+
+**The tables are the master routing and the musician cards are built from
+them.** Editing happens *only* in a table — there is no edit affordance on the
+musician cards at all, so nobody changes routing from a view that can't show
+routing. The tables sit behind the **leader PIN**; the Musicians view stays
+open to any tech past the Day PIN, along with the patch checkmarks they tick
+during line check. (Ticking an input off is progress, not a change to the
+routing, which is why it stays on the open view.)
+
+### It works at a laptop, not just a phone
+
+The rest of the app is a 560px phone column. Tech I/O is the one page people
+actually work at a desk, so from 900px up it takes the screen (`main.wide`, up
+to 1480px): the tables stop scrolling sideways and show every column at once,
+and the musician cards flow into a 2–3 column grid instead of stretching to
+absurd line lengths. Below 900px nothing changes — the tables scroll sideways
+with the AVB and tick columns pinned, exactly as before.
+
+### The columns follow the signal
+
+Left to right, the Inputs table runs the way the signal does — the stream it
+ends up on, then the three ways it can get in:
+
+| Column | What it is |
+| --- | --- |
+| **AVB** | the network stream, the number every console agrees on |
+| **Snake** | an on-stage NSB 32.16 port, for anything patched at the stage box |
+| **Ark split** | an Ark XLR splitter input — the splitter feeds the 32R |
+| **32R** | the 32R's own channel |
+
+A row uses exactly one entry point. Computer sources (tracks, click, guide)
+have none of the three — they land straight on the AVB network from the
+playback Mac — so their entry columns read `—` and the note says where they
+come from. Console channels (FOH ch, 32SC ch) sit at the far right: they're the
+least useful number when you're stood at a patch bay.
+
+**The 32R column imports empty.** The sheet never writes a 32R channel. The
+Ark splitter feeds the 32R, so in practice it's the same number as the splitter
+input, but that's an inference and the importer doesn't invent data — fill it
+in once and it sticks.
+
+### Musicians are a roster, not free text
+
+Every Source cell in the edit view is a dropdown of the people already on the
+list, so a musician's card and the table can't drift into describing two
+different people. Picking a different name **moves that input onto their card**
+— that single action is what "the tables feed the performer view" means in
+practice. **＋ Add a musician** puts a new name on the roster (and into every
+dropdown) before they have any inputs.
+
+The sheet's own Source wording still rides along per row, so "Zach TB" and
+"Zach AG" stay distinguishable while both resolving to Zach's card.
+
+### Why AVB is the left-hand column
+
+We run three consoles — the FOH board, a 32SC for monitors, and a 32R mostly
+for patching — and **their channel numbers disagree**. The FOH board takes drums
+discrete (Tom 1–3 and overheads on channels 23–27); the 32SC takes them
+pre-mixed on 23–24 and spends the freed channels on the raw vocal splits. The
+one identifier both consoles name for the same signal is the AVB stream, so
+that's the key the table sorts and merges on. Each row still shows both channel
+numbers, and the **Console** filter narrows to just the FOH or just the 32SC
+view when you're standing at one of them.
+
+### IEM packs stay colour-coded
+
+The belt packs are colour-coded on the hardware and the team reads them that
+way, so the colour is a real field, not a label: the Outputs table shows the
+pack as a coloured chip, and in edit mode the chip becomes a text field plus a
+colour swatch. Change the pack a musician is on and the chip follows.
+
+The chip's **label colour is computed from the background** (`ioInk`), because
+the packs run from the yellow one to the purple one and no single ink works for
+both — white on yellow is unreadable, dark ink on purple is worse. The table
+chips also inherit the card chips' weight and border now; they previously
+picked up neither, which is why the same pack looked like two different styles
+depending on which view you were in.
+
+### Collapsing an IEM mix to mono
+
+Everyone wants stereo — an aux pair, a whole transmitter, two outputs. But the
+32R has sixteen outputs, so with more musicians than pairs somebody has to go
+mono. On the **Outputs** view a leader taps **Split to mono →** on a stereo mix:
+the current owner keeps the left leg, and the right leg opens as a free mono
+slot on the same transmitter. **← Back to stereo** merges the two legs again.
+
+Splitting doesn't consume more outputs — it buys another *mix* out of the same
+pair, which is why the header counts both ("16 of 16 outputs in use · 9 mixes").
+Going back to stereo always costs somebody their mix, so the app names who and
+asks first; that person keeps all their inputs and drops to "no mix assigned"
+until a leader hands them another. The assignee dropdown moves a mix between
+people, swapping if the target already holds one.
+
+### The sheet is canon — including where it disagrees with itself
+
+The roster is imported from `The Fourth Routing and Input Lists — K2C.xlsx`,
+tab `K2C Cheshire - INP-OUT Map`, and imported **verbatim**. That sheet
+contradicts itself in a few places, so rather than guess a winner the importer
+keeps both readings and the Inputs view flags them in a banner at the top:
+
+- **AVB 41** is written as both Tom 1 (FOH ch 23, NSB.32-1) and a spare channel
+  (FOH ch 32, Ark splitter 32).
+- **AVB 38 / 39** appear as both 32SC spares on NSB.32-4/5 and FOH unused
+  channels on Ark splitter 29/30 — and NSB.32-4/5 are also the overheads.
+- **The saxophone** is AVB 37 on FOH and AVB 28 on the 32SC, off one splitter
+  port.
+
+Two more worth knowing that the app can't detect: the Toms/overheads mixdown is
+sent on **AVB 49/50** by the FOH output table but received on **AVB 57/58** by
+the 32SC input list, and the transmitters run 1, 2, 3, 4, **9**, 6, 7, 8 — there
+is no unit 5. Fix any of these in the app and the app becomes the truth.
+
+### Non-production deploys get their own data
+
+Netlify Blobs are **site-wide, not deploy-scoped**. Every deploy preview and
+branch deploy used to read and write the live event data, so opening a preview
+link and tapping anything edited production — which is exactly how a preview of
+this feature overwrote the team's Tech I/O roster. `storeName()` now namespaces
+the store by `CONTEXT` and branch, so only the real production deploy touches
+`k2c-ambassador`; anything else lands in
+`k2c-ambassador--deploy-preview--<branch>` and is safe to poke at.
+
+### An older stored roster is shown, never silently replaced
+
+A roster saved before v1.16.0 carries only role / gear / location — no AVB, no
+channel numbers, no patch point — so it cannot fill the tables. Because the
+stored roster overrides the deployed defaults, a phone reading one would show a
+short, half-empty input list and look like the import had failed.
+
+The app detects that (no AVB anywhere in the list), falls back to the deployed
+defaults **for display only**, and says so in a banner rather than leaving a
+leader guessing which roster is real. Replacing the stored roster takes a
+deliberate **Reload defaults**.
+
+An earlier revision tried to be clever here and upgraded the roster
+automatically on the first patch tap. `ioSetRow` is open to any tech behind the
+Day PIN, so that turned one checkbox into a silent overwrite of the team's own
+I/O map, and it destroyed a real roster. The `seed` payload now only populates
+a server that has **no** roster at all.
+
+### Merged cells are the whole ballgame
+
+A merged cell stores its value only in the top-left slot; every other slot in
+the block reads back empty even though the sheet *displays* the value on all of
+them. `sheetToRows` expands merges before anything else looks at the grid,
+because that is where a third of this sheet's content lives: Kyle's name down
+the eight drum rows, the physical port and hardware for the playback returns,
+the `13/14 (stereo)` channel labels, the `Aux 16` bus, and every note written
+once against a block of rows. Skip that step and the import looks complete
+while quietly dropping ~70 values. `test/io-consolidate.test.js` pins the
+behaviour, including that expansion never becomes a general fill-down over
+genuinely blank cells.
+
+### Re-importing from the workbook
+
+```bash
+node scripts/excel-to-io.mjs --workbook "The Fourth Routing and Input Lists — K2C.xlsx" \
+  --sheet "K2C Cheshire - INP-OUT Map" \
+  --output data/io-default.json --write-index --verbose
+```
+
+`--write-index` rewrites `IO_DEFAULT` and `IO_BUSES` in `js/app-core.js`; both
+halves of the sheet, the IEM table and the PA bus table are discovered by their
+header text, not by hard-coded row numbers, so the other county tabs import with
+`--sheet`. Note that this only changes the *defaults* — phones keep whatever
+roster is stored on the server until a leader taps **Reload defaults**.
+
 ## Recording Studio (Teleprompter) (v1.14.2)
 
 Under **Ambassador Resources → 🎬 Recording Studio**: invite-video scripts for
@@ -450,7 +631,9 @@ automatically on deploy.
   stored roster — the previous design uploaded the whole roster per tap
   (last-write-wins), so two techs patching simultaneously erased each other's
   checkmarks. Wholesale `setIOList` is still used for structural edits
-  (edit list / reload defaults), which are single-leader operations.
+  (edit list / reload defaults / collapsing an IEM mix to mono), which are
+  single-leader operations and leader-PIN gated. The PA output buses ride along
+  on that same write.
 - **The Day PIN and the active county follow the schedule (v1.11.0).** The Day
   PIN is simply the event's Saturday as `MMDD` (Jul 25 → `0725`). An event stays
   current **through its Sunday** — so a rain-date Sunday keeps the same PIN and
@@ -512,6 +695,10 @@ automatically on deploy.
   announcements, check-ins and comments have their fields whitelisted, lengths
   capped, and `priority`/`pri` validated against a fixed set. Clients can't
   inject markup through a priority class or pre-set a report as acknowledged.
+  **The Tech I/O roster is included as of v1.16.0.** `setIOList` replaces a
+  whole blob from the client and used to store the array verbatim, so the
+  roster was the one stored collection that never met the field whitelist. It
+  is now normalized on write, on seed, and on read.
 - **`sw.js`** is a network-first service worker: online behavior is identical to
   having no cache (fresh deploys always win), but if the field signal drops the
   app shell, fonts, and images still load.
@@ -579,6 +766,10 @@ Runs two things, neither needing a network or a Netlify account:
    and the legacy tally conversion. These encode rules the rest of the app
    relies on — e.g. if `idStr` stopped stripping quotes, the `onclick`
    handlers in the client would become injectable again.
+   `test/io-consolidate.test.js` covers the routing-sheet importer: that the
+   FOH and 32SC halves merge on AVB, that both channel numbers survive, and
+   that the places where the sheet contradicts itself stay as two rows instead
+   of being quietly resolved.
 
 ## Contributing
 
