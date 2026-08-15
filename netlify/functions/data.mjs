@@ -97,11 +97,6 @@ export function safeUrl(v, n = 200){
  return "https://" + s.replace(/^\/+/, "");
 }
 
-function ioListClearProgress(list){
- if(!Array.isArray(list) || !list.length) return list;
- return list.map(p => ({ ...p, rows: (p.rows || []).map(r => ({ ...r, done:false, by:"", t:"" })) }));
-}
-
 /* ---- user-submitted content is normalized server-side: fields are
    whitelisted, lengths capped, and priority/pri validated against a fixed set.
    This is authoritative — the client is never trusted to have escaped anything
@@ -1698,7 +1693,11 @@ export default async (req, context) => {
  }
  // The rain-date shift is day-specific — the next event starts unshifted.
  await casCore(s, K, core => ({ ...EMPTY_CORE, event: { ...core.event, shift: 0 }, dayPin: core.dayPin, funding: core.funding, praises: core.praises }));
- await compareAndSwap(s, K.io, normIO, io => { io.list = ioListClearProgress(io.list); return io; }, () => ({ list: [] }));
+ /* Reset deliberately does NOT touch the Tech I/O blob — not the roster and
+    not the patch checkmarks. The I/O map is the tech team's own record of how
+    the rig is wired, maintained outside the event-day cycle, and clearing any
+    part of it here has cost them work. It is still captured in the snapshot
+    above so a reset remains fully recoverable. */
  const [c1, c2, c3, c4] = await Promise.all([ s.list({ prefix: K.countPre }), s.list({ prefix: K.tallyPre }), s.list({ prefix: K.tal2Pre }), s.list({ prefix: K.dec2Pre }) ]);
  const doomed = [ ...((c1 && c1.blobs) || []), ...((c2 && c2.blobs) || []), ...((c3 && c3.blobs) || []), ...((c4 && c4.blobs) || []) ]
   .filter(b => b.key !== K.agg); // rewritten below, not deleted (racy otherwise)

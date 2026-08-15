@@ -214,3 +214,37 @@ test("with nothing set by hand, the automatic Day PIN is what actually unlocks t
     __setStoreFactory(() => store);
   }
 });
+
+/* v1.15.2 — the Tech I/O section is the tech team's own record of how the rig
+   is wired. It is maintained outside the event-day cycle, so the end-of-day
+   reset must not touch any part of it: not the roster, and not the patch
+   checkmarks it used to clear. */
+test("reset leaves the entire Tech I/O section alone", async () => {
+  await post("setCounty", { county: "sullivan" });
+  await post("setIOList", { list: [{
+    id: "Pack8", name: "Tyler", inst: "Drums", pack: "Pack 8", color: "#2E7CD6", qmix: "15 / 16", tx: "Tx 8",
+    rows: [
+      { id: "tyler-toms-mixdown", role: "Toms - Mixdown", gear: "4-6. Tom Mics", loc: "Ch 23 · AVB 57 · NSB 1-3" },
+      { id: "tyler-overheads-mixdown", role: "Overheads - Mixdown", gear: "7-8. Overhead (LR) Condensers", loc: "Ch 24 · AVB 58 · NSB 4-5" }
+    ]
+  }] });
+  // A tech works through the line check.
+  await post("ioSetRow", { pid: "Pack8", rid: "tyler-toms-mixdown", done: true, by: "MN", t: "9:12 AM" });
+  await post("addCheckin", { id: "s1", name: "Sam", team: "Tech", t: "9:00 AM" });
+
+  let s = await get();
+  assert.equal(s.ioList[0].rows[0].done, true);
+
+  await post("reset", {});
+
+  s = await get();
+  assert.equal(s.checkins.length, 0, "event-day data still clears");
+  assert.equal(s.ioList.length, 1, "the roster survives");
+  assert.equal(s.ioList[0].name, "Tyler");
+  assert.equal(s.ioList[0].rows.length, 2, "every input row survives");
+  assert.equal(s.ioList[0].rows[0].loc, "Ch 23 · AVB 57 · NSB 1-3", "snake references survive");
+  assert.equal(s.ioList[0].rows[1].loc, "Ch 24 · AVB 58 · NSB 4-5");
+  assert.equal(s.ioList[0].rows[0].done, true, "the patch checkmark survives — reset used to clear it");
+  assert.equal(s.ioList[0].rows[0].by, "MN", "and so does who ticked it");
+  assert.equal(s.ioList[0].rows[0].t, "9:12 AM");
+});

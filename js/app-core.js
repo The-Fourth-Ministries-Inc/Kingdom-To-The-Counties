@@ -176,14 +176,6 @@ var ioEditing=false, ioBuf=null;
 function ioClone(o){return JSON.parse(JSON.stringify(o));}
 function ioCurrent(){return (STATE.ioList&&STATE.ioList.length)?STATE.ioList:IO_DEFAULT;}
 function ioCounts(list){var d=0,t=0;list.forEach(function(p){if(p.off)return;p.rows.forEach(function(r){t++;if(r.done)d++;});});return{done:d,total:t};}
-function ioListClearProgress(list){
-  if(!list||!list.length)return list;
-  return list.map(function(p){
-    return{id:p.id,name:p.name,inst:p.inst,pack:p.pack,color:p.color,qmix:p.qmix,tx:p.tx,off:p.off,rows:(p.rows||[]).map(function(r){
-      return{id:r.id,role:r.role,gear:r.gear,loc:r.loc};
-    })};
-  });
-}
 function renderIOList(){
   var mount=document.getElementById("ioMount");
   if(!mount)return;
@@ -1788,8 +1780,8 @@ document.getElementById("resetBtn").addEventListener("click",function(){
   var pw=prompt("Type RESET to confirm you want to clear this event's data:");
   if(pw==null)return;
   if((pw||"").trim().toUpperCase()!=="RESET"){alert("Not reset — you must type RESET exactly.");return;}
-  if(!confirm("Reset event data (checklists, check-ins, head count, radios, praise, announcements & issues)? Keeps event name, Day PIN & Tech I/O roster; clears patch checkmarks. A backup snapshot is saved server-side first."))return;
-  doAction("reset",{},function(){var ev=STATE.event,fu=STATE.funding,pr=STATE.prompter,dps=STATE.dayPinSet,io=ioListClearProgress(STATE.ioList);STATE=normalize({checklist:{},announcements:[],checkins:[],feedback:[],praises:[],count:0,event:ev,ioList:io,dayPinSet:dps,funding:fu,prompter:pr});});
+  if(!confirm("Reset event data (checklists, check-ins, head count, radios, praise, announcements & issues)? Keeps event name, Day PIN and the ENTIRE Tech I/O section — roster and patch checkmarks both. A backup snapshot is saved server-side first."))return;
+  doAction("reset",{},function(){var ev=STATE.event,fu=STATE.funding,pr=STATE.prompter,dps=STATE.dayPinSet,io=STATE.ioList;STATE=normalize({checklist:{},announcements:[],checkins:[],feedback:[],praises:[],count:0,event:ev,ioList:io,dayPinSet:dps,funding:fu,prompter:pr});});
 });
 document.addEventListener("click",function(e){var row=e.target.closest(".chk");if(row)toggleCheck(row.getAttribute("data-id"));});
 /* Keyboard/switch access for the same rows (they are role=button). */

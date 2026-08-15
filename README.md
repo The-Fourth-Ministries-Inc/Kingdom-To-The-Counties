@@ -438,6 +438,13 @@ automatically on deploy.
   server dedupes on, so a retry can't create duplicates. (The old
   toggle-style `toggleCheck`/`ackCard`/`radioToggle` actions remain server-side
   for phones still running an older client.)
+- **Reset never touches Tech I/O (v1.15.2).** The end-of-day reset clears
+  checklists, check-ins, counts, radios, praise, announcements and issues. It
+  leaves the **entire** Tech I/O section alone — the roster *and* the patch
+  checkmarks. The I/O map is the tech team's record of how the rig is wired,
+  maintained outside the event-day cycle; reset used to clear the checkmarks,
+  which cost them work. The section is still captured in the pre-reset snapshot,
+  so a reset stays fully recoverable.
 - **Tech I/O patch checkmarks are merged per-row (v1.10.0).** A checkbox tap
   sends just that row's state (`ioSetRow`) and the server merges it into the
   stored roster — the previous design uploaded the whole roster per tap
