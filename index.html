@@ -710,6 +710,19 @@ textarea, select { font-size: 16px !important; }
   .ioerow>.iodel{order:2}
   .ioerow>.ioe.pat{order:3;flex-basis:100%;margin-top:6px}
   .ioe .w4{max-width:66px}.ioe .w6{max-width:96px}
+  /* Editing happens inside the table, so cells hold fields. Keep them compact —
+     the routing columns are numbers, not prose. */
+  .iotbl.wide td,.iotbl.wide th{padding:6px 8px}
+  .iotbl tr.ed td{background:var(--cream)}
+  .iotbl td input[type=text],.iotbl td input:not([type]){width:100%;min-width:70px}
+  .iotbl td input.w3{width:52px;min-width:52px}
+  .iotbl td input.w5{width:74px;min-width:74px}
+  .iotbl td input[type=checkbox]{width:20px;height:20px}
+  .iotbl td select.iopick{margin:0 0 3px;max-width:130px}
+  .iotbl .packed{display:flex;gap:5px;align-items:center}
+  .iotbl .packed input:not([type=color]){min-width:74px}
+  .iotbl .packed input[type=color]{width:30px;height:30px;flex:none;padding:2px;border-radius:7px}
+  .ioro{font-size:11.5px;font-weight:700;color:var(--muted)}
   .iofield{display:flex;flex-direction:column;gap:2px;min-width:0}
   .iofield.grow{flex:1;min-width:120px}
   .iofield>span{font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}

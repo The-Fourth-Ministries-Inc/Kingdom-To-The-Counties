@@ -654,6 +654,9 @@ function normIORow(r){
      the 32SC's reading wherever it differs from the FOH one, so neither
      console's version of the truth is thrown away. */
   avb: str(r.avb, 8), foh: str(r.foh, 16), sc: str(r.sc, 16),
+  /* The three ways a signal gets in: the on-stage snake, the Ark XLR splitter
+     (which feeds the 32R), or straight onto AVB from a computer. */
+  snake: str(r.snake, 12), split: str(r.split, 12), r32: str(r.r32, 12), path: str(r.path, 8),
   port: str(r.port, 60), altPort: str(r.altPort, 60),
   note: str(r.note, 80), altNote: str(r.altNote, 80), altGear: str(r.altGear, 60),
   src: str(r.src, 60), stereo: !!r.stereo, p48: !!r.p48,

@@ -372,10 +372,47 @@ with the segmented control at the top:
   stereo/mono) and the NSB 32.16 PA buses.
 
 **The tables are the master routing and the musician cards are built from
-them** — one set of objects underneath, so an edit in a table rewrites what
-every player sees. That makes the two tables a leader tool: they sit behind
-the **leader PIN**, while the Musicians view stays open to any tech past the
-Day PIN, along with the patch checkmarks they tick during line check.
+them.** Editing happens *only* in a table — there is no edit affordance on the
+musician cards at all, so nobody changes routing from a view that can't show
+routing. The tables sit behind the **leader PIN**; the Musicians view stays
+open to any tech past the Day PIN, along with the patch checkmarks they tick
+during line check. (Ticking an input off is progress, not a change to the
+routing, which is why it stays on the open view.)
+
+### The columns follow the signal
+
+Left to right, the Inputs table runs the way the signal does — the stream it
+ends up on, then the three ways it can get in:
+
+| Column | What it is |
+| --- | --- |
+| **AVB** | the network stream, the number every console agrees on |
+| **Snake** | an on-stage NSB 32.16 port, for anything patched at the stage box |
+| **Ark split** | an Ark XLR splitter input — the splitter feeds the 32R |
+| **32R** | the 32R's own channel |
+
+A row uses exactly one entry point. Computer sources (tracks, click, guide)
+have none of the three — they land straight on the AVB network from the
+playback Mac — so their entry columns read `—` and the note says where they
+come from. Console channels (FOH ch, 32SC ch) sit at the far right: they're the
+least useful number when you're stood at a patch bay.
+
+**The 32R column imports empty.** The sheet never writes a 32R channel. The
+Ark splitter feeds the 32R, so in practice it's the same number as the splitter
+input, but that's an inference and the importer doesn't invent data — fill it
+in once and it sticks.
+
+### Musicians are a roster, not free text
+
+Every Source cell in the edit view is a dropdown of the people already on the
+list, so a musician's card and the table can't drift into describing two
+different people. Picking a different name **moves that input onto their card**
+— that single action is what "the tables feed the performer view" means in
+practice. **＋ Add a musician** puts a new name on the roster (and into every
+dropdown) before they have any inputs.
+
+The sheet's own Source wording still rides along per row, so "Zach TB" and
+"Zach AG" stay distinguishable while both resolving to Zach's card.
 
 ### Why AVB is the left-hand column
 
@@ -387,6 +424,13 @@ one identifier both consoles name for the same signal is the AVB stream, so
 that's the key the table sorts and merges on. Each row still shows both channel
 numbers, and the **Console** filter narrows to just the FOH or just the 32SC
 view when you're standing at one of them.
+
+### IEM packs stay colour-coded
+
+The belt packs are colour-coded on the hardware and the team reads them that
+way, so the colour is a real field, not a label: the Outputs table shows the
+pack as a coloured chip, and in edit mode the chip becomes a text field plus a
+colour swatch. Change the pack a musician is on and the chip follows.
 
 ### Collapsing an IEM mix to mono
 

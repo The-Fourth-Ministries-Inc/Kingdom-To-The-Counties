@@ -13,7 +13,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   mergeInputs, buildCards, auxLabel, parseTransmitter, avbNum, locLabel, findGutter,
-  sheetToRows,
+  sheetToRows, parseEntry,
 } from "../scripts/io-consolidate.mjs";
 
 const foh = (o) => ({ side: "foh", chan: "", chanLabel: "", source: "", role: "", avb: 0, port: "", gear: "", p48: false, note: "", aux: false, ...o });
@@ -249,4 +249,41 @@ test("extra packs riding a mix are kept against that mix, not given their own", 
   assert.equal(cards.length, 1);
   assert.equal(cards[0].share.length, 1);
   assert.equal(cards[0].share[0].pack, '"Extra" Pack');
+});
+
+/* A signal reaches the AVB network one of three ways, and the sheet writes all
+   three into one free-text column: the on-stage snake, the Ark XLR splitter
+   (which feeds the 32R), or straight from a computer. The table gives each its
+   own column, so the parse has to be right or a patch point lands nowhere. */
+test("parseEntry tells the stage snake from the Ark splitter from a computer", () => {
+  assert.deepEqual(parseEntry("NSB.32 - 1"), { snake: "1", split: "", path: "snake" });
+  assert.deepEqual(parseEntry("NSB.32 - 12-14"), { snake: "12-14", split: "", path: "snake" });
+  assert.deepEqual(parseEntry("Ark Splitter - Input 21"), { snake: "", split: "21", path: "split" });
+  // The tuned vocal paths name the splitter jack they were patched from.
+  assert.deepEqual(parseEntry("Ark Splitter - Input 1 (from Ip6)"), { snake: "", split: "1", path: "split" });
+  assert.deepEqual(parseEntry("Personal MBP Network"), { snake: "", split: "", path: "direct" });
+  assert.deepEqual(parseEntry("Local Aux In Input"), { snake: "", split: "", path: "direct" });
+  assert.deepEqual(parseEntry(""), { snake: "", split: "", path: "" });
+});
+
+test("an unrecognised entry point is flagged rather than guessed at", () => {
+  const e = parseEntry("some patch nobody documented");
+  assert.equal(e.path, "other");
+  assert.equal(e.snake, "");
+  assert.equal(e.split, "");
+});
+
+test("cards carry the entry point split out, and leave 32R for a human", () => {
+  const cards = buildCards([
+    { avb: 41, foh: "23", source: "Kyle", role: "Tom 1", gear: "4. Tom 1 Mic", port: "NSB.32 - 1" },
+    { avb: 21, foh: "18", source: "Kyle", role: "Acoustic", gear: "1x Active DI", port: "Ark Splitter - Input 21" },
+  ], []);
+  const rows = cards[0].rows;
+  assert.equal(rows[0].snake, "1");
+  assert.equal(rows[0].split, "");
+  assert.equal(rows[1].split, "21");
+  assert.equal(rows[1].snake, "");
+  // The sheet never writes a 32R channel, so the importer must not invent one.
+  assert.equal(rows[0].r32, "");
+  assert.equal(rows[1].r32, "");
 });
