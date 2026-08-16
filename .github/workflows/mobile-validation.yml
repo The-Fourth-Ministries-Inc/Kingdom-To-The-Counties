@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - agent/mobile-store-readiness
+      - agent/mobile-store-readiness-clean
   pull_request:
   workflow_dispatch:
 
@@ -24,9 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Use Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
       - name: Install dependencies
@@ -40,6 +40,7 @@ jobs:
           test -f dist/index.html
           test -f dist/privacy.html
           grep -F 'https://ambassadorcompanion.netlify.app' dist/mobile-runtime.js
+          grep -F '/.netlify/functions/mobile-data' dist/mobile-runtime.js
       - name: Upload mobile shell
         uses: actions/upload-artifact@v4
         with:
@@ -53,9 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Use Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
       - name: Set up Java 21
@@ -86,9 +87,9 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Use Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
       - name: Install dependencies
