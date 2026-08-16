@@ -16,7 +16,7 @@ const DEFAULT_DAY_PIN = "0711";
 // Leader PIN is verified SERVER-SIDE. Rotate it by setting a LEADER_PIN
 // environment variable in Netlify (Site settings → Environment variables),
 // then redeploying — no code change needed.
-const LEADER_PIN = () => process.env.LEADER_PIN || "2026";
+const LEADER_PIN = () => (process.env.LEADER_PIN || "").trim();
 
 /* ---------------- storage layout ----------------
  v20 (app v1.4.0) — split-by-domain blobs + compare-and-swap writes:
@@ -1306,7 +1306,7 @@ function storeName(){
 }
 const openStore = () => _storeFactory ? _storeFactory() : getStore(storeName(), { consistency: "strong" });
 
-export default async (req, context) => {
+async function handleRequest(req, context) {
  const s = openStore();
  // Which county's board are we on? Everything day-scoped keys off this.
  await ensureScopeReady(s);
@@ -1405,7 +1405,7 @@ export default async (req, context) => {
 
  /* ---- PIN verification (no state change) ---- */
  if(action === "verifyLeaderPin"){
- if(pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, token: await issueLeaderToken(s) }); }
+ if(pin && pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, token: await issueLeaderToken(s) }); }
  // A still-valid session token re-verifies without re-entering the PIN.
  if(await validLeaderToken(s, pin)) return json({ ok:true, token: pin });
  if(pin) await pinNoteFail(s, failKey);
@@ -2337,4 +2337,43 @@ export default async (req, context) => {
  return json({ error:"method not allowed" }, 405);
 };
 
-export const config = { path: "/.netlify/functions/data" };
+const CORS_ORIGINS = new Set([
+ "https://ambassadorcompanion.netlify.app",
+ "capacitor://localhost",
+ "https://localhost",
+ "http://localhost"
+]);
+function corsHeaders(req){
+ const origin = req.headers.get("origin") || "";
+ if(!CORS_ORIGINS.has(origin)) return null;
+ return {
+  "Access-Control-Allow-Origin": origin,
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, X-Day-Pin, X-Leader-Pin, If-None-Match",
+  "Access-Control-Expose-Headers": "ETag",
+  "Access-Control-Max-Age": "86400",
+  "Vary": "Origin"
+ };
+}
+function addCors(response, req){
+ const extra = corsHeaders(req);
+ if(!extra) return response;
+ const headers = new Headers(response.headers);
+ for(const [key, value] of Object.entries(extra)) headers.set(key, value);
+ return new Response(response.body, {
+  status: response.status,
+  statusText: response.statusText,
+  headers
+ });
+}
+
+async function handleRequest(req, context) {
+ if(req.method === "OPTIONS"){
+  const headers = corsHeaders(req);
+  if(!headers) return new Response(null, { status:403 });
+  return new Response(null, { status:204, headers });
+ }
+ return addCors(await handleRequest(req, context), req);
+};
+
+const CORS_ORIGINS = new Set([ "https://ambassadorcompanion.netlify.app", "capacitor://localhost", "https://localhost", "http://localhost"]);function corsHeaders(req){ const origin = req.headers.get("origin") || ""; if(!CORS_ORIGINS.has(origin)) return null; return {  "Access-Control-Allow-Origin": origin,  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",  "Access-Control-Allow-Headers": "Content-Type, X-Day-Pin, X-Leader-Pin, If-None-Match",  "Access-Control-Expose-Headers": "ETag",  "Access-Control-Max-Age": "86400",  "Vary": "Origin" };}function addCors(response, req){ const extra = corsHeaders(req); if(!extra) return response; const headers = new Headers(response.headers); for(const [key, value] of Object.entries(extra)) headers.set(key, value); return new Response(response.body, {  status: response.status,  statusText: response.statusText,  headers });}export default async (req, context) => { if(req.method === "OPTIONS"){  const headers = corsHeaders(req);  if(!headers) return new Response(null, { status:403 });  return new Response(null, { status:204, headers }); } return addCors(await handleRequest(req, context), req);};export const config = { path: "/.netlify/functions/data" };
