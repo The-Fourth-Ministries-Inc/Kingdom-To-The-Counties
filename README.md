@@ -4,6 +4,20 @@ A lightweight, no-login companion app for K2C ambassadors. Everyone shares one
 live view: checklist, announcements, check-ins, headcount, praises, and feedback
 all stay in sync across phones within a few seconds.
 
+
+## Mobile store foundation (v1.17.2)
+
+Ambassador Companion now has one permanent native identity for both stores:
+`com.thefourthministries.ambassadorcompanion`. The web shell remains the
+single product source, but GitHub Actions bundles it into Capacitor projects
+and performs web, Android, and iOS validation on hosted runners. Release
+artifacts are never prepared on a personal computer.
+
+The native shell uses `mobile-runtime.js` to point at the production Netlify
+Functions API. The public [privacy policy](privacy.html) is available before
+the Day PIN gate and from Ambassador Resources. Store-release decisions,
+contacts, and gates live in [docs/store-release/README.md](docs/store-release/README.md).
+
 ## How it works
 
 - **`index.html`** — the entire app (front end).
