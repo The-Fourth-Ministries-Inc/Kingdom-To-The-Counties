@@ -862,7 +862,7 @@ function adoptCounts(s,prevCount,prevBy,prevDec,prevDecBy){
   if(typeof DEC!=="undefined"&&DEC.dirty){s.decisions=prevDec;s.decBy=prevDecBy;}
   return s;
 }
-var API="/.netlify/functions/data";
+var API=(window.K2C_API_ORIGIN||"")+"/.netlify/functions/data";
 var MY={name:""};
 try{MY.name=(localStorage.getItem("k2c_name")||"").slice(0,40);}catch(_){}
 function nowLabel(){return fmt(nowMinutes());}
