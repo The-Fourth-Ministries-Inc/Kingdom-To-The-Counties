@@ -775,6 +775,18 @@ Runs two things, neither needing a network or a Netlify account:
    that the places where the sheet contradicts itself stay as two rows instead
    of being quietly resolved.
 
+## App Store / Google Play packaging (v1.16.2)
+
+This app is deployed as a standard PWA (`manifest.webmanifest` + `sw.js`), which
+is what store-packaging tools like [PWABuilder](https://pwabuilder.com) need to
+wrap it for the Google Play Store and Apple App Store. There is no separate
+mobile codebase — the store listings just point at the live deployed URL.
+`manifest.webmanifest` carries `id` and `scope` alongside `start_url` so
+PWABuilder's manifest audit passes cleanly. Actually submitting to either store
+still requires a human: a paid Google Play Console account and/or Apple
+Developer Program account, and clicking through PWABuilder's build + each
+store's listing flow — none of that can be scripted from this repo.
+
 ## Contributing
 
 Push changes to a branch and open a pull request, or commit to `main` to deploy.
