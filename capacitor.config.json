@@ -1,0 +1,14 @@
+{
+  "appId": "com.thefourthministries.ambassadorcompanion",
+  "appName": "Ambassador Companion",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "automatic"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
