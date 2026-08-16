@@ -646,25 +646,60 @@ const normCheckins = v => Array.isArray(v) ? v.map(normCheckin).slice(-2000) : [
    where a caller controlled both structure and size. Fields are whitelisted and
    capped like everything else, and ids are id-safe because the client renders
    them into onclick="ioToggle('<id>','<id>')". */
+const IO_MODES = new Set(["stereo","mono","none"]);
 function normIORow(r){
  r = r || {};
  return {
   id: idStr(r.id) || uid(),
   role: str(r.role, 60), gear: str(r.gear, 60), loc: str(r.loc, 60),
+  /* v1.16.0 — the routing columns the table views read. AVB is the key the
+     FOH board and the 32SC monitor console agree on; the channel numbers are
+     per-console and routinely disagree, so both are kept. The alt* fields hold
+     the 32SC's reading wherever it differs from the FOH one, so neither
+     console's version of the truth is thrown away. */
+  avb: str(r.avb, 8), foh: str(r.foh, 16), sc: str(r.sc, 16),
+  /* The three ways a signal gets in: the on-stage snake, the Ark XLR splitter
+     (which feeds the 32R), or straight onto AVB from a computer. */
+  snake: str(r.snake, 12), split: str(r.split, 12), r32: str(r.r32, 12), path: str(r.path, 8),
+  port: str(r.port, 60), altPort: str(r.altPort, 60),
+  note: str(r.note, 80), altNote: str(r.altNote, 80), altGear: str(r.altGear, 60),
+  src: str(r.src, 60), stereo: !!r.stereo, p48: !!r.p48,
   done: !!r.done, by: str(r.by, 40), t: str(r.t, 12)
  };
 }
+function normIOShare(s){
+ s = s || {};
+ return { pack: str(s.pack, 30), name: str(s.name, 60), dest: str(s.dest, 60) };
+}
 function normIOPerf(p){
  p = p || {};
+ const mode = IO_MODES.has(str(p.mode, 8)) ? str(p.mode, 8) : "none";
  return {
   id: idStr(p.id) || uid(),
   name: str(p.name, 60), inst: str(p.inst, 60), pack: str(p.pack, 30),
   color: /^#[0-9a-f]{3,8}$/i.test(str(p.color, 9)) ? str(p.color, 9) : "#c7c2b8",
   qmix: str(p.qmix, 20), tx: str(p.tx, 60), off: !!p.off,
+  /* IEM mix slot: a stereo mix owns an aux pair and a whole transmitter, a
+     mono mix owns one aux and one leg of one, so two people can share it. */
+  aux: str(p.aux, 20), out: str(p.out, 20), txUnit: str(p.txUnit, 8),
+  leg: /^[LR]$/i.test(str(p.leg, 1)) ? str(p.leg, 1).toUpperCase() : "",
+  mode, dest: str(p.dest, 60), kind: str(p.kind, 12),
+  share: (Array.isArray(p.share) ? p.share : []).map(normIOShare).slice(0, 8),
   rows: (Array.isArray(p.rows) ? p.rows : []).map(normIORow).slice(0, 60)
  };
 }
-export const normIO = v => ({ list: (v && Array.isArray(v.list)) ? v.list.map(normIOPerf).slice(0, 80) : [] });
+function normIOBus(b){
+ b = b || {};
+ return {
+  id: idStr(b.id) || uid(),
+  bus: str(b.bus, 40), sig: str(b.sig, 60), dest: str(b.dest, 60),
+  hw: str(b.hw, 60), purpose: str(b.purpose, 80), off: !!b.off
+ };
+}
+export const normIO = v => ({
+ list: (v && Array.isArray(v.list)) ? v.list.map(normIOPerf).slice(0, 80) : [],
+ buses: (v && Array.isArray(v.buses)) ? v.buses.map(normIOBus).slice(0, 40) : []
+});
 
 /* ---- PIN brute-force protection ----
    Per-IP sliding window kept in a blob: 15 wrong PIN entries in 10 minutes
@@ -787,7 +822,7 @@ export function currentEvent(todayISO){
 export const pinForDate = iso => (iso || "").slice(5, 7) + (iso || "").slice(8, 10);
 export const autoDayPin = todayISO => pinForDate(currentEvent(todayISO).date);
 
-/* ---------------- retiring a past county's scripts (v1.16.0) ----------------
+/* ---------------- retiring a past county's scripts (v1.17.0) ----------------
  The Recording Studio board is season-long, so left alone it only ever grows:
  by August a volunteer opening it scrolls past Sullivan, Grafton and Strafford
  — invitations to Saturdays that already happened — to reach the county they
@@ -985,7 +1020,7 @@ async function migrateIfNeeded(s, K, parts){
  const old = await s.get("state", { type:"json" });
  const core = normCore(old || {});
  const checkins = normCheckins((old && old.checkins) || []);
- const io = { list: (old && old.ioList) || [] };
+ const io = { list: (old && old.ioList) || [], buses: (old && old.ioBuses) || [] };
  const prompter = normPrompter(old && old.prompter);
  await Promise.all([
  s.setJSON(K.core, core),
@@ -1165,7 +1200,10 @@ async function assemble(s, K, active, lvl){
  tallyEpoch,
  radios: normRadios(parts.radios).list,
  event: core.event,
- ioList: (parts.io && Array.isArray(parts.io.list)) ? parts.io.list : [],
+ /* Normalized on the way out too, so a roster written by an older deploy —
+    before setIOList normalized on write — is neutralized on read. */
+ ioList: normIO(parts.io).list,
+ ioBuses: normIO(parts.io).buses,
  dayPinSet: !!dayPin, // the PIN itself is never sent to clients
  county: K.cty,          // which county's board this is
  countyAuto: !active.manual,
@@ -1252,7 +1290,21 @@ async function authLevel(s, K, req, body){
    Production always takes the getStore() path. */
 let _storeFactory = null;
 export function __setStoreFactory(fn){ _storeFactory = fn; }
-const openStore = () => _storeFactory ? _storeFactory() : getStore(STORE, { consistency: "strong" });
+/* Deploy previews and branch deploys get their OWN store.
+
+   Netlify Blobs are site-wide, not deploy-scoped, so every preview build used
+   to read and write the live event data: opening a preview link and tapping
+   anything edited production. That is how a preview of this very feature
+   overwrote the team's Tech I/O roster. CONTEXT is "production" only for the
+   real site; everything else is namespaced and therefore harmless to test. */
+function storeName(){
+ const ctx = (typeof process !== "undefined" && process.env && process.env.CONTEXT) || "";
+ if(!ctx || ctx === "production") return STORE;
+ const branch = (process.env.BRANCH || process.env.HEAD || process.env.DEPLOY_ID || "preview")
+  .toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 40);
+ return `${STORE}--${ctx}--${branch}`;
+}
+const openStore = () => _storeFactory ? _storeFactory() : getStore(storeName(), { consistency: "strong" });
 
 export default async (req, context) => {
  const s = openStore();
@@ -1615,16 +1667,33 @@ export default async (req, context) => {
     list / reload defaults). Patch checkmark taps go through ioSetRow below
     so concurrent techs can't clobber each other's progress. */
  if(!Array.isArray(payload.list)) break;
- await compareAndSwap(s, K.io, normIO, io => { io.list = payload.list; return io; }, () => ({ list: [] }));
+ await compareAndSwap(s, K.io, normIO, io => {
+  /* Normalize on the way in. This used to store the client's array verbatim,
+     which quietly bypassed the field whitelist for the entire roster — the
+     one blob a leader can rewrite wholesale. */
+  io.list = normIO({ list: payload.list }).list;
+  /* Buses ride along on the same write — a leader edits the roster and the
+     PA output table in one pass. Absent means "unchanged", not "empty". */
+  if(Array.isArray(payload.buses)) io.buses = normIO({ buses: payload.buses }).buses;
+  return io;
+ }, () => ({ list: [], buses: [] }));
  break;
  /* v1.10.0 — per-row patch checkmark, merged server-side. Idempotent: a
     retried request that already landed is a no-op, and two techs checking
     DIFFERENT rows at the same time both stick (the old full-list setIOList
     was last-write-wins across the whole roster). `seed` carries the client's
-    full roster only for the first-ever write, when the server list is empty. */
+    full roster ONLY for the first-ever write, when the server list is empty.
+
+    It deliberately does not upgrade a roster that is merely out of date. An
+    earlier revision did: a stored roster with no AVB field was treated as
+    stale and the first patch tap replaced it wholesale. ioSetRow is open to
+    any tech behind the Day PIN, so that turned a single checkbox into a
+    silent overwrite of the team's own I/O map — and it did exactly that once.
+    Replacing the roster is a leader decision (setIOList), never a side effect
+    of ticking an input off. */
  case "ioSetRow": {
  await compareAndSwap(s, K.io, normIO, io => {
- if(!io.list.length && Array.isArray(payload.seed) && payload.seed.length) io.list = payload.seed;
+ if(!io.list.length && Array.isArray(payload.seed) && payload.seed.length) io.list = normIO({ list: payload.seed }).list;
  let hit = null;
  for(const p of io.list) if(p && p.id === payload.pid) for(const r of (p.rows || [])) if(r && r.id === payload.rid) hit = r;
  if(!hit) return undefined;
@@ -1634,7 +1703,7 @@ export default async (req, context) => {
  hit.by = done ? str(payload.by, 40) : "";
  hit.t = done ? str(payload.t, 12) : "";
  return io;
- }, () => ({ list: [] }));
+ }, () => ({ list: [], buses: [] }));
  break;
  }
  case "setDayPin":

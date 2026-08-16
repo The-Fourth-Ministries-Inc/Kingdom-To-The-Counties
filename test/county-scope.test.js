@@ -248,3 +248,58 @@ test("reset leaves the entire Tech I/O section alone", async () => {
   assert.equal(s.ioList[0].rows[0].by, "MN", "and so does who ticked it");
   assert.equal(s.ioList[0].rows[0].t, "9:12 AM");
 });
+
+/* The bug that cost the team their I/O map. An earlier revision treated a
+   roster with no AVB field as stale and let the first patch tap replace it
+   from the client's seed. ioSetRow is open to any tech behind the Day PIN, so
+   that turned one checkbox into a silent overwrite of the whole roster — and a
+   deploy preview sharing the production store did exactly that. Replacing the
+   roster is a leader decision (setIOList), never a side effect of a tick. */
+test("a patch tap never replaces a roster that is merely out of date", async () => {
+  await post("setCounty", { county: "coos" });
+  await post("setIOList", { list: [{
+    id: "Pack8", name: "Tyler", pack: "Pack 8",
+    rows: [{ id: "tyler-toms", role: "Toms - Mixdown", gear: "4-6. Tom Mics", loc: "Ch 23 · AVB 57 · NSB 1-3" }]
+  }] });
+
+  // A newer client ticks a row off and offers its own defaults as a seed.
+  await post("ioSetRow", { pid: "pack-8-blue", rid: "kyle-kick", done: true, by: "MN", t: "9:12 AM",
+    seed: [{ id: "pack-8-blue", name: "Kyle", rows: [{ id: "kyle-kick", role: "Kick Drum", avb: "25" }] }] });
+
+  const s = await get();
+  assert.equal(s.ioList.length, 1, "the stored roster must survive");
+  assert.equal(s.ioList[0].name, "Tyler");
+  assert.equal(s.ioList[0].rows[0].loc, "Ch 23 · AVB 57 · NSB 1-3", "snake reference intact");
+  assert.equal(s.ioList[0].rows[0].id, "tyler-toms");
+});
+
+test("the seed still populates a server that has no roster at all", async () => {
+  await post("setCounty", { county: "rockingham" });
+  await post("ioSetRow", { pid: "pack-1", rid: "r1", done: true, by: "MN", t: "9:00 AM",
+    seed: [{ id: "pack-1", name: "Karielle", rows: [{ id: "r1", role: "Lead Vox", avb: "2" }] }] });
+  const s = await get();
+  assert.equal(s.ioList.length, 1, "a first-ever write still seeds");
+  assert.equal(s.ioList[0].rows[0].done, true);
+});
+
+/* setIOList replaces a whole blob from the client. It used to store the array
+   verbatim, so the roster was the one collection that never met the whitelist. */
+test("setIOList normalizes the roster instead of storing the client's array verbatim", async () => {
+  await post("setCounty", { county: "belknap" });
+  await post("setIOList", {
+    list: [{ id: "p'1", name: "Kyle", color: "javascript:x", mode: "quadraphonic", leg: "X", evil: "gone",
+             rows: [{ id: "r'1", role: "Kick Drum", avb: "25", p48: "truthy", nasty: "gone" }] }],
+    buses: [{ id: "b'1", bus: "Aux 1 & 2", sig: "Stereo Subgroup", junk: "gone" }]
+  });
+  const s = await get(), p = s.ioList[0], r = p.rows[0];
+  assert.equal(p.id, "p1");
+  assert.equal(p.color, "#c7c2b8");
+  assert.equal(p.mode, "none");
+  assert.equal(p.leg, "");
+  assert.ok(!("evil" in p));
+  assert.equal(r.id, "r1");
+  assert.equal(r.p48, true);
+  assert.ok(!("nasty" in r));
+  assert.equal(s.ioBuses[0].id, "b1");
+  assert.ok(!("junk" in s.ioBuses[0]));
+});

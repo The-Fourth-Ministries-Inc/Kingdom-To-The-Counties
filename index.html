@@ -94,7 +94,7 @@ textarea, select { font-size: 16px !important; }
   .badge.acoustic{background:var(--rust);color:#fff}.badge.setup{background:rgba(255,255,255,.16);color:#fff}
   .checkinprompt{margin-top:14px;display:flex;gap:9px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
   .checkinprompt span{flex:1;font-size:13.5px}
-  .checkinprompt button{flex:none;background:var(--rust);color:#fff;border:none;border-radius:10px;padding:9px 13px;font-weight:700;font-size:13px;cursor:pointer}
+  .checkinprompt button,.checkinprompt a{flex:none;background:var(--rust);color:#fff;border:none;border-radius:10px;padding:9px 13px;font-weight:700;font-size:13px;cursor:pointer;text-decoration:none}
   /* v1.6.1 — Up Next sits right under the hero in its own powder-blue card */
   .next{margin-top:12px;background:var(--powder);border:1px solid #A9C0D2;border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}
   .next .lbl{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#3c5160;font-weight:800}
@@ -642,6 +642,117 @@ textarea, select { font-size: 16px !important; }
   .iorow .loc{flex:none;font-size:11px;font-weight:700;color:var(--wine);font-variant-numeric:tabular-nums;background:#fff;border:1px solid var(--line);border-radius:7px;padding:4px 7px;white-space:nowrap}
   .ioperf.off{opacity:.6}.ioperf.off .ph{background:#f1efe9}
   .iotag{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff;background:var(--slate);border-radius:5px;padding:2px 6px;margin-left:7px;vertical-align:middle}
+  /* Tech I/O table views — the routing sheet, on a phone. Tables scroll
+     sideways inside their own box so the page itself never does. */
+  .ioviews{display:flex;gap:4px;background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:12px}
+  .ioviews button{flex:1;min-height:44px;border:none;background:none;border-radius:9px;font-family:var(--sans);font-size:12.5px;font-weight:800;color:var(--muted);cursor:pointer;padding:0 6px}
+  .ioviews button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+  .ioviews button .lk{font-size:10px;margin-left:3px;opacity:.75}
+  .ioclash.stale{background:#f7edd0;border-color:#e3d3a4;color:#5c4715}
+  .ioclash.stale span{color:#6e5311}
+  .iofilter{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .iofilter span{font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+  .iofilter button{min-height:32px;padding:0 11px;border:1px solid var(--line);background:var(--card);border-radius:8px;font-family:var(--sans);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
+  .iofilter button.on{background:var(--wine);border-color:var(--wine);color:#fff}
+  .iotable{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;background:var(--card);box-shadow:var(--shadow)}
+  .iotbl{border-collapse:collapse;width:100%;font-size:12.5px}
+  .iotbl th{position:sticky;top:0;background:var(--cream);text-align:left;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);padding:9px 10px;white-space:nowrap;border-bottom:1px solid var(--line)}
+  .iotbl td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle;height:44px}
+  .iotbl tr:last-child td{border-bottom:none}
+  .iotbl th.c,.iotbl td.c{text-align:center}
+  /* The key column pins to the left edge so a thumb scrolling out to the mic
+     column can still see which AVB stream (or which mix) the row is. */
+  .iotbl .stick,.iotbl .stick2{position:sticky;background:var(--card);z-index:2;box-shadow:1px 0 0 var(--line)}
+  .iotbl .stick{left:0;width:44px;min-width:44px}
+  .iotbl .stick2{left:44px;box-shadow:1px 0 0 var(--line)}
+  .iotbl thead .stick,.iotbl thead .stick2{background:var(--cream);z-index:3}
+  .iotbl tr.share .stick,.iotbl tr.nomix .stick{background:var(--cream)}
+  .iotbl.out .stick{width:auto;min-width:96px}
+  .iotbl td.num{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+  .iotbl td.num.k{color:var(--wine)}
+  .iotbl td.sm{font-size:11.5px;color:var(--muted);max-width:190px}
+  .iotbl td.note{max-width:210px;font-style:italic}
+  .iotbl td b{font-weight:700;color:var(--ink)}
+  .iotbl td b.open{color:var(--muted);font-style:italic;font-weight:600}
+  .iotbl .alt{display:block;font-size:10.5px;color:var(--muted);margin-top:2px}
+  .iotbl tr.tap{cursor:pointer}
+  .iotbl tr.done td.num,.iotbl tr.done td b{color:var(--muted)}
+  .iotbl tr.done td:nth-child(5) b{text-decoration:line-through}
+  .iotbl tr.off{opacity:.55}
+  .iotbl tr.share td,.iotbl tr.nomix td{background:var(--cream);font-size:11.5px}
+  .iotbl .box{display:inline-flex;width:21px;height:21px;border-radius:6px;border:2px solid var(--slate);align-items:center;justify-content:center;transition:all .15s}
+  .iotbl .box svg{width:12px;height:12px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.6);transition:all .15s}
+  .iotbl tr.done .box{background:var(--rust);border-color:var(--rust)}.iotbl tr.done .box svg{opacity:1;transform:scale(1)}
+  .iotbl .iostamp{display:block;font-size:10px;font-weight:700;color:var(--good);margin-top:2px}
+  .iotbl .p48{font-size:9.5px;font-weight:800;letter-spacing:.3px;color:#fff;background:var(--rust);border-radius:5px;padding:2px 5px;white-space:nowrap}
+  .iotbl .chip.sm{display:inline-flex;align-items:center;justify-content:center;min-width:0;height:22px;padding:0 8px;font-size:10px;font-weight:800;letter-spacing:.3px;border-radius:7px;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+  .iotbl .chip.sm.none{background:#e6e2d8;color:var(--muted);box-shadow:none;font-weight:700}
+  .iowarn{color:var(--bad);font-weight:800;cursor:help}
+  .ioclash{background:#f6e2e0;border:1px solid #e6c4c0;border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:12px;line-height:1.45;color:#6d2a24}
+  .ioclash>b{display:block;font-size:12.5px;margin-bottom:5px}
+  .ioclash ul{margin:0 0 6px;padding-left:17px}
+  .ioclash li{margin:2px 0;font-variant-numeric:tabular-nums}
+  .ioclash span{display:block;color:#8a4a42;font-size:11px}
+  .iomodetag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.3px;border-radius:6px;padding:3px 7px;white-space:nowrap}
+  .iomodetag.st{background:#dfeee0;color:#2f6b3a}
+  .iomodetag.mo{background:#f7edd0;color:#6e5311}
+  .iomode{display:block;margin-top:5px;min-height:32px;padding:0 9px;border:1px solid var(--line);background:var(--card);border-radius:8px;font-family:var(--sans);font-size:11px;font-weight:700;color:var(--wine);cursor:pointer;white-space:nowrap}
+  .iomode.up{color:var(--good)}
+  .iopick{display:block;margin-top:5px;max-width:150px;min-height:32px;border:1px solid var(--line);border-radius:8px;background:var(--card);font-family:var(--sans);font-size:11.5px;color:var(--ink);padding:0 6px}
+  .iosec{margin-bottom:18px}
+  .iosec h3{font-family:var(--serif);font-size:16px;font-weight:700;margin:0 0 3px}
+  .iohint,.iofoot{font-size:11.5px;color:var(--muted);line-height:1.45;margin:0 0 9px}
+  .iofoot{margin:9px 0 0}
+  /* Two lines per input while editing: role + mic (with the delete ✕) above,
+     the routing numbers below. `order` puts the ✕ back on the first line even
+     though the routing block precedes it in the markup. */
+  .ioerow{flex-wrap:wrap}
+  .ioerow>.iodel{order:2}
+  .ioerow>.ioe.pat{order:3;flex-basis:100%;margin-top:6px}
+  .ioe .w4{max-width:66px}.ioe .w6{max-width:96px}
+  /* Editing happens inside the table, so cells hold fields. Keep them compact —
+     the routing columns are numbers, not prose. */
+  .iotbl.wide td,.iotbl.wide th{padding:6px 8px}
+  .iotbl tr.ed td{background:var(--cream)}
+  .iotbl td input[type=text],.iotbl td input:not([type]){width:100%;min-width:70px}
+  .iotbl td input.w3{width:52px;min-width:52px}
+  .iotbl td input.w5{width:74px;min-width:74px}
+  .iotbl td input[type=checkbox]{width:20px;height:20px}
+  .iotbl td select.iopick{margin:0 0 3px;max-width:130px}
+  .iotbl .packed{display:flex;gap:5px;align-items:center}
+  .iotbl .packed input:not([type=color]){min-width:74px}
+  .iotbl .packed input[type=color]{width:30px;height:30px;flex:none;padding:2px;border-radius:7px}
+  .ioro{font-size:11.5px;font-weight:700;color:var(--muted)}
+  /* ---- Desktop (>=900px) ----
+     The phone layout letterboxes everything into a 560px column. Tech I/O is
+     the one page people work at a laptop, so it gets the screen: the tables
+     stop scrolling sideways and the musician cards flow into columns instead
+     of stretching to absurd line lengths. */
+  @media (min-width:900px){
+    main.wide{max-width:1480px}
+    main.wide .iotbl{font-size:13px}
+    main.wide .iotbl td{height:46px}
+    main.wide .iotbl td.sm{max-width:none}
+    main.wide .iotbl td.note{max-width:280px}
+    main.wide .iotbl td input:not([type=color]):not([type=checkbox]){min-width:90px}
+    main.wide .iotbl td select.iopick{max-width:none}
+    /* Enough room for the whole table: nothing needs to be pinned any more,
+       and a sticky cell over a non-scrolling table just casts a stray edge. */
+    main.wide .iotbl .stick,main.wide .iotbl .stick2{position:static;box-shadow:none;width:auto;min-width:0}
+    main.wide .iocards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;align-items:start}
+    main.wide .iocards .ioperf{margin-bottom:0}
+    main.wide .ioviews{max-width:560px}
+    main.wide .ionote,main.wide .namebar,main.wide .iobar,main.wide .ioclash,main.wide .iofilter{max-width:900px}
+  }
+  @media (min-width:1280px){
+    main.wide .iocards{grid-template-columns:repeat(auto-fill,minmax(360px,1fr))}
+  }
+  .iofield{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .iofield.grow{flex:1;min-width:120px}
+  .iofield>span{font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+  .iofield>input{width:100%}
+  .io48{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap}
+  .io48 input{width:18px;height:18px;flex:none}
   .ioph{flex-wrap:wrap;gap:6px}
   .ioe{display:flex;gap:6px;flex:1;flex-wrap:wrap;min-width:0}
   .ioe input,.ioph input{font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-family:inherit;min-width:80px;flex:1}
@@ -903,7 +1014,7 @@ textarea, select { font-size: 16px !important; }
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.16.0</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.17.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -926,6 +1037,7 @@ textarea, select { font-size: 16px !important; }
     </div>
     <div class="next" id="nextCard"><div class="lbl">Up Next</div><h3 id="nextName">—</h3><div class="when" id="nextWhen"></div></div>
     <div class="checkinprompt"><span>📇 Met someone on the field? Capture their info before you lose it.</span><button onclick="show('capture')">Quick Capture</button></div>
+    <div class="checkinprompt"><span>📸 Got photos or video from today?</span><a href="https://bit.ly/uploadk2c" target="_blank" rel="noopener">Upload media</a></div>
     <div class="checkinprompt" id="tourPrompt" style="display:none"><span>🧭 First time in the app?</span><button onclick="guideStart()">Take the tour</button></div>
     <details class="preview"><summary>🎚️ Leader preview — scrub the day to test it</summary>
       <div id="simLock"></div>
@@ -1128,7 +1240,7 @@ textarea, select { font-size: 16px !important; }
   <section class="page" id="page-techio">
     <button class="back" onclick="show('crew')">‹ Specialists</button>
     <p class="eyebrow">Tech · FOH · Worship</p><h1 class="title">Tech I/O List</h1>
-    <div class="ionote">🎛️ <b>Input / Mic / IEM Pack assignments</b> — Michael Nelson (Tech/FOH).<br>Set your name, then tap each input to check it off as it's patched &amp; line-checked — your name &amp; time are logged on the card.<br>Leaders can <b>Edit list</b> or <b>Reload roster from defaults</b> after entering the PIN.</div>
+    <div class="ionote">🎛️ <b>Input / Mic / IEM Pack assignments</b> — Michael Nelson (Tech/FOH).<br>Set your name, then tap each input to check it off as it's patched &amp; line-checked — your name &amp; time are logged on the card.<br>🔒 The <b>Inputs</b> and <b>Outputs</b> tables are the master routing — what's in them builds every musician's card — so they're leader-PIN only.</div>
     <div class="namebar" id="namebar-io"></div>
     <div id="ioMount"></div>
   </section>

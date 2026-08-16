@@ -2,7 +2,7 @@
    One source of truth for every county dropdown (Quick Capture + the
    Recording Studio script editor) and for the 10 script templates.
    `event` strings match data/scripts.json exactly so board grouping holds.
-   `date` (v1.16.0) is the event Saturday in ISO — the machine-readable twin of
+   `date` (v1.17.0) is the event Saturday in ISO — the machine-readable twin of
    dateLong/dateShort, and what tells the Recording Studio a county is behind
    us. It must match SCHEDULE in netlify/functions/data.mjs, which is the
    authority; test/scripts-retire.test.js fails the build if the two drift. */
@@ -433,7 +433,7 @@ fetch("data/scripts.json").then(function(r){return r.ok?r.json():null;}).then(fu
 function tpScripts(){return (STATE.prompter&&STATE.prompter.scripts)||[];}
 function tpById(id){return tpScripts().filter(function(x){return x.id===id;})[0]||TP_SEED.filter(function(x){return x.id===id;})[0];}
 function tpTodayISO(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
-/* ---- counties we've already been to drop off the board (v1.16.0) ----
+/* ---- counties we've already been to drop off the board (v1.17.0) ----
    Mirrors countyRetired()/scriptCounty() in netlify/functions/data.mjs — the
    server already filters the shared board, this keeps the offline preview and
    a stale cached payload honest too. The rule is the Day PIN's rule: a county
