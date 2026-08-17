@@ -7,12 +7,20 @@
     "check:syntax": "node scripts/check-syntax.mjs",
     "import:io": "node scripts/excel-to-io.mjs",
     "import:io:write": "node scripts/excel-to-io.mjs --write-index",
-    "sync:scripts": "node scripts/sync-starter-scripts.mjs"
+    "sync:scripts": "node scripts/sync-starter-scripts.mjs",
+    "prepare:mobile": "node scripts/prepare-mobile.mjs",
+    "mobile:add:android": "npm run prepare:mobile && npx cap add android",
+    "mobile:add:ios": "npm run prepare:mobile && npx cap add ios",
+    "mobile:sync": "npm run prepare:mobile && npx cap sync"
   },
   "dependencies": {
+    "@capacitor/core": "^8.4.2",
     "@netlify/blobs": "^8.1.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/ios": "^8.4.2",
     "xlsx": "^0.18.5"
   }
 }

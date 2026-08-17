@@ -16,7 +16,7 @@ const DEFAULT_DAY_PIN = "0711";
 // Leader PIN is verified SERVER-SIDE. Rotate it by setting a LEADER_PIN
 // environment variable in Netlify (Site settings → Environment variables),
 // then redeploying — no code change needed.
-const LEADER_PIN = () => process.env.LEADER_PIN || "2026";
+const LEADER_PIN = () => process.env.LEADER_PIN || "";
 
 /* ---------------- storage layout ----------------
  v20 (app v1.4.0) — split-by-domain blobs + compare-and-swap writes:

@@ -1014,7 +1014,7 @@ textarea, select { font-size: 16px !important; }
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.17.1</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.17.2</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1481,6 +1481,7 @@ textarea, select { font-size: 16px !important; }
   <section class="page" id="page-guides">
     <p class="eyebrow">Reference</p><h1 class="title">Ambassador Resources</h1><p class="sub">Guides, check-in, contacts & graphics.</p>
     <div class="hub">
+      <a class="hubcard slate" href="privacy.html" style="text-decoration:none;color:inherit"><span class="ic">🔐</span><span class="tx"><b>Privacy Policy</b><span>How Ambassador Companion handles information</span></span><span class="arr">›</span></a>
       <button class="hubcard wine" onclick="show('capture')"><span class="ic">📇</span><span class="tx"><b>Quick Capture</b><span>Met someone? Card photo, voice note, or type it</span></span><span class="pill" id="capPill">0</span></button>
       <button class="hubcard wine" onclick="show('tour')"><span class="ic">🧭</span><span class="tx"><b>App Tour</b><span>New here? 2-minute walkthrough</span></span><span class="arr">›</span></button>
       <button class="hubcard" onclick="show('checkin')"><span class="ic">🙋</span><span class="tx"><b>Volunteer Check-In</b><span>Tap in when you arrive</span></span><span class="pill" id="crewCheckinPill">0</span></button>
@@ -2377,6 +2378,7 @@ textarea, select { font-size: 16px !important; }
     <input id="dayPinInput" inputmode="numeric" maxlength="10" placeholder="Day PIN" />
     <div class="err" id="dayPinErr"></div>
     <button class="ok" id="dayPinOk">Unlock app &amp; check in</button>
+    <p class="hint"><a href="privacy.html">Privacy Policy</a></p>
   </div>
 </div>
 <nav class="tabbar">
@@ -2386,6 +2388,7 @@ textarea, select { font-size: 16px !important; }
   <button class="tab" data-tab="board"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H7l-3 3z"/></svg><span class="tl">Post</span><span class="nbadge" id="boardBadge" style="display:none">0</span></button>
   <button class="tab" data-tab="guides"><svg viewBox="0 0 24 24"><path d="M12 6c-2-2-5-2-7-1v13c2-1 5-1 7 1 2-2 5-2 7-1V5c-2-1-5-1-7 1z"/><path d="M12 6v13"/></svg><span class="tl">Ambassador Resources</span></button>
 </nav>
+<script src="mobile-runtime.js"></script>
 <script src="js/app-core.js"></script>
 <script src="js/counties.js"></script>
 <script src="js/mobilize.js"></script>
