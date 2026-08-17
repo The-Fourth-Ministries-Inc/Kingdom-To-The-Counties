@@ -16,7 +16,7 @@ const DEFAULT_DAY_PIN = "0711";
 // Leader PIN is verified SERVER-SIDE. Rotate it by setting a LEADER_PIN
 // environment variable in Netlify (Site settings → Environment variables),
 // then redeploying — no code change needed.
-const LEADER_PIN = () => process.env.LEADER_PIN || "2026";
+const LEADER_PIN = () => process.env.LEADER_PIN || "";
 
 /* ---------------- storage layout ----------------
  v20 (app v1.4.0) — split-by-domain blobs + compare-and-swap writes:
@@ -1143,7 +1143,7 @@ async function bumpAgg(s, K, effTotal, effBy){
    if(w && w.modified) return;
    continue; // someone else seeded it; loop to apply our delta on top
   }
-const LEADER_PIN = () => process.env.LEADER_PIN || "";
+  const agg = { total: Math.max(0, (Number(res.data.total) || 0) + (effTotal || 0)), by: { ...res.data.by } };
   if(effBy) for(const k of Object.keys(effBy)) agg.by[k] = Math.max(0, (Number(agg.by[k]) || 0) + effBy[k]);
   let w; try { w = await s.setJSON(K.agg, agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
   if(w && w.modified) return;
