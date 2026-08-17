@@ -1143,7 +1143,7 @@ async function bumpAgg(s, K, effTotal, effBy){
    if(w && w.modified) return;
    continue; // someone else seeded it; loop to apply our delta on top
   }
-  const agg = { total: Math.max(0, (Number(res.data.total) || 0) + (effTotal || 0)), by: { ...res.data.by } };
+const LEADER_PIN = () => process.env.LEADER_PIN || "";
   if(effBy) for(const k of Object.keys(effBy)) agg.by[k] = Math.max(0, (Number(agg.by[k]) || 0) + effBy[k]);
   let w; try { w = await s.setJSON(K.agg, agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
   if(w && w.modified) return;
