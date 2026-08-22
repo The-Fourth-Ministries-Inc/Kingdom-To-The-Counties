@@ -370,7 +370,7 @@ All ten graphics are live as of v1.15.1. The banners are 1920×1080 and the
 mission card 1080×1350, matching what the socials want; keep new artwork at
 those sizes and under ~300KB so the precache stays reasonable on field signal.
 
-## Tech I/O List (v1.16.0)
+## Tech I/O List (v1.18.0)
 
 Under **Specialists → 🎛️ Tech I/O List**. Three views of one dataset, switched
 with the segmented control at the top:
@@ -378,12 +378,17 @@ with the segmented control at the top:
 - **👤 Musicians** — the original per-pack cards. What one player needs, and the
   patch checkmarks techs tick off during line check.
 - **🎚 Inputs** — the full input list as a table, **keyed on the AVB stream
-  number**, with the FOH and 32SC channel numbers side by side: source, role,
-  physical patch point, mic/hardware, +48V and the sheet's notes. Where the two
-  consoles wrote different things for one signal, both readings show — the
-  32SC's on its own line, labelled.
+  number**, with Snake Map and Ark splitter columns, plus the console channel
+  for the board you're on. The **FOH board** / **32SC monitors** filters keep
+  only that board's channel column. Where the two consoles wrote different
+  gear or notes for one signal, the 32SC reading rides along labelled.
 - **🎧 Outputs** — the Ark 32R IEM mixes (transmitter, pack, assignee,
   stereo/mono) and the NSB 32.16 PA buses.
+
+**Belmont roster (v1.18.0).** Defaults come from `K2C Belmont - INP-OUT Map`:
+Julian on Pack 5 (Yellow) for Acoustic Guitar 2; Alissa on Spare Pack 1 /
+Aux 6 (mono R of Transmitter 3) for Wireless Mic E; Annie mono on Aux 5
+(Pack 3 Green, Transmitter 3 L).
 
 **The tables are the master routing and the musician cards are built from
 them.** Editing happens *only* in a table — there is no edit affordance on the
@@ -404,26 +409,23 @@ with the AVB and tick columns pinned, exactly as before.
 
 ### The columns follow the signal
 
-Left to right, the Inputs table runs the way the signal does — the stream it
-ends up on, then the three ways it can get in:
+Left to right, the Inputs table runs the way the signal does:
 
 | Column | What it is |
 | --- | --- |
 | **AVB** | the network stream, the number every console agrees on |
-| **Snake** | an on-stage NSB 32.16 port, for anything patched at the stage box |
+| **Snake** | the multicore **Snake Map** number from the sheet (stage loom) |
 | **Ark split** | an Ark XLR splitter input — the splitter feeds the 32R |
-| **32R** | the 32R's own channel |
 
-A row uses exactly one entry point. Computer sources (tracks, click, guide)
-have none of the three — they land straight on the AVB network from the
-playback Mac — so their entry columns read `—` and the note says where they
-come from. Console channels (FOH ch, 32SC ch) sit at the far right: they're the
-least useful number when you're stood at a patch bay.
+NSB stage-box ports still appear in the musician-card `loc` line when a row
+is patched that way (`AVB 41 · Snake 3 · NSB 1`). Computer sources (tracks,
+click, guide) have neither Snake nor Ark — they land straight on AVB from the
+playback Mac. Console channels sit at the far right; the FOH / 32SC filter
+shows only the column for the board you're stood at.
 
-**The 32R column imports empty.** The sheet never writes a 32R channel. The
-Ark splitter feeds the 32R, so in practice it's the same number as the splitter
-input, but that's an inference and the importer doesn't invent data — fill it
-in once and it sticks.
+The sheet's Snake Map column used to be skipped (it sits next to the gutter
+between the two console halves). v1.18.0 imports it and writes it onto the
+musician cards.
 
 ### Musicians are a roster, not free text
 
@@ -480,7 +482,7 @@ people, swapping if the target already holds one.
 ### The sheet is canon — including where it disagrees with itself
 
 The roster is imported from `The Fourth Routing and Input Lists — K2C.xlsx`,
-tab `K2C Cheshire - INP-OUT Map`, and imported **verbatim**. That sheet
+tab `K2C Belmont - INP-OUT Map`, and imported **verbatim**. That sheet
 contradicts itself in a few places, so rather than guess a winner the importer
 keeps both readings and the Inputs view flags them in a banner at the top:
 
@@ -541,7 +543,7 @@ genuinely blank cells.
 
 ```bash
 node scripts/excel-to-io.mjs --workbook "The Fourth Routing and Input Lists — K2C.xlsx" \
-  --sheet "K2C Cheshire - INP-OUT Map" \
+  --sheet "K2C Belmont - INP-OUT Map" \
   --output data/io-default.json --write-index --verbose
 ```
 

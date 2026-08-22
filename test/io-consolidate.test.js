@@ -175,6 +175,34 @@ test("locLabel leads with AVB — the number both consoles agree on", () => {
   assert.equal(locLabel({ avb: 0, port: "" }), "");
 });
 
+test("locLabel prefers the Snake Map number and still names the Ark / NSB port", () => {
+  assert.equal(
+    locLabel({ avb: 25, snake: "1", port: "Ark Splitter - Input 25" }),
+    "AVB 25 · Snake 1 · Ark 25"
+  );
+  assert.equal(
+    locLabel({ avb: 41, snake: "3", port: "NSB.32 - 1" }),
+    "AVB 41 · Snake 3 · NSB 1"
+  );
+  /* When Snake was filled from the NSB port itself, don't say it twice. */
+  assert.equal(
+    locLabel({ avb: 41, snake: "1", port: "NSB.32 - 1" }),
+    "AVB 41 · Snake 1"
+  );
+});
+
+test("buildCards prefers the sheet Snake Map over an NSB port number", () => {
+  const cards = buildCards([
+    { avb: 41, foh: "23", source: "Kyle", role: "Tom 1", gear: "4. Tom 1 Mic", port: "NSB.32 - 1", snake: "3" },
+    { avb: 25, foh: "20", source: "Kyle", role: "Kick Drum", gear: "1. Kick Mic", port: "Ark Splitter - Input 25", snake: "1" },
+  ], []);
+  const byRole = Object.fromEntries(cards[0].rows.map((r) => [r.role, r]));
+  assert.equal(byRole["Tom 1"].snake, "3");
+  assert.equal(byRole["Tom 1"].loc, "AVB 41 · Snake 3 · NSB 1");
+  assert.equal(byRole["Kick Drum"].snake, "1");
+  assert.equal(byRole["Kick Drum"].loc, "AVB 25 · Snake 1 · Ark 25");
+});
+
 test("findGutter locates the empty column that splits the sheet in half", () => {
   const rows = [
     ["FOH Channel", "Source", null, "32SC Channel", "Source"],

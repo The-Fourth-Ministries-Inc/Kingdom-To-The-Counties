@@ -125,52 +125,54 @@ var IO_DEFAULT=[
     {id:"zach-lead-vox-wireless-mic-a-tuned",role:"Lead Vox",gear:"Wireless Mic A (Tuned)",loc:"AVB 1 · Ark 1",avb:"1",foh:"1",sc:"1",port:"Ark Splitter - Input 1 (from Ip6)",snake:"",split:"1",r32:"",path:"split",note:"Primary Lead Vocalist",src:"Zach"},
     {id:"zach-lead-vox-raw-split-wireless-mic-a-raw",role:"Lead Vox (Raw split)",gear:"Wireless Mic A (Raw)",loc:"AVB 6 · Ark 6",avb:"6",foh:"",sc:"28",port:"Ark Splitter - Input 6",snake:"",split:"6",r32:"",path:"split",note:"Uncorrected raw vocal split path",src:"Zach"},
     {id:"zach-stage-talkback-wired-tb-1",role:"Stage Talkback",gear:"Wired TB 1",loc:"AVB 14 · Ark 14",avb:"14",foh:"9",sc:"9",port:"Ark Splitter - Input 14",snake:"",split:"14",r32:"",path:"split",note:"Switched talkback mic",src:"Zach TB"},
-    {id:"zach-acoustic-guitar-1-1x-active-di",role:"Acoustic Guitar 1",gear:"1x Active DI",loc:"AVB 21 · Ark 21",avb:"21",foh:"18",sc:"18",port:"Ark Splitter - Input 21",snake:"",split:"21",r32:"",path:"split",note:"Acoustic path",src:"Zach AG"}
+    {id:"zach-acoustic-guitar-1-1x-active-di",role:"Acoustic Guitar 1",gear:"1x Active DI",loc:"AVB 21 · Snake 9 · Ark 21",avb:"21",foh:"18",sc:"18",port:"Ark Splitter - Input 21",snake:"9",split:"21",r32:"",path:"split",note:"Acoustic path",src:"Zach AG"}
   ]},
-  {id:"pack-3-green",name:"Annie",inst:"",pack:"Pack 3 (Green)",color:"#79C24A",qmix:"5 & 6",tx:"IEM Transmitter 3",aux:"5 & 6",out:"5 & 6",txUnit:"3",leg:"",mode:"stereo",dest:"Add'l Vox",share:[{pack:"Spare Pack 1",name:"SPARE",dest:"Add'l Vox"}],rows:[
+  {id:"pack-3-green",name:"Annie",inst:"",pack:"Pack 3 (Green)",color:"#79C24A",qmix:"5",tx:"IEM Transmitter 3 (L)",aux:"5",out:"5",txUnit:"3",leg:"L",mode:"mono",dest:"Add'l Vox",rows:[
     {id:"annie-add-l-vox-wireless-mic-c-tuned",role:"Add'l Vox",gear:"Wireless Mic C (Tuned)",loc:"AVB 3 · Ark 3",avb:"3",foh:"3",sc:"3",port:"Ark Splitter - Input 3 (from Ip8)",snake:"",split:"3",r32:"",path:"split",note:"Additional Tuned Vocals",altNote:"Additional Vocals",src:"Annie"},
     {id:"annie-add-l-vox-raw-split-wireless-mic-c-raw",role:"Add'l Vox (Raw split)",gear:"Wireless Mic C (Raw)",loc:"AVB 8 · Ark 8",avb:"8",foh:"",sc:"30",port:"Ark Splitter - Input 8",snake:"",split:"8",r32:"",path:"split",note:"Uncorrected raw vocal split path",src:"Annie"}
+  ]},
+  {id:"alissa",name:"Alissa",inst:"",pack:"Spare Pack 1",color:"#c7c2b8",qmix:"6",tx:"IEM Transmitter 3 (R)",aux:"6",out:"6",txUnit:"3",leg:"R",mode:"mono",dest:"Add'l Vox",rows:[
+    {id:"alissa-add-l-vox-wireless-mic-e-tuned",role:"Add'l Vox",gear:"Wireless Mic E (Tuned)",loc:"AVB 5 · Ark 5",avb:"5",foh:"5",sc:"5",port:"Ark Splitter - Input 5 (from Ip10)",snake:"",split:"5",r32:"",path:"split",note:"Additional Tuned Vocals",altNote:"Additional Vocals",src:"Alissa"},
+    {id:"alissa-add-l-vox-raw-split-wireless-mic-e-raw",role:"Add'l Vox (Raw split)",gear:"Wireless Mic E (Raw)",loc:"AVB 10 · Ark 10",avb:"10",foh:"",sc:"32",port:"Ark Splitter - Input 10",snake:"",split:"10",r32:"",path:"split",note:"Uncorrected raw vocal split path",src:"Alissa"}
   ]},
   {id:"pack-4-brown",name:"Mike",inst:"",pack:"Pack 4 (Brown)",color:"#9E6B33",qmix:"7 & 8",tx:"IEM Transmitter 4",aux:"7 & 8",out:"7 & 8",txUnit:"4",leg:"",mode:"stereo",dest:"Add'l Vox",share:[{pack:"Spare Pack 2",name:"SPARE",dest:"Acoustic 2"}],rows:[
     {id:"mike-add-l-vox-wireless-mic-d-tuned",role:"Add'l Vox",gear:"Wireless Mic D (Tuned)",loc:"AVB 4 · Ark 4",avb:"4",foh:"4",sc:"4",port:"Ark Splitter - Input 4 (from Ip9)",snake:"",split:"4",r32:"",path:"split",note:"Additional Tuned Vocals",altNote:"Additional Vocals",src:"Mike"},
     {id:"mike-add-l-vox-raw-split-wireless-mic-d-raw",role:"Add'l Vox (Raw split)",gear:"Wireless Mic D (Raw)",loc:"AVB 9 · Ark 9",avb:"9",foh:"",sc:"31",port:"Ark Splitter - Input 9",snake:"",split:"9",r32:"",path:"split",note:"Uncorrected raw vocal split path",src:"Mike"},
     {id:"mike-stage-talkback-wired-tb-3",role:"Stage Talkback",gear:"Wired TB 3",loc:"AVB 16 · Ark 16",avb:"16",foh:"11",sc:"11",port:"Ark Splitter - Input 16",snake:"",split:"16",r32:"",path:"split",note:"Switched talkback mic",src:"Mike TB"}
   ]},
-  {id:"pack-5-yellow",name:"Jeanne",inst:"",pack:"Pack 5 (Yellow)",color:"#F2CB05",qmix:"9",tx:"IEM Transmitter 9 (L)",aux:"9",out:"9",txUnit:"9",leg:"L",mode:"mono",dest:"Add'l Vox",rows:[
-    {id:"jeanne-acoustic-guitar-2-1x-active-di",role:"Acoustic Guitar 2",gear:"1x Active DI",loc:"AVB 22 · Ark 22",avb:"22",foh:"19",sc:"19",port:"Ark Splitter - Input 22",snake:"",split:"22",r32:"",path:"split",note:"Secondary Acoustic line",src:"Jeanne AG"}
+  {id:"pack-5-yellow",name:"Julian",inst:"",pack:"Pack 5 (Yellow)",color:"#F2CB05",qmix:"9",tx:"IEM Transmitter 9 (L)",aux:"9",out:"9",txUnit:"9",leg:"L",mode:"mono",dest:"Add'l Vox",rows:[
+    {id:"julian-acoustic-guitar-2-1x-active-di",role:"Acoustic Guitar 2",gear:"1x Active DI",loc:"AVB 22 · Snake 10 · Ark 22",avb:"22",foh:"19",sc:"19",port:"Ark Splitter - Input 22",snake:"10",split:"22",r32:"",path:"split",note:"Secondary Acoustic line",src:"Julian AG"}
   ]},
   {id:"spare-pack-3",name:"Sean",inst:"Bass Guitar",pack:"Spare Pack 3",color:"#c7c2b8",qmix:"10",tx:"IEM Transmitter 9 (R)",aux:"10",out:"10",txUnit:"9",leg:"R",mode:"mono",dest:"Bass",rows:[
-    {id:"sean-bass-guitar-1x-active-di-modeler",role:"Bass Guitar",gear:"1x Active DI / Modeler",loc:"AVB 18 · Ark 18",avb:"18",foh:"17",sc:"17",port:"Ark Splitter - Input 18",snake:"",split:"18",r32:"",path:"split",note:"Bass platform routing",src:"Sean"}
+    {id:"sean-bass-guitar-1x-active-di-modeler",role:"Bass Guitar",gear:"1x Active DI / Modeler",loc:"AVB 18 · Snake 8 · Ark 18",avb:"18",foh:"17",sc:"17",port:"Ark Splitter - Input 18",snake:"8",split:"18",r32:"",path:"split",note:"Bass platform routing",src:"Sean"}
   ]},
   {id:"pack-6-grey",name:"Brett",inst:"Electric Guitar",pack:"Pack 6 (Grey)",color:"#9AA0A6",qmix:"11 & 12",tx:"IEM Transmitter 6",aux:"11 & 12",out:"11 & 12",txUnit:"6",leg:"",mode:"stereo",dest:"Electric Guitar",rows:[
-    {id:"brett-electric-guitar-l-stereo-di-modeler-left",role:"Electric Guitar (L)",gear:"Stereo DI / Modeler (Left)",loc:"AVB 19 · Ark 19",avb:"19",foh:"13/14",sc:"13/14",port:"Ark Splitter - Input 19",snake:"",split:"19",r32:"",path:"split",note:"Guitar platform routing",src:"Brett",stereo:true},
-    {id:"brett-electric-guitar-r-stereo-di-modeler-right",role:"Electric Guitar (R)",gear:"Stereo DI / Modeler (Right)",loc:"AVB 20 · Ark 20",avb:"20",foh:"13/14",sc:"13/14",port:"Ark Splitter - Input 20",snake:"",split:"20",r32:"",path:"split",note:"Guitar platform routing",src:"Brett",stereo:true}
+    {id:"brett-electric-guitar-l-stereo-di-modeler-left",role:"Electric Guitar (L)",gear:"Stereo DI / Modeler (Left)",loc:"AVB 19 · Snake 11 · Ark 19",avb:"19",foh:"13/14",sc:"13/14",port:"Ark Splitter - Input 19",snake:"11",split:"19",r32:"",path:"split",note:"Guitar platform routing",src:"Brett",stereo:true},
+    {id:"brett-electric-guitar-r-stereo-di-modeler-right",role:"Electric Guitar (R)",gear:"Stereo DI / Modeler (Right)",loc:"AVB 20 · Snake 12 · Ark 20",avb:"20",foh:"13/14",sc:"13/14",port:"Ark Splitter - Input 20",snake:"12",split:"20",r32:"",path:"split",note:"Guitar platform routing",src:"Brett",stereo:true}
   ]},
   {id:"pack-7-purple",name:"John",inst:"Keys",pack:"Pack 7 (Purple)",color:"#7B3FF2",qmix:"13 & 14",tx:"IEM Transmitter 7",aux:"13 & 14",out:"13 & 14",txUnit:"7",leg:"",mode:"stereo",dest:"Keyboard Platform",rows:[
     {id:"john-stage-talkback-wired-tb-2",role:"Stage Talkback",gear:"Wired TB 2",loc:"AVB 15 · Ark 15",avb:"15",foh:"10",sc:"10",port:"Ark Splitter - Input 15",snake:"",split:"15",r32:"",path:"split",note:"Switched talkback mic",src:"John TB"},
-    {id:"john-keys-l-2x-stereo-di-left",role:"Keys (L)",gear:"2x Stereo DI (Left)",loc:"AVB 23 · Ark 23",avb:"23",foh:"15/16",sc:"15/16",port:"Ark Splitter - Input 23",snake:"",split:"23",r32:"",path:"split",note:"Keyboard line",src:"John",stereo:true},
-    {id:"john-keys-r-2x-stereo-di-right",role:"Keys (R)",gear:"2x Stereo DI (Right)",loc:"AVB 24 · Ark 24",avb:"24",foh:"15/16",sc:"15/16",port:"Ark Splitter - Input 24",snake:"",split:"24",r32:"",path:"split",note:"Keyboard line",src:"John",stereo:true}
+    {id:"john-keys-l-2x-stereo-di-left",role:"Keys (L)",gear:"2x Stereo DI (Left)",loc:"AVB 23 · Snake 13 · Ark 23",avb:"23",foh:"15/16",sc:"15/16",port:"Ark Splitter - Input 23",snake:"13",split:"23",r32:"",path:"split",note:"Keyboard line",src:"John",stereo:true},
+    {id:"john-keys-r-2x-stereo-di-right",role:"Keys (R)",gear:"2x Stereo DI (Right)",loc:"AVB 24 · Snake 14 · Ark 24",avb:"24",foh:"15/16",sc:"15/16",port:"Ark Splitter - Input 24",snake:"14",split:"24",r32:"",path:"split",note:"Keyboard line",src:"John",stereo:true}
   ]},
   {id:"pack-8-blue",name:"Kyle",inst:"Drums",pack:"Pack 8 (Blue)",color:"#2E7CD6",qmix:"15 & 16",tx:"IEM Transmitter 8",aux:"15 & 16",out:"15 & 16",txUnit:"8",leg:"",mode:"stereo",dest:"Drums Platform",rows:[
-    {id:"kyle-kick-drum-1-kick-mic",role:"Kick Drum",gear:"1. Kick Mic",loc:"AVB 25 · Ark 25",avb:"25",foh:"20",sc:"20",port:"Ark Splitter - Input 25",snake:"",split:"25",r32:"",path:"split",note:"Hybrid Drum Mic Setup",src:"Kyle"},
-    {id:"kyle-snare-top-2-snare-top-mic",role:"Snare Top",gear:"2. Snare Top Mic",loc:"AVB 26 · Ark 26",avb:"26",foh:"21",sc:"21",port:"Ark Splitter - Input 26",snake:"",split:"26",r32:"",path:"split",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-kick-drum-1-kick-mic",role:"Kick Drum",gear:"1. Kick Mic",loc:"AVB 25 · Snake 1 · Ark 25",avb:"25",foh:"20",sc:"20",port:"Ark Splitter - Input 25",snake:"1",split:"25",r32:"",path:"split",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-snare-top-2-snare-top-mic",role:"Snare Top",gear:"2. Snare Top Mic",loc:"AVB 26 · Snake 2 · Ark 26",avb:"26",foh:"21",sc:"21",port:"Ark Splitter - Input 26",snake:"2",split:"26",r32:"",path:"split",note:"Hybrid Drum Mic Setup",src:"Kyle"},
     {id:"kyle-snare-bottom-3-snare-bottom-mic",role:"Snare Bottom",gear:"3. Snare Bottom Mic",loc:"AVB 27 · Ark 27",avb:"27",foh:"22",sc:"22",port:"Ark Splitter - Input 27",snake:"",split:"27",r32:"",path:"split",note:"Hybrid Drum Mic Setup",src:"Kyle"},
-    {id:"kyle-tom-1-4-tom-1-mic",role:"Tom 1",gear:"4. Tom 1 Mic",loc:"AVB 41 · NSB 1",avb:"41",foh:"23",sc:"",port:"NSB.32 - 1",snake:"1",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle"},
-    {id:"kyle-tom-2-5-tom-2-mic",role:"Tom 2",gear:"5. Tom 2 Mic",loc:"AVB 42 · NSB 2",avb:"42",foh:"24",sc:"",port:"NSB.32 - 2",snake:"2",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle"},
-    {id:"kyle-tom-3-6-tom-3-mic",role:"Tom 3",gear:"6. Tom 3 Mic",loc:"AVB 43 · NSB 3",avb:"43",foh:"25",sc:"",port:"NSB.32 - 3",snake:"3",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle"},
-    {id:"kyle-overhead-l-7-overhead-l-condenser",role:"Overhead (L)",gear:"7. Overhead (L) Condenser",loc:"AVB 44 · NSB 4",avb:"44",foh:"26",sc:"",port:"NSB.32 - 4",snake:"4",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle",p48:true},
-    {id:"kyle-overhead-r-8-overhead-r-condenser",role:"Overhead (R)",gear:"8. Overhead (R) Condenser",loc:"AVB 45 · NSB 5",avb:"45",foh:"27",sc:"",port:"NSB.32 - 5",snake:"5",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle",p48:true},
-    {id:"kyle-toms-mixdown-4-6-tom-mics",role:"Toms - Mixdown",gear:"4-6. Tom Mics",loc:"AVB 57 · NSB 12-14",avb:"57",foh:"",sc:"23",port:"NSB.32 - 12-14",snake:"12-14",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle"},
-    {id:"kyle-overheads-mixdown-7-8-overhead-lr-condenser",role:"Overheads - Mixdown",gear:"7-8. Overhead (LR) Condensers",loc:"AVB 58 · NSB 15-16",avb:"58",foh:"",sc:"24",port:"NSB.32 - 15-16",snake:"15-16",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle"}
+    {id:"kyle-tom-1-4-tom-1-mic",role:"Tom 1",gear:"4. Tom 1 Mic",loc:"AVB 41 · Snake 3 · NSB 1",avb:"41",foh:"23",sc:"",port:"NSB.32 - 1",snake:"3",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-tom-2-5-tom-2-mic",role:"Tom 2",gear:"5. Tom 2 Mic",loc:"AVB 42 · Snake 4 · NSB 2",avb:"42",foh:"24",sc:"",port:"NSB.32 - 2",snake:"4",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-tom-3-6-tom-3-mic",role:"Tom 3",gear:"6. Tom 3 Mic",loc:"AVB 43 · Snake 5 · NSB 3",avb:"43",foh:"25",sc:"",port:"NSB.32 - 3",snake:"5",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-overhead-l-7-overhead-l-condenser",role:"Overhead (L)",gear:"7. Overhead (L) Condenser",loc:"AVB 44 · Snake 6 · NSB 4",avb:"44",foh:"26",sc:"",port:"NSB.32 - 4",snake:"6",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle",p48:true},
+    {id:"kyle-overhead-r-8-overhead-r-condenser",role:"Overhead (R)",gear:"8. Overhead (R) Condenser",loc:"AVB 45 · Snake 7 · NSB 5",avb:"45",foh:"27",sc:"",port:"NSB.32 - 5",snake:"7",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle",p48:true},
+    {id:"kyle-toms-mixdown-4-6-tom-mics",role:"Toms - Mixdown",gear:"4-6. Tom Mics",loc:"AVB 57 · Snake 12-14",avb:"57",foh:"",sc:"23",port:"NSB.32 - 12-14",snake:"12-14",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle"},
+    {id:"kyle-overheads-mixdown-7-8-overhead-lr-condenser",role:"Overheads - Mixdown",gear:"7-8. Overhead (LR) Condensers",loc:"AVB 58 · Snake 15-16",avb:"58",foh:"",sc:"24",port:"NSB.32 - 15-16",snake:"15-16",split:"",r32:"",path:"snake",note:"Hybrid Drum Mic Setup",src:"Kyle"}
   ]},
   {id:"spare",name:"Spare / open inputs",inst:"",pack:"",color:"#c7c2b8",qmix:"",tx:"",aux:"",out:"",txUnit:"",leg:"",mode:"none",dest:"",kind:"group",rows:[
-    {id:"spare-open-inputs-add-l-vox-wireless-mic-e-tuned",role:"Add'l Vox",gear:"Wireless Mic E (Tuned)",loc:"AVB 5 · Ark 5",avb:"5",foh:"5",sc:"5",port:"Ark Splitter - Input 5 (from Ip10)",snake:"",split:"5",r32:"",path:"split",note:"Additional Tuned Vocals",altNote:"Additional Vocals",src:"SPARE"},
-    {id:"spare-open-inputs-add-l-vox-raw-split-wireless-m",role:"Add'l Vox (Raw split)",gear:"Wireless Mic E (Raw)",loc:"AVB 10 · Ark 10",avb:"10",foh:"",sc:"32",port:"Ark Splitter - Input 10",snake:"",split:"10",r32:"",path:"split",note:"Uncorrected raw vocal split path",src:"SPARE"},
     {id:"spare-open-inputs-add-l-vox-wireless-mic-f",role:"Add'l Vox",gear:"Wireless Mic F",loc:"AVB 11 · Ark 11",avb:"11",foh:"6",sc:"6",port:"Ark Splitter - Input 11",snake:"",split:"11",r32:"",path:"split",note:"Additional RAW Vocals",altNote:"Additional Vocals (untuned)",src:"SPARE"},
     {id:"spare-open-inputs-saxophone-28",role:"Saxophone",gear:"",loc:"AVB 28 · Ark 28",avb:"28",foh:"",sc:"25",port:"Ark Splitter - Input 28",snake:"",split:"28",r32:"",path:"split",src:"N/A"},
     {id:"spare-open-inputs-saxophone-clip-on-sax-mic",role:"Saxophone",gear:"Clip-on Sax Mic",loc:"AVB 37 · Ark 28",avb:"37",foh:"28",sc:"",port:"Ark Splitter - Input 28",snake:"",split:"28",r32:"",path:"split",src:"SPARE"},
-    {id:"spare-open-inputs-spare-38",role:"Spare",gear:"",loc:"AVB 38 · NSB 4",avb:"38",foh:"",sc:"26",port:"NSB.32 - 4",snake:"4",split:"",r32:"",path:"snake",src:"N/A"},
-    {id:"spare-open-inputs-spare-39",role:"Spare",gear:"",loc:"AVB 39 · NSB 5",avb:"39",foh:"",sc:"27",port:"NSB.32 - 5",snake:"5",split:"",r32:"",path:"snake",src:"N/A"},
+    {id:"spare-open-inputs-spare-38",role:"Spare",gear:"",loc:"AVB 38 · Snake 4",avb:"38",foh:"",sc:"26",port:"NSB.32 - 4",snake:"4",split:"",r32:"",path:"snake",src:"N/A"},
+    {id:"spare-open-inputs-spare-39",role:"Spare",gear:"",loc:"AVB 39 · Snake 5",avb:"39",foh:"",sc:"27",port:"NSB.32 - 5",snake:"5",split:"",r32:"",path:"snake",src:"N/A"},
     {id:"spare-open-inputs-0",role:"",gear:"",loc:"",avb:"",foh:"Tape In",sc:"",port:"",snake:"",split:"",r32:"",path:"",stereo:true}
   ]},
   {id:"house",name:"House / Host",inst:"",pack:"",color:"#5c574f",qmix:"",tx:"",aux:"",out:"",txUnit:"",leg:"",mode:"none",dest:"",kind:"group",rows:[
@@ -216,8 +218,8 @@ function ioClone(o){return JSON.parse(JSON.stringify(o));}
 /* A roster stored before v1.16.0 holds only role/gear/loc — no AVB, no channel
    numbers, no physical port. It cannot fill the tables, so a phone reading one
    would show a short, half-empty input list and look like the import had
-   failed. Treat it as stale and fall back to the deployed defaults; the first
-   write upgrades the server copy (see the `seed` payload in ioToggle). */
+   failed. Treat it as stale and fall back to the deployed defaults for display;
+   replacing the stored roster is a deliberate Reload defaults (setIOList). */
 function ioIsLegacy(list){
   if(!list||!list.length)return false;
   for(var i=0;i<list.length;i++){
@@ -484,11 +486,15 @@ function ioMoveRow(pid,rid,toId){
   renderIOList();
 }
 
-/* One row of the input table. `ed` swaps the read-only cells for fields. */
+/* One row of the input table. `ed` swaps the read-only cells for fields.
+   Console filter tabs drop the other board's channel column; edit mode keeps
+   both so a leader can still set either number. */
 function ioInputRow(e,cf,ed,people){
   var p=e.p,r=e.r,n=ioAvbNum(r),pk=ioPortKey(r);
   var avbWarn=cf.avb[n]?' <span class="iowarn" title="AVB '+n+' is used by more than one input">⚠</span>':"";
   var portWarn=cf.port[pk]?' <span class="iowarn" title="This entry point is written against more than one AVB stream">⚠</span>':"";
+  var showFoh=ed||ioConsole!=="sc";
+  var showSc=ed||ioConsole!=="foh";
   function alt(v){return v?'<span class="alt">32SC: '+esc(v)+'</span>':"";}
 
   if(ed){
@@ -503,16 +509,15 @@ function ioInputRow(e,cf,ed,people){
     return '<tr class="ed">'+
       '<td class="c stick"><button class="iodel" onclick="ioDelRow('+pi+','+ri+')" title="Remove input">✕</button></td>'+
       '<td class="num k stick2">'+f("avb","w3","AVB")+avbWarn+'</td>'+
-      '<td class="num">'+f("snake","w3","—")+'</td>'+
-      '<td class="num">'+f("split","w3","—")+portWarn+'</td>'+
-      '<td class="num">'+f("r32","w3","—")+'</td>'+
+      '<td class="num">'+f("snake","w3","—")+portWarn+'</td>'+
+      '<td class="num">'+f("split","w3","—")+'</td>'+
       '<td>'+pick+f("src","","Source label")+'</td>'+
       '<td>'+f("role","","Role / instrument")+'</td>'+
       '<td>'+f("gear","","Mic / hardware")+'</td>'+
       '<td class="c"><input type="checkbox"'+(r.p48?" checked":"")+' onchange="ioSetFlag('+pi+','+ri+',\'p48\',this.checked)"></td>'+
       '<td>'+f("note","","Notes")+'</td>'+
-      '<td class="num">'+f("foh","w3","—")+'</td>'+
-      '<td class="num">'+f("sc","w3","—")+'</td></tr>';
+      (showFoh?'<td class="num">'+f("foh","w3","—")+'</td>':"")+
+      (showSc?'<td class="num">'+f("sc","w3","—")+'</td>':"")+'</tr>';
   }
 
   var tap=p.off?"":' onclick="ioToggle(\''+esc(p.id)+'\',\''+esc(r.id)+'\')"';
@@ -520,16 +525,15 @@ function ioInputRow(e,cf,ed,people){
   return '<tr class="'+(r.done?"done":"")+(p.off?" off":" tap")+'"'+tap+'>'+
     '<td class="c stick"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg></span></td>'+
     '<td class="num k stick2">'+(r.avb?("AVB "+esc(String(r.avb))):"—")+avbWarn+'</td>'+
-    '<td class="num">'+esc(r.snake||"—")+'</td>'+
-    '<td class="num">'+esc(r.split||"—")+portWarn+'</td>'+
-    '<td class="num">'+esc(r.r32||"—")+'</td>'+
+    '<td class="num">'+esc(r.snake||"—")+portWarn+'</td>'+
+    '<td class="num">'+esc(r.split||"—")+'</td>'+
     '<td><b>'+esc(r.src||p.name)+'</b>'+stamp+'</td>'+
     '<td>'+esc(r.role||"—")+'</td>'+
     '<td class="sm">'+esc(r.gear||"—")+alt(r.altGear)+'</td>'+
     '<td class="c">'+(r.p48?'<span class="p48">48V</span>':"")+'</td>'+
     '<td class="sm note">'+esc(r.note||"")+alt(r.altNote)+'</td>'+
-    '<td class="num">'+esc(r.foh||"—")+(r.stereo?'<span class="alt">stereo pair</span>':"")+'</td>'+
-    '<td class="num">'+esc(r.sc||"—")+'</td></tr>';
+    (showFoh?'<td class="num">'+esc(r.foh||"—")+(r.stereo?'<span class="alt">stereo pair</span>':"")+'</td>':"")+
+    (showSc?'<td class="num">'+esc(r.sc||"—")+'</td>':"")+'</tr>';
 }
 
 function renderIOInputs(list,ed){
@@ -541,18 +545,19 @@ function renderIOInputs(list,ed){
   }
   rows.sort(function(a,b){return (ioAvbNum(a.r)||9999)-(ioAvbNum(b.r)||9999);});
 
-  /* Columns run the way the signal does: the AVB stream it ends up on, then
-     the three ways it can get in — the stage snake, the Ark XLR splitter, and
-     the 32R the splitter feeds. Console channels sit at the far end; they are
-     the least useful number when you are stood at a patch bay. */
+  /* Columns: AVB, Snake Map, Ark splitter, then only the console channel for
+     the filter you're on (both when All / editing). */
+  var showFoh=ed||ioConsole!=="sc";
+  var showSc=ed||ioConsole!=="foh";
   var head='<tr><th class="c stick">'+(ed?"":"✓")+'</th><th class="stick2">AVB</th>'+
-    '<th>Snake</th><th>Ark split</th><th>32R</th>'+
+    '<th>Snake</th><th>Ark split</th>'+
     '<th>Source</th><th>Role / instrument</th><th>Mic / hardware</th><th class="c">48V</th><th>Notes</th>'+
-    '<th>FOH ch</th><th>32SC ch</th></tr>';
+    (showFoh?"<th>FOH ch</th>":"")+
+    (showSc?"<th>32SC ch</th>":"")+"</tr>";
   var body=rows.map(function(e){return ioInputRow(e,cf,ed,people);}).join("");
 
   var foot=ed
-    ? '<p class="iofoot">Every field here is the master record — the musician cards are drawn from it. <b>Source</b> re-assigns an input to a different person. <b>32R</b> is blank because the sheet never wrote it; the Ark splitter feeds the 32R, so it is usually the same number as the splitter input.</p>'
+    ? '<p class="iofoot">Every field here is the master record — the musician cards are drawn from it. <b>Source</b> re-assigns an input to a different person. <b>Snake</b> is the multicore map number from the routing sheet.</p>'
     : '<p class="iofoot">'+rows.length+' inputs'+(ioConsole==="all"?"":" on this console")+' · sorted by AVB stream, the number every console agrees on. Tap a row to check it off as patched.</p>';
 
   return (ed?ioEditBar():ioConsoleBar())+ioConflictNote(cf)+
@@ -735,21 +740,26 @@ function ioSaveEdit(){
 }
 function ioUid(){return "x"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
 /* The one-line patch reference on the musician card is derived, not typed —
-   it must never drift from the AVB and port the tables show. */
+   it must never drift from the AVB / Snake Map / entry point the tables show. */
 function ioLoc(r){
   var bits=[];
   if(r.avb)bits.push("AVB "+r.avb);
   if(r.snake)bits.push("Snake "+r.snake);
-  else if(r.split)bits.push("Ark "+r.split);
-  else if(r.port)bits.push(r.port);
-  if(r.r32)bits.push("32R "+r.r32);
+  if(r.split)bits.push("Ark "+r.split);
+  if(r.port){
+    var nsb=String(r.port).match(/nsb\.?\s*32[^\d]*([\d\s–-]+)/i);
+    if(nsb){
+      var n=String(nsb[1]).replace(/\s+/g,"").replace(/[–-]+/g,"-");
+      if(String(r.snake||"")!==n&&String(r.snake||"")!==String(nsb[1]).trim())bits.push("NSB "+String(nsb[1]).trim());
+    }else if(!r.snake&&!r.split)bits.push(r.port);
+  }
   return bits.join(" · ");
 }
 function ioSet(pi,ri,field,val){
   if(ri<0){ioBuf[pi][field]=val;return;}
   var r=ioBuf[pi].rows[ri];
   r[field]=val;
-  if(field==="avb"||field==="snake"||field==="split"||field==="r32"||field==="port")r.loc=ioLoc(r);
+  if(field==="avb"||field==="snake"||field==="split"||field==="port")r.loc=ioLoc(r);
 }
 function ioSetFlag(pi,ri,field,on){ioBuf[pi].rows[ri][field]=!!on;}
 function ioBusSet(bi,field,val){(ioBusBuf=ioBusBuf||ioClone(ioBusCurrent()))[bi][field]=val;}

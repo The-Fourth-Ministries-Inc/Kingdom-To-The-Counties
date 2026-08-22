@@ -127,6 +127,11 @@ function readInputHalf(rows, section, side) {
     const role = txt(row[col.role]);
     const avbCell = txt(row[col.avb]);
     const port = col.port != null ? txt(row[col.port]) : "";
+    /* The FOH half carries a dedicated Snake Map column (multicore channel
+       numbers on the stage loom). It sits beside the gutter and used to be
+       skipped entirely — the table's Snake column then only ever filled for
+       NSB ports parsed out of the free-text patch cell. */
+    const snake = col.snake != null ? txt(row[col.snake]) : "";
     const gear = col.gear != null ? txt(row[col.gear]) : "";
     const note = col.note != null ? txt(row[col.note]) : "";
     const p48 = col.p48 != null ? /^(y|yes|true|x|48)/i.test(txt(row[col.p48])) : false;
@@ -150,6 +155,7 @@ function readInputHalf(rows, section, side) {
       avb: avbNum(avbCell),
       avbLabel: avbCell,
       port,
+      snake,
       gear,
       p48,
       note,
@@ -181,6 +187,7 @@ export function mergeInputs(fohRows, scRows) {
         p48: row.p48,
         aux: row.aux,
         stereo: false,
+        snake: "",
         foh: "",
         sc: "",
         /* Kept per console: where the two halves disagree, both readings are
@@ -199,6 +206,8 @@ export function mergeInputs(fohRows, scRows) {
     s[side + "Port"] = row.port;
     s[side + "Gear"] = row.gear;
     s[side + "Note"] = row.note;
+    /* Snake Map lives on the FOH half only. */
+    if (row.snake && !s.snake) s.snake = row.snake;
     if (row.p48) s.p48 = true;
     if (/\(stereo\)/i.test(row.chanLabel || "")) s.stereo = true;
     /* The monitor console names the source on rows FOH leaves blank (the raw
@@ -483,21 +492,24 @@ export function buildCards(inputs, mixes) {
       }
     }
 
-    /* Split the sheet's one free-text port column into the three ways a
-       signal actually gets in: the stage snake, the Ark XLR splitter, or
-       straight onto AVB from a computer. */
+    /* Entry point from the free-text port cell (NSB / Ark / direct), plus the
+       dedicated Snake Map number when the sheet wrote one. The map wins for
+       the Snake column; NSB port numbers only fill it when the map is blank. */
     const entry = parseEntry(inp.port);
+    const snakeMap = txt(inp.snake);
+    const snake = snakeMap || entry.snake;
+    const rowInp = Object.assign({}, inp, { snake: snake });
     target.rows.push({
       id: uid(`${target.name}-${inp.role}-${inp.gear || inp.avb}`),
       role: inp.role,
       gear: inp.gear,
-      loc: locLabel(inp),
+      loc: locLabel(rowInp),
       avb: inp.avb || "",
-      snake: entry.snake,
+      snake: snake,
       split: entry.split,
-      /* The Ark splitter feeds the 32R, but the sheet never writes the 32R's
-         own channel number, so it is left empty to be filled in rather than
-         guessed at. */
+      /* 32R channel is inferred from the Ark splitter in the field and is not
+         shown in the Inputs table — kept empty so a leader can still store one
+         if they ever need it. */
       r32: "",
       path: entry.path,
       foh: inp.foh || "",
@@ -546,17 +558,25 @@ export function parseEntry(port) {
 
 /**
  * The one-line patch reference shown on the musician card. AVB leads because
- * that is the number the two consoles agree on.
+ * that is the number the two consoles agree on; Snake Map follows when the
+ * sheet wrote one, then the Ark / NSB entry point.
  */
 export function locLabel(inp) {
   const bits = [];
   if (inp.avb) bits.push(`AVB ${inp.avb}`);
+  const snake = txt(inp.snake);
+  if (snake) bits.push(`Snake ${snake}`);
   const port = txt(inp.port);
-  const ark = port.match(/input\s*(\d+)/i);
+  const ark = port.match(/splitter\s*[-–]?\s*input\s*(\d+)/i);
   const nsb = port.match(/nsb\.?\s*32[^\d]*([\d\s–-]+)/i);
   if (ark) bits.push(`Ark ${ark[1]}`);
-  else if (nsb) bits.push(`NSB ${txt(nsb[1])}`);
-  else if (port) bits.push(port);
+  if (nsb) {
+    const nsbNum = txt(nsb[1]).replace(/\s*[-–]\s*/g, "-");
+    /* Don't repeat "Snake 1 · NSB 1" when the Snake value was the NSB port. */
+    if (snake !== nsbNum && snake !== txt(nsb[1])) bits.push(`NSB ${txt(nsb[1])}`);
+  } else if (port && !snake && !ark) {
+    bits.push(port);
+  }
   return bits.join(" · ");
 }
 
@@ -570,6 +590,19 @@ const INPUT_SPECS = {
   p48: /48v/,
   note: /^notes/,
 };
+
+/** Snake Map is FOH-only (sits beside the gutter). Never required to find a header. */
+function attachSnakeCol(section, rows, within) {
+  if (!section) return;
+  const [lo, hi] = within;
+  const norm = rows[section.row].map(header);
+  for (let c = lo; c <= hi && c < norm.length; c++) {
+    if (/^snake/.test(norm[c])) {
+      section.col.snake = c;
+      return;
+    }
+  }
+}
 
 const IEM_SPECS = {
   mix: /output mix/,
@@ -768,6 +801,7 @@ export function consolidateSheet(rows) {
   const fohSec = findHeader(rows, INPUT_SPECS, [0, gut - 1]);
   const scSec = findHeader(rows, INPUT_SPECS, [gut + 1, width - 1]);
   if (!fohSec && !scSec) throw new Error("No input list header found on either half of the sheet.");
+  attachSnakeCol(fohSec, rows, [0, gut - 1]);
 
   const fohRows = fohSec ? readInputHalf(rows, fohSec, "foh") : [];
   const scRows = scSec ? readInputHalf(rows, scSec, "sc") : [];
