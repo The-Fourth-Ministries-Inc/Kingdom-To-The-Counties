@@ -44,8 +44,11 @@ review notes at submit time. Do not print a standing PIN in this draft.
 
 ## Screenshots
 
-Not included in this draft. Capture from a TestFlight build. No fabricated
-announcements or counts.
+**DRAFT.** PNG files live in [screenshots/](screenshots/) at **1290 × 2796**
+(6.7-inch portrait, accepted in App Store Connect's **6.9-inch Display** slot).
+Upload those; do not photograph a phone. Empty/honest UI only — no fabricated
+announcements, counts, miracles, names, or PINs. A human still clicks upload
+in App Store Connect. This repo does not submit the listing.
 
 ## Encryption / export
 

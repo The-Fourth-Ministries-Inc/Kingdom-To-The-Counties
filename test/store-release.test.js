@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -208,6 +208,34 @@ test("app version helpers read the badge and prefer the CI run number", () => {
   assert.equal(versionCodeFromName("1.18.0"), 11800);
   assert.equal(mobileVersionCode("1.18.0", "77"), 77);
   assert.equal(mobileVersionCode("1.18.0", ""), 11800);
+});
+
+test("draft 6.7-inch App Store screenshots are 1290x2796 opaque RGB PNGs", () => {
+  const dir = join(root, "docs/store-release/screenshots");
+  const files = [
+    "iphone-6.7-1290x2796-01-day-pin.png",
+    "iphone-6.7-1290x2796-02-privacy.png",
+    "iphone-6.7-1290x2796-03-resources.png",
+    "iphone-6.7-1290x2796-04-graphics.png"
+  ];
+  for (const name of files) {
+    const buf = readFileSync(join(dir, name));
+    assert.equal(buf[0], 0x89);
+    assert.equal(buf.toString("ascii", 1, 4), "PNG");
+    assert.equal(buf.readUInt32BE(16), 1290, name + " width");
+    assert.equal(buf.readUInt32BE(20), 2796, name + " height");
+    assert.equal(buf[25], 2, name + " must be RGB without alpha");
+  }
+  const listed = readdirSync(dir).filter((f) => f.endsWith(".png"));
+  assert.equal(listed.length, files.length);
+  const readme = read("docs/store-release/screenshots/README.md");
+  assert.match(readme, /DRAFT/);
+  assert.match(readme, /1290\s*[×x]\s*2796/);
+  assert.match(readme, /6\.9-inch Display/);
+  assert.doesNotMatch(readme, /Day PIN:\s*\d{3,}/);
+  const listing = read("docs/store-release/app-store-listing.DRAFT.md");
+  assert.match(listing, /screenshots\//);
+  assert.match(listing, /DRAFT/);
 });
 
 test("require-mobile-secrets fails closed when names are empty", () => {

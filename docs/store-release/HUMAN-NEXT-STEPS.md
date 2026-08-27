@@ -62,8 +62,10 @@ Re-run the same workflow with **upload_internal** on.
 
 ## 5. Finish listings and screenshots
 
-Use the DRAFT files in this folder. Capture screenshots from TestFlight / an
-internal-testing device. Do not fabricate announcements or counts.
+Use the DRAFT files in this folder. iPhone 6.7-inch (1290×2796) screenshots
+are in [screenshots/](screenshots/) — **DRAFT**, empty/honest UI only. Upload
+them in App Store Connect's 6.9-inch Display slot. Do not fabricate
+announcements or counts. Do not put a Day PIN in the listing.
 
 ## 6. Production (explicit human approval only)
 

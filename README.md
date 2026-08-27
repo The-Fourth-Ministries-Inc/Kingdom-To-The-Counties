@@ -837,6 +837,8 @@ PWABuilder on a laptop. GitHub Actions generates Capacitor Android and iOS
 projects on hosted runners (`Mobile validation` for unsigned checks,
 `Mobile signed internal` for signed AAB/IPA). Listing copy and the remaining
 human console steps live in [docs/store-release](docs/store-release/README.md).
+Draft iPhone 6.7-inch screenshots (1290×2796) are in
+[docs/store-release/screenshots](docs/store-release/screenshots/README.md).
 Production submit is still a human click in App Store Connect and Play Console.
 
 ## Contributing
