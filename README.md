@@ -15,8 +15,8 @@ artifacts are never prepared on a personal computer.
 
 The native shell uses `mobile-runtime.js` to point at the production Netlify
 Functions API. The public [privacy policy](privacy.html) and
-[support page](support.html) are available before the Day PIN gate and from
-Ambassador Resources. Store-release decisions, contacts, and gates live in
+[support page](support.html) are available before the Day PIN gate and at the
+**bottom** of Ambassador Resources. Store-release decisions, contacts, and gates live in
 [docs/store-release/README.md](docs/store-release/README.md).
 
 Signed Android App Bundles and iOS IPAs are built by the dispatch-only
@@ -838,6 +838,21 @@ projects on hosted runners (`Mobile validation` for unsigned checks,
 `Mobile signed internal` for signed AAB/IPA). Listing copy and the remaining
 human console steps live in [docs/store-release](docs/store-release/README.md).
 Production submit is still a human click in App Store Connect and Play Console.
+
+## iOS / Android safe-area header (v1.18.2)
+
+The sticky header (title, clock, NOW/NEXT) sits fully **below** the iOS status
+bar on notched iPhones. TestFlight v1.18.1 drew the status bar on top of the
+title because Capacitor's WKWebView used `contentInset: automatic` while the
+header is `position: sticky; top: 0` — native inset and CSS fought, the title
+cramped under the clock/signal cluster, and a dead gap opened above NOW/NEXT.
+
+The fix: `contentInset: never` (Capacitor's default) so CSS is the single
+source of truth; `--sat` / `--sab` read Capacitor's injected
+`--safe-area-inset-*` then `env()` then `0px`; padding-top lives on `.topwrap`
+(ink fills the notch) rather than on `.topbar`. The same tokens pad the Day
+PIN overlay and the bottom tab bar. On web and on phones with no inset the
+padding is `0px`, so the layout does not grow a fake notch.
 
 ## Contributing
 
