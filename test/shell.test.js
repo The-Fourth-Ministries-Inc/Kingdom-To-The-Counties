@@ -28,17 +28,35 @@ test("viewport-fit=cover is on so env(safe-area-inset-*) can be non-zero", () =>
   assert.match(html, /apple-mobile-web-app-status-bar-style" content="black-translucent"/);
 });
 
-test("sticky header pads with Capacitor --safe-area-inset-top, not WKWebView contentInset", () => {
+test("sticky header uses env(safe-area-inset-top) on WKWebView, not a SystemBars plugin", () => {
   const html = read("index.html");
-  assert.match(html, /--sat:var\(--safe-area-inset-top,\s*env\(safe-area-inset-top,\s*0px\)\)/);
-  assert.match(html, /\.topwrap\{[^}]*padding-top:var\(--sat\)/);
+  assert.match(html, /name="viewport"[^>]*viewport-fit=cover/);
+  assert.match(html, /--sat:env\(safe-area-inset-top,\s*0px\)/);
+  assert.match(html, /\.topwrap\{[^}]*padding-top:env\(safe-area-inset-top,\s*0px\)/);
   assert.match(html, /\.topbar\{[^}]*padding:12px 18px/);
   assert.doesNotMatch(html, /\.topbar\{[^}]*safe-area-inset-top/);
-  assert.match(html, /\.daygate\{[^}]*padding:calc\(var\(--sat\) \+ 24px\)/);
-  assert.match(html, /\.tabbar\{[^}]*padding-bottom:var\(--sab\)/);
+  assert.match(html, /\.daygate\{[^}]*padding:calc\(env\(safe-area-inset-top,\s*0px\) \+ 24px\)/);
+  assert.match(html, /\.tabbar\{[^}]*padding-bottom:env\(safe-area-inset-bottom,\s*0px\)/);
 
   const cap = JSON.parse(read("capacitor.config.json"));
   assert.equal(cap.ios.contentInset, "never");
+  assert.equal(cap.plugins && cap.plugins.SystemBars, undefined);
+
+  const pkg = JSON.parse(read("package.json"));
+  const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+  assert.equal(deps["@capacitor/system-bars"], undefined);
+  assert.equal(deps["@capacitor/status-bar"], undefined);
+  assert.ok(deps["@capacitor/core"]);
+  assert.ok(deps["@capacitor/ios"]);
+});
+
+test("Capacitor iOS SystemBars does not inject --safe-area-inset-* (Android-only)", () => {
+  const swift = read("node_modules/@capacitor/ios/Capacitor/Capacitor/Plugins/SystemBars.swift");
+  assert.match(swift, /CAPSystemBarsPlugin/);
+  assert.doesNotMatch(swift, /safe-area-inset/);
+  const coreDoc = read("node_modules/@capacitor/core/system-bars.md");
+  assert.match(coreDoc, /only supported on Android/);
+  assert.match(coreDoc, /bundled with `@capacitor\/core`/);
 });
 
 test("Privacy Policy is the last Ambassador Resources card and still opens privacy.html", () => {

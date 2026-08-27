@@ -15,12 +15,6 @@
       "UIStatusBarStyle": "UIStatusBarStyleLightContent"
     }
   },
-  "plugins": {
-    "SystemBars": {
-      "insetsHandling": "css",
-      "style": "LIGHT"
-    }
-  },
   "android": {
     "allowMixedContent": false,
     "permissions": [

@@ -847,12 +847,21 @@ title because Capacitor's WKWebView used `contentInset: automatic` while the
 header is `position: sticky; top: 0` — native inset and CSS fought, the title
 cramped under the clock/signal cluster, and a dead gap opened above NOW/NEXT.
 
-The fix: `contentInset: never` (Capacitor's default) so CSS is the single
-source of truth; `--sat` / `--sab` read Capacitor's injected
-`--safe-area-inset-*` then `env()` then `0px`; padding-top lives on `.topwrap`
-(ink fills the notch) rather than on `.topbar`. The same tokens pad the Day
-PIN overlay and the bottom tab bar. On web and on phones with no inset the
-padding is `0px`, so the layout does not grow a fake notch.
+The iOS fix is the WKWebView path, not a plugin:
+
+1. `viewport-fit=cover` so `env(safe-area-inset-top)` can be non-zero.
+2. `ios.contentInset: "never"` (Capacitor's default) so WKWebView does not
+   steal the inset and leave sticky `top: 0` under the status bar.
+3. `.topwrap { padding-top: env(safe-area-inset-top, 0px) }` with ink behind
+   the notch; `.topbar` keeps a plain `12px 18px` so NOW/NEXT is not pushed
+   down by a second inset.
+
+There is no `@capacitor/system-bars` or `@capacitor/status-bar` package in
+this repo. Capacitor 8's SystemBars API is already inside `@capacitor/core`
+and `@capacitor/ios`; `insetsHandling: "css"` injects `--safe-area-inset-*`
+on **Android only**. A `plugins.SystemBars` block would not pad the iPhone
+header. Android still gets a second `padding-top: var(--safe-area-inset-top, env(...))`
+fallback for WebView &lt;140. On web, both values are `0px`.
 
 ## Contributing
 

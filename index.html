@@ -36,11 +36,14 @@ textarea, select { font-size: 16px !important; }
     --serif:"Fraunces",Georgia,"Times New Roman",serif;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     --tab-h:64px;
-    /* Capacitor 8 injects --safe-area-inset-* on the document (Android
-       WebView <140 needs that; iOS env() is usually enough). Use the
-       injected var first, then env(), then 0px on desktop/web. */
-    --sat:var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
-    --sab:var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+    /* iOS WKWebView (TestFlight): env() is the real inset, and it is non-zero
+       only with viewport-fit=cover AND ios.contentInset never. Capacitor's
+       SystemBars plugin is bundled in @capacitor/core — there is no separate
+       @capacitor/system-bars package — and insetsHandling:css injects
+       --safe-area-inset-* on Android only. Do not put that var first or a
+       0px Android injection would hide a working env() on iPhone. */
+    --sat:env(safe-area-inset-top, 0px);
+    --sab:env(safe-area-inset-bottom, 0px);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
@@ -48,8 +51,9 @@ textarea, select { font-size: 16px !important; }
   /* Ink fills the status-bar/notch so the translucent iOS bar stays
      readable. Title + clock live in .topbar with normal 12px padding —
      putting the inset on .topbar used to leave a dead gap above NOW/NEXT
-     when WKWebView also applied contentInset: automatic. */
-  .topwrap{position:sticky;top:0;z-index:40;background:var(--ink);padding-top:var(--sat)}
+     when WKWebView also applied contentInset: automatic. Second padding-top
+     is the Android WebView <140 fallback (injected --safe-area-inset-*). */
+  .topwrap{position:sticky;top:0;z-index:40;background:var(--ink);padding-top:env(safe-area-inset-top, 0px);padding-top:var(--safe-area-inset-top, env(safe-area-inset-top, 0px))}
   .topbar{background:var(--ink);color:var(--cream);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
   .nowstrip{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--cream);border-bottom:1px solid var(--line);cursor:pointer;font-size:12px;line-height:1.2}
   .nowstrip .lbl{font-size:9px;letter-spacing:1.3px;text-transform:uppercase;font-weight:700;flex:none}
@@ -847,7 +851,7 @@ textarea, select { font-size: 16px !important; }
   .sheetx:active{background:var(--ink);color:var(--cream)}
   .binsheet #binBody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 18px 2px}
   .binsheet .row{flex:none;padding:12px 18px 16px}
-  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;height:calc(var(--tab-h) + var(--sab));padding-bottom:var(--sab);background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:stretch;box-shadow:0 -4px 18px rgba(43,42,40,.06);}
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;height:calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));padding-bottom:env(safe-area-inset-bottom, 0px);padding-bottom:var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:stretch;box-shadow:0 -4px 18px rgba(43,42,40,.06);}
   .tab{flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:10px;letter-spacing:.3px;font-weight:600;position:relative}
   .tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
   .tab .tl{max-width:100%;white-space:normal;text-align:center;line-height:1.05}
@@ -941,7 +945,7 @@ textarea, select { font-size: 16px !important; }
   #binBody .fyiadd{margin-top:4px}
   #binBody .fyiadd textarea,#binBody .fyiadd input{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;text-align:left;letter-spacing:normal;font-family:var(--sans);background:#fff;margin-bottom:8px;resize:vertical}
   /* Day PIN gate — locks the whole app */
-  .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:center;justify-content:center;padding:calc(var(--sat) + 24px) 24px calc(var(--sab) + 24px);overflow:auto}
+  .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);overflow:auto}
   .daygate.show{display:flex}
   .dgsheet{background:var(--cream);border-radius:20px;padding:26px 22px;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(0,0,0,.45);text-align:center}
   .dgbrand{font-weight:900;letter-spacing:1.5px;font-size:13px;color:var(--wine);margin-bottom:14px}
