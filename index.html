@@ -36,12 +36,25 @@ textarea, select { font-size: 16px !important; }
     --serif:"Fraunces",Georgia,"Times New Roman",serif;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     --tab-h:64px;
+    /* iOS WKWebView (TestFlight): env() is the real inset, and it is non-zero
+       only with viewport-fit=cover AND ios.contentInset never. Capacitor's
+       SystemBars plugin is bundled in @capacitor/core — there is no separate
+       @capacitor/system-bars package — and insetsHandling:css injects
+       --safe-area-inset-* on Android only. Do not put that var first or a
+       0px Android injection would hide a working env() on iPhone. */
+    --sat:env(safe-area-inset-top, 0px);
+    --sab:env(safe-area-inset-bottom, 0px);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
-  body{font-family:var(--sans);background:var(--cream);color:var(--ink);line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:calc(var(--tab-h) + env(safe-area-inset-bottom));}
-  .topwrap{position:sticky;top:0;z-index:40}
-  .topbar{background:var(--ink);color:var(--cream);padding:calc(env(safe-area-inset-top) + 12px) 18px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  body{font-family:var(--sans);background:var(--cream);color:var(--ink);line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:calc(var(--tab-h) + var(--sab));}
+  /* Ink fills the status-bar/notch so the translucent iOS bar stays
+     readable. Title + clock live in .topbar with normal 12px padding —
+     putting the inset on .topbar used to leave a dead gap above NOW/NEXT
+     when WKWebView also applied contentInset: automatic. Second padding-top
+     is the Android WebView <140 fallback (injected --safe-area-inset-*). */
+  .topwrap{position:sticky;top:0;z-index:40;background:var(--ink);padding-top:env(safe-area-inset-top, 0px);padding-top:var(--safe-area-inset-top, env(safe-area-inset-top, 0px))}
+  .topbar{background:var(--ink);color:var(--cream);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
   .nowstrip{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--cream);border-bottom:1px solid var(--line);cursor:pointer;font-size:12px;line-height:1.2}
   .nowstrip .lbl{font-size:9px;letter-spacing:1.3px;text-transform:uppercase;font-weight:700;flex:none}
   .nowstrip .lbl.n{color:var(--rust)}.nowstrip .lbl.x{color:var(--muted)}
@@ -542,14 +555,14 @@ textarea, select { font-size: 16px !important; }
   #tpProg i{display:block;height:100%;width:0%;background:var(--rust)}
   #tpWrap.mirror #tpText{transform:scaleX(-1)}
   #tpControls button.on{background:rgba(184,98,57,.55);border-color:var(--rust)}
-  @media (orientation:landscape){#tpWrap{top:6%;height:56%}#tpControls{padding:6px 10px calc(env(safe-area-inset-bottom,6px) + 6px)}#tpControls button{min-height:40px;padding:8px 12px}}
-  #tpLabel{position:absolute;top:calc(env(safe-area-inset-top,12px) + 10px);left:12px;background:rgba(20,19,18,.8);border:1px solid rgba(245,242,233,.16);padding:6px 12px;border-radius:16px;font-size:12px;color:var(--powder);font-weight:700;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #tpBack{position:absolute;top:calc(env(safe-area-inset-top,12px) + 6px);right:12px;min-height:36px;padding:7px 13px;font-size:13px;border-radius:16px;border:1px solid rgba(245,242,233,.25);background:transparent;color:var(--cream);cursor:pointer}
-  #tpRecInd{position:absolute;top:calc(env(safe-area-inset-top,12px) + 52px);left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;background:rgba(20,19,18,.8);padding:6px 14px;border-radius:20px;font-size:14px;color:var(--cream);font-variant-numeric:tabular-nums}
+  @media (orientation:landscape){#tpWrap{top:6%;height:56%}#tpControls{padding:6px 10px calc(var(--sab) + 6px)}#tpControls button{min-height:40px;padding:8px 12px}}
+  #tpLabel{position:absolute;top:calc(var(--sat) + 10px);left:12px;background:rgba(20,19,18,.8);border:1px solid rgba(245,242,233,.16);padding:6px 12px;border-radius:16px;font-size:12px;color:var(--powder);font-weight:700;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #tpBack{position:absolute;top:calc(var(--sat) + 6px);right:12px;min-height:36px;padding:7px 13px;font-size:13px;border-radius:16px;border:1px solid rgba(245,242,233,.25);background:transparent;color:var(--cream);cursor:pointer}
+  #tpRecInd{position:absolute;top:calc(var(--sat) + 52px);left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;background:rgba(20,19,18,.8);padding:6px 14px;border-radius:20px;font-size:14px;color:var(--cream);font-variant-numeric:tabular-nums}
   #tpRecInd.show{display:flex}
   #tpRecDot{width:10px;height:10px;border-radius:50%;background:#e5484d;animation:tpPulse 1s infinite}
   @keyframes tpPulse{0%,100%{opacity:1}50%{opacity:.25}}
-  #tpControls{position:absolute;left:0;right:0;bottom:0;padding:10px 10px calc(env(safe-area-inset-bottom,10px) + 10px);background:linear-gradient(to top,rgba(20,19,18,.92),rgba(20,19,18,.5) 70%,transparent);display:flex;flex-direction:column;gap:8px}
+  #tpControls{position:absolute;left:0;right:0;bottom:0;padding:10px 10px calc(var(--sab) + 10px);background:linear-gradient(to top,rgba(20,19,18,.92),rgba(20,19,18,.5) 70%,transparent);display:flex;flex-direction:column;gap:8px}
   #tpControls .trow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
   #tpControls button{font-family:var(--sans);border:1px solid rgba(245,242,233,.14);border-radius:14px;background:rgba(20,19,18,.78);color:var(--cream);padding:12px 14px;font-size:15px;font-weight:600;min-width:54px;min-height:48px;cursor:pointer}
   #tpControls button:active{background:rgba(184,98,57,.45)}
@@ -570,7 +583,7 @@ textarea, select { font-size: 16px !important; }
   #tpTips ul{margin:0 0 14px;padding-left:19px;font-size:13.5px;line-height:1.65;color:#ddd8cd}
   #tpTips li b{color:var(--powder)}
   #tpTips button{width:100%;border:none;border-radius:13px;background:var(--rust);color:#fff;font-weight:800;font-size:15px;padding:14px;cursor:pointer}
-  #tpPost{position:absolute;left:0;right:0;bottom:0;z-index:213;padding:14px 14px calc(env(safe-area-inset-bottom,10px) + 14px);background:rgba(20,19,18,.97);border-top:2px solid var(--rust);display:none;flex-direction:column;gap:10px}
+  #tpPost{position:absolute;left:0;right:0;bottom:0;z-index:213;padding:14px 14px calc(var(--sab) + 14px);background:rgba(20,19,18,.97);border-top:2px solid var(--rust);display:none;flex-direction:column;gap:10px}
   #tpPost.show{display:flex}
   #tpPost p{margin:0;font-size:13px;color:var(--powder);text-align:center;line-height:1.5}
   #tpPost .trow{display:flex;gap:8px}
@@ -838,7 +851,7 @@ textarea, select { font-size: 16px !important; }
   .sheetx:active{background:var(--ink);color:var(--cream)}
   .binsheet #binBody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 18px 2px}
   .binsheet .row{flex:none;padding:12px 18px 16px}
-  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;height:calc(var(--tab-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:stretch;box-shadow:0 -4px 18px rgba(43,42,40,.06);}
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;height:calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));padding-bottom:env(safe-area-inset-bottom, 0px);padding-bottom:var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:stretch;box-shadow:0 -4px 18px rgba(43,42,40,.06);}
   .tab{flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:10px;letter-spacing:.3px;font-weight:600;position:relative}
   .tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
   .tab .tl{max-width:100%;white-space:normal;text-align:center;line-height:1.05}
@@ -932,7 +945,7 @@ textarea, select { font-size: 16px !important; }
   #binBody .fyiadd{margin-top:4px}
   #binBody .fyiadd textarea,#binBody .fyiadd input{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;text-align:left;letter-spacing:normal;font-family:var(--sans);background:#fff;margin-bottom:8px;resize:vertical}
   /* Day PIN gate — locks the whole app */
-  .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:center;justify-content:center;padding:24px}
+  .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);overflow:auto}
   .daygate.show{display:flex}
   .dgsheet{background:var(--cream);border-radius:20px;padding:26px 22px;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(0,0,0,.45);text-align:center}
   .dgbrand{font-weight:900;letter-spacing:1.5px;font-size:13px;color:var(--wine);margin-bottom:14px}
@@ -1014,7 +1027,7 @@ textarea, select { font-size: 16px !important; }
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.1</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.2</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1481,7 +1494,6 @@ textarea, select { font-size: 16px !important; }
   <section class="page" id="page-guides">
     <p class="eyebrow">Reference</p><h1 class="title">Ambassador Resources</h1><p class="sub">Guides, check-in, contacts & graphics.</p>
     <div class="hub">
-      <a class="hubcard slate" href="privacy.html" style="text-decoration:none;color:inherit"><span class="ic">🔐</span><span class="tx"><b>Privacy Policy</b><span>How Ambassador Companion handles information</span></span><span class="arr">›</span></a>
       <button class="hubcard wine" onclick="show('capture')"><span class="ic">📇</span><span class="tx"><b>Quick Capture</b><span>Met someone? Card photo, voice note, or type it</span></span><span class="pill" id="capPill">0</span></button>
       <button class="hubcard wine" onclick="show('tour')"><span class="ic">🧭</span><span class="tx"><b>App Tour</b><span>New here? 2-minute walkthrough</span></span><span class="arr">›</span></button>
       <button class="hubcard" onclick="show('checkin')"><span class="ic">🙋</span><span class="tx"><b>Volunteer Check-In</b><span>Tap in when you arrive</span></span><span class="pill" id="crewCheckinPill">0</span></button>
@@ -1493,6 +1505,7 @@ textarea, select { font-size: 16px !important; }
       <button class="hubcard wine" onclick="show('donate')"><span class="ic">❤️</span><span class="tx"><b>Give / Donate</b><span>Support the mission · ways to give</span></span><span class="arr">›</span></button>
       <button class="hubcard" onclick="show('graphics')"><span class="ic">🖼️</span><span class="tx"><b>Graphics for Sharing!</b><span>Download & share on socials</span></span><span class="arr">›</span></button>
       <button class="hubcard slate" onclick="show('shareapp')"><span class="ic">📲</span><span class="tx"><b>Share this App</b><span>QR code — get fellow ambassadors on here</span></span><span class="arr">›</span></button>
+      <a class="hubcard slate" href="privacy.html" style="text-decoration:none;color:inherit"><span class="ic">🔐</span><span class="tx"><b>Privacy Policy</b><span>How Ambassador Companion handles information</span></span><span class="arr">›</span></a>
     </div>
   </section>
   <section class="page" id="page-shareapp">

@@ -15,8 +15,8 @@ artifacts are never prepared on a personal computer.
 
 The native shell uses `mobile-runtime.js` to point at the production Netlify
 Functions API. The public [privacy policy](privacy.html) and
-[support page](support.html) are available before the Day PIN gate and from
-Ambassador Resources. Store-release decisions, contacts, and gates live in
+[support page](support.html) are available before the Day PIN gate and at the
+**bottom** of Ambassador Resources. Store-release decisions, contacts, and gates live in
 [docs/store-release/README.md](docs/store-release/README.md).
 
 Signed Android App Bundles and iOS IPAs are built by the dispatch-only
@@ -838,6 +838,30 @@ projects on hosted runners (`Mobile validation` for unsigned checks,
 `Mobile signed internal` for signed AAB/IPA). Listing copy and the remaining
 human console steps live in [docs/store-release](docs/store-release/README.md).
 Production submit is still a human click in App Store Connect and Play Console.
+
+## iOS / Android safe-area header (v1.18.2)
+
+The sticky header (title, clock, NOW/NEXT) sits fully **below** the iOS status
+bar on notched iPhones. TestFlight v1.18.1 drew the status bar on top of the
+title because Capacitor's WKWebView used `contentInset: automatic` while the
+header is `position: sticky; top: 0` — native inset and CSS fought, the title
+cramped under the clock/signal cluster, and a dead gap opened above NOW/NEXT.
+
+The iOS fix is the WKWebView path, not a plugin:
+
+1. `viewport-fit=cover` so `env(safe-area-inset-top)` can be non-zero.
+2. `ios.contentInset: "never"` (Capacitor's default) so WKWebView does not
+   steal the inset and leave sticky `top: 0` under the status bar.
+3. `.topwrap { padding-top: env(safe-area-inset-top, 0px) }` with ink behind
+   the notch; `.topbar` keeps a plain `12px 18px` so NOW/NEXT is not pushed
+   down by a second inset.
+
+There is no `@capacitor/system-bars` or `@capacitor/status-bar` package in
+this repo. Capacitor 8's SystemBars API is already inside `@capacitor/core`
+and `@capacitor/ios`; `insetsHandling: "css"` injects `--safe-area-inset-*`
+on **Android only**. A `plugins.SystemBars` block would not pad the iPhone
+header. Android still gets a second `padding-top: var(--safe-area-inset-top, env(...))`
+fallback for WebView &lt;140. On web, both values are `0px`.
 
 ## Contributing
 

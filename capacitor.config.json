@@ -6,12 +6,13 @@
     "androidScheme": "https"
   },
   "ios": {
-    "contentInset": "automatic",
+    "contentInset": "never",
     "infoPlist": {
       "NSCameraUsageDescription": "Ambassador Companion uses the camera to photograph contact cards and to record teleprompter practice.",
       "NSMicrophoneUsageDescription": "Ambassador Companion uses the microphone for voice-note captures and teleprompter practice.",
       "NSPhotoLibraryUsageDescription": "Ambassador Companion uses the photo library only when you pick an existing photo of a contact card.",
-      "NSPhotoLibraryAddUsageDescription": "Ambassador Companion may save a teleprompter practice video when you tap Save."
+      "NSPhotoLibraryAddUsageDescription": "Ambassador Companion may save a teleprompter practice video when you tap Save.",
+      "UIStatusBarStyle": "UIStatusBarStyleLightContent"
     }
   },
   "android": {

@@ -28,6 +28,9 @@ test("permanent identity is consistent across config and docs", () => {
   assert.equal(cap.webDir, "dist");
   assert.equal(cap.server.androidScheme, "https");
   assert.equal(cap.android.allowMixedContent, false);
+  assert.equal(cap.ios.contentInset, "never");
+  assert.equal(cap.ios.infoPlist.UIStatusBarStyle, "UIStatusBarStyleLightContent");
+  assert.equal(cap.plugins && cap.plugins.SystemBars, undefined);
 
   const storeReadme = read("docs/store-release/README.md");
   assert.match(storeReadme, /com\.thefourthministries\.ambassadorcompanion/);
