@@ -626,8 +626,9 @@ automatically on deploy.
 
 - **Leader PIN is verified server-side** on every privileged action (checklists,
   announcements, event/day-PIN/funding settings, reset, script editing). Rotate
-  it by setting a `LEADER_PIN` environment variable in Netlify and redeploying —
-  the code fallback is only used when the variable is unset.
+  it by setting a `LEADER_PIN` environment variable in Netlify and redeploying.
+  If that variable is missing or empty, leader verification **fails closed**
+  (an empty PIN does not match).
 - **The Day PIN is never sent to clients.** The API only reports whether one is
   set; entered PINs are verified server-side.
 - **PIN guessing is rate-limited.** 15 wrong PIN entries in 10 minutes from one

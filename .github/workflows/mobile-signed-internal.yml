@@ -58,6 +58,7 @@ jobs:
           grep -F 'https://ambassadorcompanion.netlify.app' dist/mobile-runtime.js
           grep -F '/.netlify/functions/mobile-data' dist/mobile-runtime.js
           grep -F 'com.thefourthministries.ambassadorcompanion' capacitor.config.json
+          grep -F 'NSCameraUsageDescription' capacitor.config.json
       - name: Upload mobile shell
         uses: actions/upload-artifact@v4
         with:

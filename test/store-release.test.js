@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   APP_ID,
   APP_NAME,
+  USAGE,
   setPlistString,
   setPlistFalse,
   ensureAndroidPermission,
@@ -44,17 +45,47 @@ test("privacy and support pages exist and name the publisher", () => {
   assert.match(read("index.html"), /href="privacy.html"/);
 });
 
-test("draft listings are marked DRAFT and stay within field limits", () => {
+test("draft listings are marked DRAFT NOT LIVE and stay within field limits", () => {
   const ios = read("docs/store-release/app-store-listing.DRAFT.md");
   const play = read("docs/store-release/google-play-listing.DRAFT.md");
-  assert.match(ios, /DRAFT — not live store text/);
-  assert.match(play, /DRAFT — not live store text/);
+  assert.match(ios, /DRAFT NOT LIVE/);
+  assert.match(play, /DRAFT NOT LIVE/);
   const short = play.match(/```\n([^\n]+)\n```/)[1];
   assert.ok(short.length <= 80, "Play short description is " + short.length);
   const keywords = ios.match(/```\n([^\n]+)\n```/)[1];
   assert.ok(keywords.length <= 100, "iOS keywords are " + keywords.length);
   assert.match(ios, /https:\/\/ambassadorcompanion\.netlify\.app\/privacy\.html/);
   assert.match(play, /https:\/\/ambassadorcompanion\.netlify\.app\/privacy\.html/);
+  assert.match(ios, /Support:\*\* https:\/\/ambassadorcompanion\.netlify\.app\/privacy\.html/);
+  assert.match(play, /thefourthministries@gmail\.com/);
+  assert.match(ios, /Productivity/);
+  assert.match(play, /Productivity/);
+});
+
+test("capacitor.config.json holds camera, mic, and photo library usage strings", () => {
+  const cap = JSON.parse(read("capacitor.config.json"));
+  const plist = cap.ios.infoPlist;
+  for (const key of [
+    "NSCameraUsageDescription",
+    "NSMicrophoneUsageDescription",
+    "NSPhotoLibraryUsageDescription",
+    "NSPhotoLibraryAddUsageDescription"
+  ]) {
+    assert.equal(typeof plist[key], "string");
+    assert.ok(plist[key].length > 20);
+    assert.match(plist[key], /Ambassador Companion/);
+  }
+  assert.ok(cap.android.permissions.includes("android.permission.CAMERA"));
+  assert.ok(cap.android.permissions.includes("android.permission.RECORD_AUDIO"));
+  assert.equal(USAGE.NSCameraUsageDescription, plist.NSCameraUsageDescription);
+});
+
+test("data.mjs has no leftover hardcoded Day PIN fallback", () => {
+  const src = read("netlify/functions/data.mjs");
+  assert.doesNotMatch(src, /DEFAULT_DAY_PIN/);
+  assert.doesNotMatch(src, /retire the old 0627/);
+  assert.match(src, /pinMatchesLeader/);
+  assert.match(src, /fails closed/);
 });
 
 test("secrets checklist names required GitHub Actions secrets without values", () => {

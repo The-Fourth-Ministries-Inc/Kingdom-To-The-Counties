@@ -34,7 +34,7 @@ test("safeUrl only lets http(s) through", () => {
 
 test("normCore keeps the shape the client depends on", () => {
   const c = normCore({});
-  for(const k of ["checklist","extras","notes","announcements","feedback","praises","event","dayPin","funding"]){
+  for(const k of ["checklist","extras","notes","announcements","feedback","praises","event","funding"]){
     assert.ok(k in c, "missing " + k);
   }
   assert.deepEqual(c.extras, []);
@@ -50,9 +50,12 @@ test("normCore clamps the rain-date shift and funding percentage", () => {
   assert.equal(normCore({ funding:{ pct: "abc" } }).funding.pct, 64);
 });
 
-test("normCore retires the old day PIN but keeps a custom one", () => {
-  assert.equal(normCore({ dayPin: "0627" }).dayPin, "0711");
-  assert.equal(normCore({ dayPin: "4242" }).dayPin, "4242");
+test("normCore does not keep or invent a Day PIN; live PIN is the daypin blob", () => {
+  const empty = normCore({});
+  assert.equal("dayPin" in empty, false);
+  const leftover = normCore({ dayPin: "0627", event:{ name:"x" } });
+  assert.equal("dayPin" in leftover, false);
+  assert.equal(leftover.event.name, "x");
 });
 
 test("leader-added checklist extras are whitelisted and capped", () => {

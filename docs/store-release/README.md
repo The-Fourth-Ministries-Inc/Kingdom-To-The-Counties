@@ -26,8 +26,10 @@ and bundles `privacy.html` plus `support.html`.
 GitHub is the source of truth. Mobile projects, signed artifacts, and store uploads are produced by hosted CI runners. Do not create release artifacts on a personal computer and upload them later.
 
 Native `android/` and `ios/` folders are generated in CI with `npx cap add` and
-are gitignored. After add/sync, `scripts/patch-native.mjs` writes camera/mic
-usage strings, HTTPS-only flags, K2C icons/splash, and version numbers.
+are gitignored. Usage strings live in `capacitor.config.json` (`ios.infoPlist`
+and `android.permissions`). After add/sync, `scripts/patch-native.mjs` copies
+those into Info.plist / AndroidManifest, plus HTTPS-only flags, K2C
+icons/splash, and version numbers.
 
 ## Release gates
 
@@ -44,8 +46,8 @@ usage strings, HTTPS-only flags, K2C icons/splash, and version numbers.
 | --- | --- |
 | 1 Web tests | Passing on `main` (`npm test` in Mobile validation). |
 | 2 Unsigned Android/iOS | Passing on `main` (workflow `mobile-validation.yml`). |
-| 3 Privacy / support URLs | In-app privacy link exists; `privacy.html` and `support.html` ship in the mobile shell. Store listing URLs are still **DRAFT**. |
-| 4 Netlify secrets | Code no longer has a public leader-PIN fallback. A human should still confirm `LEADER_PIN` is set in Netlify. |
+| 3 Privacy / support URLs | In-app privacy link exists; `privacy.html` is live. Store listing privacy/support URLs are still **DRAFT NOT LIVE** (both point at the privacy page). |
+| 4 Netlify secrets | Leader PIN **fails closed** if `LEADER_PIN` is unset. A human must still confirm the env var is set in Netlify or leaders cannot unlock. |
 | 5 Signed internal / TestFlight | **Blocked on GitHub Actions secrets.** Workflow `mobile-signed-internal.yml` is dispatch-only and will not submit production. See [SECRETS.md](SECRETS.md). |
 | 6 Production submit | Not automated. No production-submit workflow on purpose. |
 

@@ -1,5 +1,5 @@
 import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { mobileVersionCode, readAppVersionFromRepo } from "./app-version.mjs";
@@ -8,19 +8,13 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 export const APP_ID = "com.thefourthministries.ambassadorcompanion";
 export const APP_NAME = "Ambassador Companion";
 const CREAM = "#F5F2E9";
+const capConfig = JSON.parse(readFileSync(join(root, "capacitor.config.json"), "utf8"));
 
-export const USAGE = {
-  NSCameraUsageDescription:
-    "Ambassador Companion uses the camera so ambassadors can photograph contact cards and record teleprompter practice videos.",
-  NSMicrophoneUsageDescription:
-    "Ambassador Companion uses the microphone so ambassadors can record voice-note encounters and teleprompter practice videos.",
-  NSPhotoLibraryUsageDescription:
-    "Ambassador Companion uses the photo library only when an ambassador chooses an existing photo of a contact card.",
-  NSPhotoLibraryAddUsageDescription:
-    "Ambassador Companion may save a teleprompter practice video when the ambassador taps Save."
-};
+export const USAGE = capConfig.ios && capConfig.ios.infoPlist
+  ? capConfig.ios.infoPlist
+  : {};
 
-const ANDROID_PERMISSIONS = [
+const ANDROID_PERMISSIONS = (capConfig.android && capConfig.android.permissions) || [
   "android.permission.CAMERA",
   "android.permission.RECORD_AUDIO",
   "android.permission.MODIFY_AUDIO_SETTINGS"
