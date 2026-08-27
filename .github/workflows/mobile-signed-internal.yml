@@ -142,10 +142,23 @@ jobs:
     name: iOS signed IPA (TestFlight only)
     needs: web
     if: ${{ inputs.platform == 'both' || inputs.platform == 'ios' }}
-    runs-on: macos-15
+    # macos-15 still defaults to Xcode 16.4 / iOS 18.5 SDK. App Store Connect
+    # rejects those IPAs. macos-26 defaults to Xcode 26.6 / iOS 26.5 SDK.
+    runs-on: macos-26
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
+      - name: Use Xcode 26 / iOS 26 SDK
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+          SDK="$(xcrun --sdk iphoneos --show-sdk-version)"
+          echo "iOS SDK ${SDK}"
+          MAJOR="${SDK%%.*}"
+          if [ "$MAJOR" -lt 26 ]; then
+            echo "App Store Connect requires the iOS 26 SDK or later; got ${SDK}" >&2
+            exit 1
+          fi
       - name: Use Node.js 22
         uses: actions/setup-node@v5
         with:
