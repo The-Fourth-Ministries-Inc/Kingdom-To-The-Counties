@@ -121,6 +121,17 @@ test("signed workflow is dispatch-only and never mentions production submit", ()
   assert.doesNotMatch(wf, /submitForReview|production\s*track|track: production|halt-track/i);
 });
 
+test("iOS jobs use macos-26 so App Store Connect gets the iOS 26 SDK", () => {
+  const signed = read(".github/workflows/mobile-signed-internal.yml");
+  const validation = read(".github/workflows/mobile-validation.yml");
+  assert.match(signed, /ios-signed:[\s\S]*runs-on: macos-26/);
+  assert.match(validation, /name: iOS unsigned simulator build[\s\S]*runs-on: macos-26/);
+  assert.doesNotMatch(signed, /runs-on: macos-15/);
+  assert.doesNotMatch(validation, /runs-on: macos-15/);
+  assert.match(signed, /xcode-select -s \/Applications\/Xcode\.app/);
+  assert.match(signed, /--sdk iphoneos --show-sdk-version/);
+});
+
 test("store 1024 icon is opaque RGB", () => {
   const icon = readFileSync(join(root, "resources/icon.png"));
   assert.equal(icon[0], 0x89);
