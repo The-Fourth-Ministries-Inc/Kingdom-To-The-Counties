@@ -14,9 +14,16 @@ and performs web, Android, and iOS validation on hosted runners. Release
 artifacts are never prepared on a personal computer.
 
 The native shell uses `mobile-runtime.js` to point at the production Netlify
-Functions API. The public [privacy policy](privacy.html) is available before
-the Day PIN gate and from Ambassador Resources. Store-release decisions,
-contacts, and gates live in [docs/store-release/README.md](docs/store-release/README.md).
+Functions API. The public [privacy policy](privacy.html) and
+[support page](support.html) are available before the Day PIN gate and from
+Ambassador Resources. Store-release decisions, contacts, and gates live in
+[docs/store-release/README.md](docs/store-release/README.md).
+
+Signed Android App Bundles and iOS IPAs are built by the dispatch-only
+**Mobile signed internal** workflow. That workflow can upload to Play
+internal testing (draft) and TestFlight once GitHub Actions secrets exist.
+It never submits a production release. The secrets checklist, draft listings,
+and remaining human steps are in `docs/store-release/`.
 
 ## How it works
 
@@ -823,15 +830,13 @@ Runs two things, neither needing a network or a Netlify account:
 
 ## App Store / Google Play packaging (v1.16.2)
 
-This app is deployed as a standard PWA (`manifest.webmanifest` + `sw.js`), which
-is what store-packaging tools like [PWABuilder](https://pwabuilder.com) need to
-wrap it for the Google Play Store and Apple App Store. There is no separate
-mobile codebase — the store listings just point at the live deployed URL.
-`manifest.webmanifest` carries `id` and `scope` alongside `start_url` so
-PWABuilder's manifest audit passes cleanly. Actually submitting to either store
-still requires a human: a paid Google Play Console account and/or Apple
-Developer Program account, and clicking through PWABuilder's build + each
-store's listing flow — none of that can be scripted from this repo.
+The web app remains a standard PWA (`manifest.webmanifest` + `sw.js`) for
+phones that install from the browser. Store binaries are **not** built with
+PWABuilder on a laptop. GitHub Actions generates Capacitor Android and iOS
+projects on hosted runners (`Mobile validation` for unsigned checks,
+`Mobile signed internal` for signed AAB/IPA). Listing copy and the remaining
+human console steps live in [docs/store-release](docs/store-release/README.md).
+Production submit is still a human click in App Store Connect and Play Console.
 
 ## Contributing
 

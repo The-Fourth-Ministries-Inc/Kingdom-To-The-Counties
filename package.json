@@ -9,9 +9,10 @@
     "import:io:write": "node scripts/excel-to-io.mjs --write-index",
     "sync:scripts": "node scripts/sync-starter-scripts.mjs",
     "prepare:mobile": "node scripts/prepare-mobile.mjs",
-    "mobile:add:android": "npm run prepare:mobile && npx cap add android",
-    "mobile:add:ios": "npm run prepare:mobile && npx cap add ios",
-    "mobile:sync": "npm run prepare:mobile && npx cap sync"
+    "patch:native": "node scripts/patch-native.mjs",
+    "mobile:add:android": "npm run prepare:mobile && npx cap add android && node scripts/patch-native.mjs android",
+    "mobile:add:ios": "npm run prepare:mobile && npx cap add ios && node scripts/patch-native.mjs ios",
+    "mobile:sync": "npm run prepare:mobile && npx cap sync && node scripts/patch-native.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.4.2",

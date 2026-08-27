@@ -22,3 +22,17 @@ npm-debug.log*
 *~
 *.swp
 *.swo
+
+# Native projects are generated on hosted CI via `npx cap add`, not committed.
+/android/
+/ios/
+/dist/
+
+# Signing material must never enter git. Paste into GitHub Actions secrets.
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*.p8
+AuthKey_*.p8
+keystore.properties

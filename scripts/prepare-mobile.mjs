@@ -13,6 +13,7 @@ if (!apiOrigin.startsWith("https://")) {
 const shellEntries = [
   "index.html",
   "privacy.html",
+  "support.html",
   "manifest.webmanifest",
   "favicon.svg",
   "apple-touch-icon.png",
