@@ -1,7 +1,7 @@
 {
-  "name": "Kingdom to the Counties '26 — Ambassador",
-  "short_name": "K2C '26",
-  "description": "Ambassador companion for Kingdom to the Counties",
+  "name": "Ambassador Companion",
+  "short_name": "Ambassador",
+  "description": "Private helper app for Kingdom to the Counties ambassadors and event teams.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

@@ -12,16 +12,24 @@ import STARTER_CHURCHES from "./starter-churches.mjs";
 import STARTER_BINS from "./starter-bins.mjs";
 
 const STORE = "k2c-ambassador";
-const DEFAULT_DAY_PIN = "0711";
-// Leader PIN is verified SERVER-SIDE. Rotate it by setting a LEADER_PIN
-// environment variable in Netlify (Site settings → Environment variables),
-// then redeploying — no code change needed.
-const LEADER_PIN = () => process.env.LEADER_PIN || "";
+// Leader PIN is verified SERVER-SIDE. Set LEADER_PIN in Netlify
+// (Site settings → Environment variables) and redeploy. Missing or empty
+// means every leader check fails closed: an empty submitted PIN must not
+// match an unset env var. Never log the value.
+function leaderPin(){
+  return (process.env.LEADER_PIN || "").toString();
+}
+function pinMatchesLeader(candidate){
+  const expected = leaderPin();
+  if(!expected || !candidate) return false;
+  return candidate === expected;
+}
 
 /* ---------------- storage layout ----------------
  v20 (app v1.4.0) — split-by-domain blobs + compare-and-swap writes:
  core      — checklist, announcements, feedback (issues + comments), praises,
-             event, dayPin, funding
+             event, funding
+             (the Day PIN lives in the separate `daypin` blob, not here)
  checkins  — check-in list
  io        — Tech I/O roster + patch progress
  prompter  — Recording Studio scripts. Season-long, but a county's scripts
@@ -82,7 +90,7 @@ const LEADER_PIN = () => process.env.LEADER_PIN || "";
  checkmarks that "only occasionally stuck").
  Old single-blob data migrates automatically on first read. */
 
-const EMPTY_CORE = { checklist:{}, notes:{}, announcements:[], feedback:[], praises:[], event:{name:"",date:""}, dayPin:DEFAULT_DAY_PIN, funding:{pct:64, needed:"$60,000"} };
+const EMPTY_CORE = { checklist:{}, notes:{}, announcements:[], feedback:[], praises:[], event:{name:"",date:""}, funding:{pct:64, needed:"$60,000"} };
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const str = (v, n) => (v == null ? "" : v.toString()).slice(0, n);
@@ -576,8 +584,6 @@ export function normCore(c){
  // shift = rain-date offset in days (0 normally, 1 when moved to Sunday)
  event: { name: str(c.event && c.event.name, 80), date: str(c.event && c.event.date, 40),
           shift: Math.max(0, Math.min(2, Math.round(Number(c.event && c.event.shift) || 0))) },
- // One-time migration: retire the old 0627 Day PIN in favor of 0711.
- dayPin: (typeof c.dayPin === "string" && c.dayPin !== "0627") ? c.dayPin : DEFAULT_DAY_PIN,
  funding: { pct: clampPct(c.funding && c.funding.pct), needed: ((c.funding && c.funding.needed) || "$60,000").toString().slice(0, 30) }
  };
 }
@@ -1275,7 +1281,7 @@ async function validLeaderToken(s, tok){
 
 async function authLevel(s, K, req, body){
  const leader = ((body && body.pin) || req.headers.get("x-leader-pin") || "").toString();
- if(leader && leader === LEADER_PIN()) return "leader";
+ if(pinMatchesLeader(leader)) return "leader";
  if(leader && await validLeaderToken(s, leader)) return "leader";
  let day = ((body && body.dayPin) || req.headers.get("x-day-pin") || "").toString();
  if(!day){ try { day = new URL(req.url).searchParams.get("dp") || ""; } catch(_) {} }
@@ -1405,14 +1411,14 @@ export default async (req, context) => {
 
  /* ---- PIN verification (no state change) ---- */
  if(action === "verifyLeaderPin"){
- if(pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, token: await issueLeaderToken(s) }); }
+ if(pinMatchesLeader(pin)){ s.delete(failKey).catch(() => {}); return json({ ok:true, token: await issueLeaderToken(s) }); }
  // A still-valid session token re-verifies without re-entering the PIN.
  if(await validLeaderToken(s, pin)) return json({ ok:true, token: pin });
  if(pin) await pinNoteFail(s, failKey);
  return json({ error:"wrong pin" }, 403);
  }
  if(action === "verifyDayPin"){
- if(pin && pin === LEADER_PIN()){ s.delete(failKey).catch(() => {}); return json({ ok:true, leader:true, token: await issueLeaderToken(s) }); }
+ if(pinMatchesLeader(pin)){ s.delete(failKey).catch(() => {}); return json({ ok:true, leader:true, token: await issueLeaderToken(s) }); }
  const dayPinNow = await readDayPin(s, K);
  if(dayPinNow && pin === dayPinNow) return json({ ok:true, leader:false });
  if(pin) await pinNoteFail(s, failKey);
@@ -1800,7 +1806,7 @@ export default async (req, context) => {
  }
  }
  // The rain-date shift is day-specific — the next event starts unshifted.
- await casCore(s, K, core => ({ ...EMPTY_CORE, event: { ...core.event, shift: 0 }, dayPin: core.dayPin, funding: core.funding, praises: core.praises }));
+ await casCore(s, K, core => ({ ...EMPTY_CORE, event: { ...core.event, shift: 0 }, funding: core.funding, praises: core.praises }));
  /* Reset deliberately does NOT touch the Tech I/O blob — not the roster and
     not the patch checkmarks. The I/O map is the tech team's own record of how
     the rig is wired, maintained outside the event-day cycle, and clearing any
