@@ -54,22 +54,29 @@ textarea, select { font-size: 16px !important; }
      when WKWebView also applied contentInset: automatic. Second padding-top
      is the Android WebView <140 fallback (injected --safe-area-inset-*). */
   .topwrap{position:sticky;top:0;z-index:40;background:var(--ink);padding-top:env(safe-area-inset-top, 0px);padding-top:var(--safe-area-inset-top, env(safe-area-inset-top, 0px))}
-  .topbar{background:var(--ink);color:var(--cream);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
-  .nowstrip{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--cream);border-bottom:1px solid var(--line);cursor:pointer;font-size:12px;line-height:1.2}
-  .nowstrip .lbl{font-size:9px;letter-spacing:1.3px;text-transform:uppercase;font-weight:700;flex:none}
+  .topbar{background:var(--ink);color:var(--cream);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  /* Phone: stack NOW over NEXT so a long segment name wraps instead of
+     ellipsizing. Wider screens keep a two-column strip. Never clip. */
+  .nowstrip{display:flex;flex-direction:column;align-items:stretch;gap:4px;padding:8px 14px;background:var(--cream);border-bottom:1px solid var(--line);cursor:pointer;font-size:13px;line-height:1.25}
+  .nowstrip .lbl{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;font-weight:700;flex:none;padding-top:2px}
   .nowstrip .lbl.n{color:var(--rust)}.nowstrip .lbl.x{color:var(--muted)}
-  .nowstrip .blip{width:7px;height:7px;border-radius:50%;background:var(--rust);flex:none;animation:pulse 1.5s infinite}
-  .nowstrip #stripNow{font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:40px}
-  .nowstrip .nx{display:flex;align-items:center;gap:6px;flex:none;max-width:50%}
-  .nowstrip #stripNext{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nowstrip .blip{width:7px;height:7px;border-radius:50%;background:var(--rust);flex:none;animation:pulse 1.5s infinite;margin-top:5px}
+  .nowstrip .nw,.nowstrip .nx{display:flex;align-items:flex-start;gap:6px;min-width:0;max-width:none}
+  .nowstrip #stripNow{font-weight:700;color:var(--ink);flex:1;min-width:0;overflow:visible;white-space:normal}
+  .nowstrip #stripNext{color:var(--muted);flex:1;min-width:0;overflow:visible;white-space:normal}
+  @media (min-width:520px){
+    .nowstrip{flex-direction:row;align-items:flex-start;gap:10px}
+    .nowstrip .nw,.nowstrip .nx{flex:1 1 0}
+  }
   .leader .who a.tel{display:inline-block;color:var(--wine);font-weight:700;font-size:12.5px;margin-top:3px;text-decoration:none}
-  .brand{display:flex;flex-direction:column;line-height:1}
-  .brand .k{font-family:var(--serif);font-weight:900;font-size:18px;letter-spacing:.3px}
-  .brand .s{font-size:10.5px;letter-spacing:2.4px;text-transform:uppercase;color:var(--slate);margin-top:4px}
+  .brand{display:flex;flex-direction:column;line-height:1.05;min-width:0;flex:1}
+  .brand .k{font-family:var(--serif);font-weight:900;font-size:clamp(14px,3.8vw,18px);letter-spacing:.15px;white-space:nowrap}
+  .brand .k small{font-weight:600;font-size:.62em;letter-spacing:.6px}
+  .brand .s{font-size:13px;letter-spacing:1.1px;text-transform:uppercase;color:var(--slate);margin-top:4px}
   .brand .s .ver{color:var(--rust);letter-spacing:1px;margin-left:4px;font-weight:700}
-  .clock{text-align:right;font-variant-numeric:tabular-nums}
-  .clock .t{font-family:var(--serif);font-weight:700;font-size:17px}
-  .clock .d{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--slate);margin-top:3px}
+  .clock{text-align:right;font-variant-numeric:tabular-nums;flex:none}
+  .clock .t{font-family:var(--serif);font-weight:700;font-size:16px}
+  .clock .d{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--slate);margin-top:3px}
   .annbar{background:var(--wine);color:#fff;display:none;align-items:flex-start;gap:10px;padding:11px 16px;font-size:13.5px;cursor:pointer;}
   .annbar.show{display:flex}
   /* Day PIN overlay is translucent; a shown #annBar (check-in nudge or
@@ -112,7 +119,7 @@ textarea, select { font-size: 16px !important; }
   .badge.acoustic{background:var(--rust);color:#fff}.badge.setup{background:rgba(255,255,255,.16);color:#fff}
   .checkinprompt{margin-top:14px;display:flex;gap:9px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
   .checkinprompt span{flex:1;font-size:13.5px}
-  .checkinprompt button,.checkinprompt a{flex:none;background:var(--rust);color:#fff;border:none;border-radius:10px;padding:9px 13px;font-weight:700;font-size:13px;cursor:pointer;text-decoration:none}
+  .checkinprompt button,.checkinprompt a{flex:none;background:var(--rust);color:#fff;border:none;border-radius:10px;padding:11px 14px;font-weight:700;font-size:13px;cursor:pointer;text-decoration:none;min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
   /* v1.6.1 — Up Next sits right under the hero in its own powder-blue card */
   .next{margin-top:12px;background:var(--powder);border:1px solid #A9C0D2;border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}
   .next .lbl{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#3c5160;font-weight:800}
@@ -862,9 +869,9 @@ textarea, select { font-size: 16px !important; }
   .binsheet #binBody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 18px 2px}
   .binsheet .row{flex:none;padding:12px 18px 16px}
   .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;height:calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));padding-bottom:env(safe-area-inset-bottom, 0px);padding-bottom:var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:stretch;box-shadow:0 -4px 18px rgba(43,42,40,.06);}
-  .tab{flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:10px;letter-spacing:.3px;font-weight:600;position:relative}
+  .tab{flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:12px;letter-spacing:.2px;font-weight:600;position:relative;min-height:44px}
   .tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-  .tab .tl{max-width:100%;white-space:normal;text-align:center;line-height:1.05}
+  .tab .tl{max-width:100%;white-space:normal;text-align:center;line-height:1.15;font-size:12px}
   .tab.active{color:var(--rust)}
   .tab .nbadge{position:absolute;top:8px;left:50%;transform:translateX(4px);background:var(--wine);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 3px}
   @keyframes pulse{0%{opacity:1}50%{opacity:.25}100%{opacity:1}}
@@ -954,10 +961,14 @@ textarea, select { font-size: 16px !important; }
   .pinman input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:16px;margin-bottom:8px;font-family:var(--sans);background:#fff}
   #binBody .fyiadd{margin-top:4px}
   #binBody .fyiadd textarea,#binBody .fyiadd input{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;text-align:left;letter-spacing:normal;font-family:var(--sans);background:#fff;margin-bottom:8px;resize:vertical}
-  /* Day PIN gate — locks the whole app */
-  .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);overflow:auto}
+  /* Day PIN gate — locks the whole app.
+     align-items:center + a taller-than-viewport card clips the title and
+     Privacy link in landscape (card ~465px vs 390px tall). flex-start +
+     auto margins centers the card when it fits and starts it at the top
+     when it doesn't, so overflow:auto can reach every field. */
+  .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);overflow:auto;-webkit-overflow-scrolling:touch}
   .daygate.show{display:flex}
-  .dgsheet{background:var(--cream);border-radius:20px;padding:26px 22px;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(0,0,0,.45);text-align:center}
+  .dgsheet{background:var(--cream);border-radius:20px;padding:26px 22px;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(0,0,0,.45);text-align:center;margin-top:auto;margin-bottom:auto;flex:none}
   .dgbrand{font-weight:900;letter-spacing:1.5px;font-size:13px;color:var(--wine);margin-bottom:14px}
   .dgbrand small{font-weight:600;font-size:9px;letter-spacing:1px}
   .dgsheet h3{font-family:var(--serif);font-size:21px;margin:0 0 6px}
@@ -966,7 +977,14 @@ textarea, select { font-size: 16px !important; }
   .dgsheet select{width:100%;border:1px solid var(--line);border-radius:12px;padding:13px;font-size:15px;font-family:var(--sans);background:#fff;color:var(--ink);box-sizing:border-box;margin-top:9px}
   .dgsheet input+input,.dgsheet select+input{margin-top:9px}
   .dgsheet .err{color:var(--bad);font-size:12px;font-weight:700;min-height:16px;margin:8px 0 0}
-  .dgsheet .ok{margin-top:12px;width:100%;border:none;border-radius:12px;padding:13px;font-weight:700;font-size:15px;cursor:pointer;background:var(--wine);color:#fff}
+  .dgsheet .ok{margin-top:12px;width:100%;border:none;border-radius:12px;padding:13px;font-weight:700;font-size:15px;cursor:pointer;background:var(--wine);color:#fff;min-height:44px}
+  .dgsheet .hint a,.dgsheet .dgpv{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;padding:12px 16px;font-size:14px;font-weight:700;color:var(--wine);text-decoration:underline}
+  @media (max-height:500px){
+    .dgsheet{padding:16px 18px}
+    .dgbrand{margin-bottom:8px}
+    .dgsheet p{margin:0 0 10px}
+    .dgsheet h3{font-size:18px}
+  }
   /* v1.6.1 — dynamic print / save-as-PDF for the Playbook & Counselor Booklet */
   .printbtn{display:block;width:100%;border:none;border-radius:12px;background:var(--ink);color:var(--cream);font-weight:700;font-size:13.5px;padding:12px;cursor:pointer;margin:0 0 14px}
   @media print{
@@ -1037,11 +1055,11 @@ textarea, select { font-size: 16px !important; }
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.4</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.5</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
-  <span class="blip" id="stripBlip"></span><span class="lbl n">Now</span><span id="stripNow">—</span>
+  <span class="nw"><span class="blip" id="stripBlip"></span><span class="lbl n">Now</span><span id="stripNow">—</span></span>
   <span class="nx"><span class="lbl x">Next</span><span id="stripNext">—</span></span>
 </div>
 <div class="annbar" id="annBar"><span class="dot"></span><span id="annBarText"></span><button class="x" id="annBarX" aria-label="Dismiss">×</button></div>
@@ -2409,15 +2427,15 @@ textarea, select { font-size: 16px !important; }
     <input id="dayPinInput" inputmode="numeric" maxlength="10" placeholder="Day PIN" />
     <div class="err" id="dayPinErr"></div>
     <button class="ok" id="dayPinOk">Unlock app &amp; check in</button>
-    <p class="hint"><a href="privacy.html">Privacy Policy</a></p>
+    <p class="hint"><a class="dgpv" href="privacy.html">Privacy Policy</a></p>
   </div>
 </div>
 <nav class="tabbar">
-  <button class="tab" data-tab="mobilize"><svg viewBox="0 0 24 24"><path d="M12 2v5"/><path d="M9.5 4.5h5"/><path d="M4 21v-8l8-5 8 5v8"/><path d="M9 21v-4a3 3 0 0 1 6 0v4"/></svg><span class="tl">Pre-Crusade Mobilization</span></button>
+  <button class="tab" data-tab="mobilize"><svg viewBox="0 0 24 24"><path d="M12 2v5"/><path d="M9.5 4.5h5"/><path d="M4 21v-8l8-5 8 5v8"/><path d="M9 21v-4a3 3 0 0 1 6 0v4"/></svg><span class="tl">Pre-Crusade</span></button>
   <button class="tab active" data-tab="now"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="tl">Now</span></button>
   <button class="tab" data-tab="crew"><svg viewBox="0 0 24 24"><rect x="5" y="6" width="14" height="14" rx="2"/><path d="M9 6V4h6v2"/><path d="M9 13l2 2 3-3"/></svg><span class="tl">Specialists</span></button>
   <button class="tab" data-tab="board"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H7l-3 3z"/></svg><span class="tl">Post</span><span class="nbadge" id="boardBadge" style="display:none">0</span></button>
-  <button class="tab" data-tab="guides"><svg viewBox="0 0 24 24"><path d="M12 6c-2-2-5-2-7-1v13c2-1 5-1 7 1 2-2 5-2 7-1V5c-2-1-5-1-7 1z"/><path d="M12 6v13"/></svg><span class="tl">Ambassador Resources</span></button>
+  <button class="tab" data-tab="guides"><svg viewBox="0 0 24 24"><path d="M12 6c-2-2-5-2-7-1v13c2-1 5-1 7 1 2-2 5-2 7-1V5c-2-1-5-1-7 1z"/><path d="M12 6v13"/></svg><span class="tl">Resources</span></button>
 </nav>
 <script src="mobile-runtime.js"></script>
 <script src="js/app-core.js"></script>

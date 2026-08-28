@@ -876,6 +876,26 @@ Unlocking the Day PIN **is** the check-in; an untappable banner visible
 through the translucent overlay was confusing. After unlock the check-in
 flow is unchanged.
 
+## Phone readability (v1.18.5)
+
+Field phones are ~390px wide. The live site at v1.18.4 clipped the NOW/NEXT
+ticker (`Program Run-Through…`), crushed the header against the clock, set
+tab labels at 9–10px, and shipped several buttons under the 44px tap floor
+(Quick Capture, Take the tour, Upload media, and the Day PIN Privacy link).
+In landscape the Day PIN card was taller than the viewport and the title
+plus Privacy link were unreachable.
+
+This patch does not add features. It makes the existing shell readable and
+tappable:
+
+- NOW/NEXT stacks on a phone and wraps — no `overflow:hidden` ellipsis.
+- Brand + clock stay one row; the Ambassador Companion subline is 13px.
+- Tab labels shorten to Pre-Crusade / Now / Specialists / Post / Resources
+  at 12px, still ≥44px tall, with safe-area padding-bottom kept.
+- `.checkinprompt` actions and the gate Privacy link are ≥44px.
+- The Day PIN overlay scrolls from the top when the card is taller than the
+  screen, so title, Unlock, and Privacy stay reachable.
+
 ## Website QA follow-ups (v1.18.4)
 
 **Leader preview left Event Day.** The time-scrubber ("Leader preview — scrub
