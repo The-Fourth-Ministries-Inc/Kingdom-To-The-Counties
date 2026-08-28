@@ -3117,7 +3117,7 @@ function updateTourPrompts(){var d=tourDone()?"none":"flex";var a=document.getEl
    from Resources → App Tour. ===== */
 var GUIDE_STEPS=[
  {page:"now",sel:".brand",title:"🏠 Event Day",text:"This is home. It follows the clock all day — what's happening Now, what's Next, and the full order of events. No refreshing needed."},
- {page:"now",sel:".tabbar",title:"🧭 Getting around",text:"Five tabs: Pre-Crusade Mobilization (the church list — “Repair the Net”), Now (home), Specialists (work tools), Post (praise, issues & announcements), and Ambassador Resources (guides & contacts)."},
+ {page:"now",sel:".tabbar",title:"🧭 Getting around",text:"Five tabs: Pre-Crusade (the church list — “Repair the Net”), Now (home), Specialists (work tools), Post (praise, issues & announcements), and Resources (guides & contacts)."},
  {page:"checkin",sel:"#ciBtn",title:"🙋 Check in first",text:"When you arrive, check yourself in here. It tells leadership you're on the field and puts you on the day's roster."},
  {page:"board",sel:"#page-board .hub",title:"📣 Post",text:"Three boards: the Praise Wall (celebrate God moments), Report an Issue (flag problems to leadership fast), and Announcements from leaders. You can comment on any post."},
  {page:"crew",sel:"#page-crew .hub",title:"🧰 Specialists",text:"Work tools live here: the Attendance Counter, Setup Checklist, Radio Checkout, Trailer Load List and the Tech I/O list."},
