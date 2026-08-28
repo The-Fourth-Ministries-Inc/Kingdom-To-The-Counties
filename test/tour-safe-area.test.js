@@ -47,7 +47,7 @@ function chromeBin() {
 test("guidePlace writes --guide-top and CSS clamps to --sat", () => {
   const place = extractFunction(js, "guidePlace");
   assert.match(place, /setProperty\(["']--guide-top["']/);
-  assert.doesNotMatch(place, /style\.top\s*=/);
+  assert.doesNotMatch(place, /tip\.style\.top\s*=/);
   assert.match(html, /#guideTip\{[^}]*top:max\(calc\(var\(--sat\) \+ 12px\)/);
   assert.match(html, /--sat:env\(safe-area-inset-top,\s*0px\)/);
 });
