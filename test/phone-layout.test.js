@@ -1,7 +1,13 @@
 /* Phone shell at iPhone 390×844: ticker must not clip, tab labels must be
    readable, and primary / Privacy targets in the Day PIN gate must be ≥44px.
    Static checks guard the CSS contract; Chromium (when present) measures a
-   live 390-wide layout so a regression fails the same way a volunteer sees it. */
+   live 390-wide layout so a regression fails the same way a volunteer sees it.
+
+   Headless --dump-dom on GitHub-hosted runners sometimes never prints
+   </html> within 8s (Mobile signed internal run 33167912630) even though
+   the same assertions passed on the PR ~4 minutes earlier. The helper
+   uses new headless, waits longer, and retries once on timeout. Layout
+   assertions are unchanged. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
@@ -195,51 +201,73 @@ function parseProbeTitle(htmlDump) {
   return JSON.parse(titled[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&"));
 }
 
+const DUMP_MS = 25000;
+
+function chromeDumpArgs(file, userData) {
+  return [
+    "--headless=new",
+    "--disable-gpu",
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--hide-scrollbars",
+    "--force-device-scale-factor=1",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--disable-background-networking",
+    "--disable-sync",
+    "--disable-extensions",
+    "--disable-component-update",
+    "--virtual-time-budget=8000",
+    "--user-data-dir=" + userData,
+    "--dump-dom",
+    "file://" + file
+  ];
+}
+
+function dumpDomOnce(bin, file, userData) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, chromeDumpArgs(file, userData), { stdio: ["ignore", "pipe", "pipe"] });
+    let out = "";
+    let done = false;
+    const finish = (fn) => {
+      if (done) return;
+      done = true;
+      clearTimeout(t);
+      try { child.kill("SIGKILL"); } catch (e) { /* already gone */ }
+      fn();
+    };
+    const t = setTimeout(() => {
+      finish(() => reject(new Error("chrome dump-dom timed out")));
+    }, DUMP_MS);
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (d) => {
+      out += d;
+      if (out.includes("<title>{") && out.includes("</html>")) {
+        finish(() => resolve(out));
+      }
+    });
+    child.on("error", (e) => finish(() => reject(e)));
+    child.on("close", (code) => {
+      if (done) return;
+      done = true;
+      clearTimeout(t);
+      if (out.includes("<title>")) resolve(out);
+      else reject(new Error("chrome dump-dom exited " + code + " without probe JSON"));
+    });
+  });
+}
+
 function measure(width, height) {
   const bin = chromeBin();
   assert.ok(bin, "Chromium/Chrome is required for the 390-wide layout measurement");
   const dir = mkdtempSync(join(tmpdir(), "k2c-phone-"));
   const file = join(dir, "probe.html");
   writeFileSync(file, probeDocument(width, height));
-  const userData = join(dir, "chrome");
-  const child = spawn(bin, [
-    "--headless=old",
-    "--disable-gpu",
-    "--no-sandbox",
-    "--disable-dev-shm-usage",
-    "--hide-scrollbars",
-    "--force-device-scale-factor=1",
-    "--user-data-dir=" + userData,
-    "--dump-dom",
-    "file://" + file
-  ], { stdio: ["ignore", "pipe", "pipe"] });
-  const htmlDump = (() => {
-    return new Promise((resolve, reject) => {
-      let out = "";
-      const t = setTimeout(() => {
-        child.kill("SIGKILL");
-        reject(new Error("chrome dump-dom timed out"));
-      }, 8000);
-      child.stdout.setEncoding("utf8");
-      child.stdout.on("data", (d) => {
-        out += d;
-        if (out.includes("</html>")) {
-          clearTimeout(t);
-          child.kill("SIGKILL");
-          resolve(out);
-        }
-      });
-      child.on("error", (e) => {
-        clearTimeout(t);
-        reject(e);
-      });
-      child.on("close", () => {
-        clearTimeout(t);
-        if (out.includes("<title>")) resolve(out);
-      });
-    });
-  })();
-  return htmlDump.then((out) => {
+  const attempt = (label) => dumpDomOnce(bin, file, join(dir, label));
+  return attempt("chrome").catch((err) => {
+    if (!/timed out/.test(String(err && err.message))) throw err;
+    return attempt("chrome-retry");
+  }).then((out) => {
     try { rmSync(dir, { recursive: true, force: true }); } catch (e) { /* chrome user-data */ }
     return parseProbeTitle(out);
   }, (err) => {
@@ -248,7 +276,7 @@ function measure(width, height) {
   });
 }
 
-test("390-wide live layout: ticker, tabs, and 44px tap targets", async () => {
+test("390-wide live layout: ticker, tabs, and 44px tap targets", { timeout: 70000 }, async () => {
   const r = await measure(390, 844);
   assert.ok(r.vw <= 390, "viewport width is " + r.vw);
   assert.ok(r.stripNow.sw <= r.stripNow.cw + 1, "NOW clips: clientWidth " + r.stripNow.cw + " scrollWidth " + r.stripNow.sw);
@@ -268,7 +296,7 @@ test("390-wide live layout: ticker, tabs, and 44px tap targets", async () => {
   assert.ok(r.privacy.h >= 44, "Privacy Policy hit area is " + r.privacy.h + "px tall");
 });
 
-test("landscape 390-tall Day PIN card stays fully reachable", async () => {
+test("landscape 390-tall Day PIN card stays fully reachable", { timeout: 70000 }, async () => {
   const r = await measure(844, 390);
   assert.ok(r.gate.sh + 1 >= r.sheet.h, "gate scrollHeight " + r.gate.sh + " shorter than card " + r.sheet.h);
   assert.ok(r.titleTop >= r.gate.top - 1, "Day PIN title is clipped at the top (" + r.titleTop + ")");
