@@ -1425,7 +1425,10 @@ function annCard(a){
 function renderAnnouncements(){
   var f=document.getElementById("annFeed");
   var checkedIn=hasCheckedIn(MY.name); // day-gate unlock already checked them in
-  var pin=checkedIn?"":'<div class="item heads" onclick="show(\'checkin\')" style="cursor:pointer"><div class="top"><span class="pri">Check-in</span><span class="meta">Pinned</span></div><h4>👋 Did you check in?</h4><p>Tap here to check yourself in for today\'s event — please do this before you serve.</p><div class="by">— Kingdom to the Counties</div></div>';
+  var gateUp=dayGateOpen();
+  /* Don't pin a check-in card while the Day PIN gate is up — unlocking the
+     gate is the check-in, and the card would sit behind an untappable overlay. */
+  var pin=(checkedIn||gateUp)?"":'<div class="item heads" onclick="show(\'checkin\')" style="cursor:pointer"><div class="top"><span class="pri">Check-in</span><span class="meta">Pinned</span></div><h4>👋 Did you check in?</h4><p>Tap here to check yourself in for today\'s event — please do this before you serve.</p><div class="by">— Kingdom to the Counties</div></div>';
   var openAnn=STATE.announcements.filter(function(a){return !a.hidden;});
   var hidAnn=STATE.announcements.filter(function(a){return a.hidden;});
   f.innerHTML=pin+openAnn.map(annCard).join("")
@@ -1437,6 +1440,7 @@ function renderAnnouncements(){
      the app's only push channel; it must not have a permanent off switch.
      Urgent announcements re-open the bar even if that exact one was
      dismissed once. */
+  if(gateUp){bar.classList.remove("show");return;}
   if(checkedIn){
     var a=openAnn[0];   // a taken-down announcement must not keep pushing
     if(a){
@@ -1957,10 +1961,13 @@ function dayPinStored(){try{return sessionStorage.getItem("k2c_daypin")||"";}cat
 function dayOK(){return !!dayPinStored()||!!LEADERPIN;}
 function setDayOK(pin){try{if(pin)sessionStorage.setItem("k2c_daypin",pin);sessionStorage.setItem("k2c_dayok","1");}catch(_){}}
 function dayUnlocked(){return !STATE.dayPinSet || LEADER || dayOK();}
+function dayGateOpen(){return !!(LIVE&&STATE.dayPinSet&&!dayUnlocked());}
 function maybeDayGate(){
   var g=document.getElementById("dayGate");if(!g)return;
-  if(LIVE&&STATE.dayPinSet&&!dayUnlocked()){
+  if(dayGateOpen()){
     g.classList.add("show");
+    var bar=document.getElementById("annBar");
+    if(bar)bar.classList.remove("show");
     var nm=document.getElementById("dayNameInput");if(nm&&!nm.value)nm.value=MY.name||"";
     setTimeout(function(){var focusId=(nm&&!nm.value)?"dayNameInput":"dayPinInput";var i=document.getElementById(focusId);if(i)i.focus();},60);
   }else{g.classList.remove("show");}
@@ -3097,8 +3104,9 @@ document.getElementById("invQ").addEventListener("search",invSearchRun); // iOS 
 document.getElementById("invQX").addEventListener("click",function(){var q=document.getElementById("invQ");q.value="";invSearchRun();q.focus();});
 var tabsEls=document.querySelectorAll(".tab");for(var ti=0;ti<tabsEls.length;ti++){(function(btn){btn.addEventListener("click",function(){show(btn.getAttribute("data-tab"));});})(tabsEls[ti]);}
 var simRange=document.getElementById("simRange");
-simRange.addEventListener("input",function(){if(!LEADER){askPin(function(){});return;}simActive=true;simAnchor=parseInt(simRange.value,10);simEpoch=Date.now();document.getElementById("simNow").textContent="Previewing "+fmt(simAnchor)+" (running)";refreshAll();refreshChecklists();renderDashboard();});
-document.getElementById("simReset").addEventListener("click",function(){simActive=false;document.getElementById("simNow").textContent="Off — using real time";refreshAll();refreshChecklists();renderDashboard();});
+if(simRange)simRange.addEventListener("input",function(){if(!LEADER){askPin(function(){});return;}simActive=true;simAnchor=parseInt(simRange.value,10);simEpoch=Date.now();document.getElementById("simNow").textContent="Previewing "+fmt(simAnchor)+" (running)";refreshAll();refreshChecklists();renderDashboard();});
+var simReset=document.getElementById("simReset");
+if(simReset)simReset.addEventListener("click",function(){simActive=false;document.getElementById("simNow").textContent="Off — using real time";refreshAll();refreshChecklists();renderDashboard();});
 function refreshAll(){renderClock();renderNow();renderSpine();renderStrip();}
 function tourDone(){try{return localStorage.getItem("k2c_tour")==="1";}catch(_){return false;}}
 function tourSeen(){try{localStorage.setItem("k2c_tour","1");}catch(_){}updateTourPrompts();}
@@ -3155,6 +3163,9 @@ function guidePlace(el,st){
 }
 window.addEventListener("resize",function(){if(guideIdx>=0)guideShow();});
 function boot(){
+  /* The LIVE card is SEGMENTS + the clock — no server needed. Paint it
+     before apiGet so first JS tick is the real NOW state, not "Loading…". */
+  refreshAll();
   renderIOList();renderLeaders();
   if(LEADERPIN){verifyPin("verifyLeaderPin",LEADERPIN).then(function(res){if(res&&res.ok){LEADER=true;if(res.token)LEADERPIN=res.token;setDayOK();applyLeaderUI();renderDynamic();obFlush();}else{LEADERPIN="";sessionStorage.removeItem("k2c_lpin");}}).catch(function(){});}
   apiGet().then(function(s){STATE=applyPending(normalize(s));LIVE=true;adoptTallyEpoch(s);adoptDecEpoch(s);finishBoot();if(TALLY.dirty)scheduleFlush(500);})
