@@ -3104,8 +3104,9 @@ document.getElementById("invQ").addEventListener("search",invSearchRun); // iOS 
 document.getElementById("invQX").addEventListener("click",function(){var q=document.getElementById("invQ");q.value="";invSearchRun();q.focus();});
 var tabsEls=document.querySelectorAll(".tab");for(var ti=0;ti<tabsEls.length;ti++){(function(btn){btn.addEventListener("click",function(){show(btn.getAttribute("data-tab"));});})(tabsEls[ti]);}
 var simRange=document.getElementById("simRange");
-simRange.addEventListener("input",function(){if(!LEADER){askPin(function(){});return;}simActive=true;simAnchor=parseInt(simRange.value,10);simEpoch=Date.now();document.getElementById("simNow").textContent="Previewing "+fmt(simAnchor)+" (running)";refreshAll();refreshChecklists();renderDashboard();});
-document.getElementById("simReset").addEventListener("click",function(){simActive=false;document.getElementById("simNow").textContent="Off — using real time";refreshAll();refreshChecklists();renderDashboard();});
+if(simRange)simRange.addEventListener("input",function(){if(!LEADER){askPin(function(){});return;}simActive=true;simAnchor=parseInt(simRange.value,10);simEpoch=Date.now();document.getElementById("simNow").textContent="Previewing "+fmt(simAnchor)+" (running)";refreshAll();refreshChecklists();renderDashboard();});
+var simReset=document.getElementById("simReset");
+if(simReset)simReset.addEventListener("click",function(){simActive=false;document.getElementById("simNow").textContent="Off — using real time";refreshAll();refreshChecklists();renderDashboard();});
 function refreshAll(){renderClock();renderNow();renderSpine();renderStrip();}
 function tourDone(){try{return localStorage.getItem("k2c_tour")==="1";}catch(_){return false;}}
 function tourSeen(){try{localStorage.setItem("k2c_tour","1");}catch(_){}updateTourPrompts();}

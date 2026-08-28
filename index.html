@@ -503,6 +503,9 @@ textarea, select { font-size: 16px !important; }
   .caplanes button .ic{display:block;font-size:22px;margin-bottom:4px}
   .caplanes button .lb{font-weight:800;font-size:12px}
   .caplanes button.on{border-color:var(--rust);background:#fdf3ec;color:var(--ink)}
+  .capperm{background:#efe7da;border-radius:12px;padding:11px 13px;margin:0 0 12px;font-size:12.5px;color:#5a4d3b;line-height:1.5}
+  .capperm b{color:var(--wine)}
+  #capPermErr{display:none;background:#f6e2e0;border:1px solid #e3b6b2;border-radius:12px;padding:11px 13px;margin:0 0 12px;font-size:13px;color:var(--bad);line-height:1.5}
   .capmin{display:flex;gap:9px;align-items:flex-start;background:#f4e6dc;border:1px solid #e3c4ad;border-radius:13px;padding:11px 13px;margin-bottom:13px;font-size:12.5px;color:#6e4426;line-height:1.5}
   .capmin b{color:var(--wine)}
   .capshot{width:100%;border:2px dashed var(--slate);border-radius:14px;background:var(--card);padding:22px 12px;text-align:center;font-weight:800;font-size:15px;color:var(--wine);cursor:pointer;margin-bottom:10px}
@@ -591,6 +594,8 @@ textarea, select { font-size: 16px !important; }
   #tpPost{position:absolute;left:0;right:0;bottom:0;z-index:213;padding:14px 14px calc(var(--sab) + 14px);background:rgba(20,19,18,.97);border-top:2px solid var(--rust);display:none;flex-direction:column;gap:10px}
   #tpPost.show{display:flex}
   #tpPost p{margin:0;font-size:13px;color:var(--powder);text-align:center;line-height:1.5}
+  #tpPost #tpPrev{display:none;width:100%;max-height:160px;border-radius:10px;background:#000}
+  #tpPost #tpSaveHint{display:none;font-size:12px;color:#ddd8cd}
   #tpPost .trow{display:flex;gap:8px}
   #tpPost .trow>*{flex:1}
   #tpPost button{border:1px solid rgba(245,242,233,.16);border-radius:13px;background:rgba(20,19,18,.8);color:var(--cream);font-weight:700;font-size:13.5px;padding:13px 8px;cursor:pointer;width:100%}
@@ -1032,7 +1037,7 @@ textarea, select { font-size: 16px !important; }
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.3</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.4</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1057,11 +1062,6 @@ textarea, select { font-size: 16px !important; }
     <div class="checkinprompt"><span>📇 Met someone on the field? Capture their info before you lose it.</span><button onclick="show('capture')">Quick Capture</button></div>
     <div class="checkinprompt"><span>📸 Got photos or video from today?</span><a href="https://bit.ly/uploadk2c" target="_blank" rel="noopener">Upload media</a></div>
     <div class="checkinprompt" id="tourPrompt" style="display:none"><span>🧭 First time in the app?</span><button onclick="guideStart()">Take the tour</button></div>
-    <details class="preview"><summary>🎚️ Leader preview — scrub the day to test it</summary>
-      <div id="simLock"></div>
-      <div class="body" id="simBody"><input type="range" id="simRange" min="480" max="1140" step="5" value="480" />
-      <div class="rlbl"><span>8:00 AM</span><span id="simNow">Off — using real time</span><span>7:00 PM</span></div>
-      <button class="reset" id="simReset">↺ Back to real time</button></div></details>
     <div id="scheduleAnchor" style="margin-top:28px;padding-top:22px;border-top:1px solid var(--line)">
       <p class="eyebrow">Order of Events</p><h1 class="title">The Day</h1>
       <p class="sub">Saturday · Setup 9:00 AM → Program 2:00–5:00 PM <b>SHARP</b></p>
@@ -1098,6 +1098,11 @@ textarea, select { font-size: 16px !important; }
         <button onclick="show('miracles')">🙌 Miracles</button>
         <button onclick="show('mobilize')">⛪ Churches</button>
       </div>
+      <details class="preview"><summary>🎚️ Leader preview — scrub the day to test it</summary>
+        <div id="simLock"></div>
+        <div class="body" id="simBody"><input type="range" id="simRange" min="480" max="1140" step="5" value="480" />
+        <div class="rlbl"><span>8:00 AM</span><span id="simNow">Off — using real time</span><span>7:00 PM</span></div>
+        <button class="reset" id="simReset">↺ Back to real time</button></div></details>
       <div class="eventedit"><div class="ttl">📍 This event</div>
         <label class="caplabel" for="evCounty">Which county are we in now?</label>
         <select id="evCounty"></select>
@@ -1334,11 +1339,14 @@ textarea, select { font-size: 16px !important; }
     </div>
     <div class="form">
       <div id="capPhotoWrap" style="display:none">
+        <p class="capperm" id="capPhotoPerm">📷 Your phone will ask for the <b>Camera</b>. Tap <b>Allow</b> — or turn Camera on in the browser / iPhone Settings. If you tap Block, the photo will not save.</p>
         <input type="file" id="capPhotoInput" accept="image/*" capture="environment" style="display:none" />
         <button class="capshot" id="capShotBtn" onclick="document.getElementById('capPhotoInput').click()">📷 Snap the contact card<small>Fill the frame · good light · make sure the writing is readable</small></button>
         <div class="cappreview" id="capPhotoPrev" style="display:none"><img id="capPhotoImg" alt="Contact card photo" /><button class="redo" onclick="capPhotoRetake()">↺ Retake</button></div>
       </div>
       <div id="capAudioWrap" style="display:none">
+        <p class="capperm" id="capAudioPerm">🎙️ Your phone will ask for the <b>Microphone</b>. Tap <b>Allow</b> — or turn Microphone on in the browser / iPhone Settings. If you tap Block, the voice note will not record or save.</p>
+        <div id="capPermErr" role="alert"></div>
         <div class="capsay">🎙️ <b>Say their name and their phone or email</b> — then everything you can about the encounter. Be as detailed as you can, so not one precious soul gets left behind.</div>
         <div class="caprec">
           <button class="caprecbtn" id="capRecBtn" onclick="capRecTap()" aria-label="Record voice note"></button>
@@ -2269,6 +2277,7 @@ textarea, select { font-size: 16px !important; }
     <p class="eyebrow">Recording Studio</p><h1 class="title">Invite Video Scripts 🎬</h1>
     <span class="syncpill" id="sp-prompter"><span class="d"></span>Demo mode</span>
     <p class="sub">Tap <b>Open</b> to record with the on-screen teleprompter. Every finished video goes to <b>Laura (Marketing)</b> — then mark it ✅ so the team sees it's covered.</p>
+    <p class="tprectips" id="tpPermCopy">🎥 Before you record: your phone will ask for <b>Camera</b> and <b>Microphone</b>. Tap <b>Allow</b> — or turn them on in the browser / iPhone Settings. If you tap Block, the take will not record and you will not be able to save it.</p>
     <div class="tprectips">💛 <b>Why this matters:</b> <i>"How can they believe in the one of whom they have not heard? And how can they hear without someone telling them?"</i> — Romans 10:14. Your voice might be the one someone's been waiting for. A few friendly pointers: find a <b>calm, tidy spot</b> · speak up like you're inviting a friend across the yard · <b>smile</b> — this is good news! · phone at eye level if you can · <b>aim for 30–60 seconds</b> (the sweet spot — the app will nudge you) · and let them see <b>Jesus</b> in you. Don't worry about perfect — real beats polished every time. 🎥</div>
     <div id="tpLock"></div>
     <div class="tpaddbar" id="tpAddBar" style="display:none">
@@ -2299,8 +2308,9 @@ textarea, select { font-size: 16px !important; }
         <li><b>Pace yourself:</b> tap <b>▶ Play</b> to auto-scroll the script, or just <b>drag it with your finger</b> as you talk. Tap the text to pause.</li>
         <li><b>Keep it 30–60 seconds</b> — short and warm gets watched. I'll give you a gentle heads-up at 30s and again 15s before the minute mark (recording never stops on its own).</li>
         <li>Take two! Nobody nails the first take — that's normal.</li>
+        <li><b>Camera and Microphone:</b> tap <b>Allow</b> when your phone asks (or turn them on in the browser / iPhone Settings). If you tap Block, record and save will fail.</li>
       </ul>
-      <button onclick="document.getElementById('tpTips').classList.remove('show')">I'm ready — let's roll 🎥</button>
+      <button type="button" onclick="tpTipsGo()">I'm ready — let's roll 🎥</button>
     </div>
   </div>
   <div id="tpControls">
@@ -2322,12 +2332,15 @@ textarea, select { font-size: 16px !important; }
   </div>
   <div id="tpPost">
     <p>Nice work! 🎬 Save the video to your phone, then send it to <b>Laura (Marketing)</b> — and mark it done so the team knows it's covered.</p>
+    <video id="tpPrev" controls playsinline></video>
+    <p id="tpSaveHint">On iPhone, tap <b>Share</b> and choose <b>Save to Files</b> or <b>Save Video</b>. You can also long-press the preview. Desktop browsers download the file.</p>
     <div class="trow">
-      <a id="tpDl" href="#" download="k2c-video.webm"><button class="save">⬇ Save</button></a>
-      <button id="tpShare">📤 Share</button>
-      <button id="tpMarkDone">✅ Mark done</button>
+      <button type="button" id="tpSaveBtn" class="save">⬇ Save</button>
+      <button type="button" id="tpShare">📤 Share</button>
+      <button type="button" id="tpMarkDone">✅ Mark done</button>
     </div>
-    <div class="trow"><button id="tpAgain">↺ Record again</button></div>
+    <a id="tpDl" href="#" download="k2c-video.webm" hidden></a>
+    <div class="trow"><button type="button" id="tpAgain">↺ Record again</button></div>
   </div>
 </div>
 <!-- Script editor (leaders) -->

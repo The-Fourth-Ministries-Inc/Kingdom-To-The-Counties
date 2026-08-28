@@ -876,6 +876,29 @@ Unlocking the Day PIN **is** the check-in; an untappable banner visible
 through the translucent overlay was confusing. After unlock the check-in
 flow is unchanged.
 
+## Website QA follow-ups (v1.18.4)
+
+**Leader preview left Event Day.** The time-scrubber ("Leader preview — scrub
+the day to test it") is gone from the Now tab. Ambassadors should not see it.
+Leaders still have it on the Leader Dashboard (Specialists → Dashboard, behind
+the leader PIN).
+
+**Recording Studio save actually saves.** "Save" was an `<a download>` wrapping
+a `<button>` pointed at a `blob:` URL. iOS Safari and Capacitor WKWebView
+ignore `download` on blob URLs, and the nested button often ate the click —
+so a finished take could not be saved. That is not a Netlify deploy issue.
+Save and Share now call `tpSaveVideo()`: iPhone / the native shell open the
+Web Share sheet (Save to Files or Save Video); desktop downloads the file.
+A preview plays back so you can long-press if share is unavailable. There is
+no Capacitor Filesystem plugin in this repo, so WKWebView cannot write
+straight into Photos; the share sheet / long-press preview is the iPhone path.
+
+**Camera and microphone are explained before the prompt.** Recording Studio
+and Quick Capture show a plain-language note: allow Camera and Microphone in
+the browser or iPhone Settings, or record/save will fail. The studio waits
+to call `getUserMedia` until the tips sheet is dismissed. A blocked mic or
+camera shows a visible error, not only a toast.
+
 ## Contributing
 
 Push changes to a branch and open a pull request, or commit to `main` to deploy.

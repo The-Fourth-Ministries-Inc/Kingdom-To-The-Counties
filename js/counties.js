@@ -94,6 +94,7 @@ function capAudioMime(){var o=["audio/mp4","audio/webm;codecs=opus","audio/webm"
 function capRecTap(){
   if(capRecOn){capRecStop();return;}
   if(!window.MediaRecorder||!navigator.mediaDevices){toast("🎙️ Recording isn't supported in this browser — use Type It instead");return;}
+  var permErr=document.getElementById("capPermErr");if(permErr){permErr.style.display="none";permErr.textContent="";}
   navigator.mediaDevices.getUserMedia({audio:true}).then(function(st){
     capStream=st;capChunks=[];capAudioData=null;
     document.getElementById("capAudioPrev").style.display="none";
@@ -123,7 +124,14 @@ function capRecTap(){
       if(capSecs>=180){toast("⏱ 3 minutes — stopping here so it can send from the field");capRecStop();}
     },1000);
     vibr(15);
-  }).catch(function(){toast("🎙️ Mic is blocked — allow the microphone in your browser, or use Type It");});
+  }).catch(function(err){
+    var box=document.getElementById("capPermErr");
+    if(box){
+      box.style.display="block";
+      box.textContent="Microphone is blocked. Allow Microphone in this browser or in iPhone Settings (Safari, Chrome, or Ambassador Companion), then tap record again. The voice note will not save until the mic is allowed.";
+    }
+    toast("🎙️ Mic is blocked — allow the microphone, or use Type It");
+  });
 }
 function capRecStop(){
   if(capRecorder&&capRecorder.state!=="inactive")capRecorder.stop();
@@ -642,8 +650,17 @@ function tpOpen(id){
   document.getElementById("tpPost").classList.remove("show");
   document.getElementById("tpApp").classList.add("show");
   document.body.style.overflow="hidden";
-  if(!tpTipsSeen){document.getElementById("tpTips").classList.add("show");tpTipsSeen=true;}
-  tpWakeOn();tpStartCam(tpFacing);tpLoop();
+  if(!tpTipsSeen){
+    document.getElementById("tpTips").classList.add("show");
+    tpTipsSeen=true;
+  }else{
+    tpStartCam(tpFacing);
+  }
+  tpWakeOn();tpLoop();
+}
+function tpTipsGo(){
+  document.getElementById("tpTips").classList.remove("show");
+  if(!tpStream)tpStartCam(tpFacing);
 }
 function tpClose(){
   if(tpRecording)return;
@@ -651,12 +668,17 @@ function tpClose(){
   document.getElementById("tpApp").classList.remove("show");
   document.body.style.overflow="";
   tpWakeOff();tpStopCam();if(tpRAF){cancelAnimationFrame(tpRAF);tpRAF=null;}
+  if(tpPrevUrl)try{URL.revokeObjectURL(tpPrevUrl);tpPrevUrl="";}catch(_){}
   renderPrompt();
 }
 document.getElementById("tpBack").addEventListener("click",tpClose);
 document.getElementById("tpTipsBtn").addEventListener("click",function(){document.getElementById("tpTips").classList.add("show");});
 function tpStartCam(mode){
   tpStopCam();
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    tpShowPerm({message:"This browser cannot open the camera."});
+    return;
+  }
   navigator.mediaDevices.getUserMedia({video:{facingMode:mode},audio:true}).then(function(st){
     tpStream=st;var v=document.getElementById("tpCam");v.srcObject=st;v.classList.toggle("rear",mode==="environment");
     document.getElementById("tpPerm").style.display="none";
@@ -723,8 +745,8 @@ function tpStartRec(){
   tpRecorder.ondataavailable=function(e){if(e.data&&e.data.size>0)tpChunks.push(e.data);};
   tpRecorder.onstop=function(){
     tpBlob=new Blob(tpChunks,{type:tpRecorder.mimeType||"video/webm"});
-    var url=URL.createObjectURL(tpBlob),ext=(tpRecorder.mimeType||"").indexOf("mp4")>=0?"mp4":"webm";
-    var a=document.getElementById("tpDl");a.href=url;a.download="k2c-"+tpCurId+"-"+Date.now()+"."+ext;
+    tpShowPreview();
+    tpShowSaveHint(tpIsAppleMobile()||tpIsNative());
     document.getElementById("tpPost").classList.add("show");
   };
   tpRecorder.start(1000);
@@ -758,17 +780,85 @@ document.getElementById("tpRecBtn").addEventListener("click",function(){
   if(tpRecording){tpStopRec();}
   else{document.getElementById("tpPost").classList.remove("show");tpCountdownRun(tpStartRec);}
 });
-document.getElementById("tpAgain").addEventListener("click",function(){document.getElementById("tpPost").classList.remove("show");tpResetPos();tpSetPlaying(false);});
-document.getElementById("tpShare").addEventListener("click",function(){
-  if(!tpBlob){alert("Record something first!");return;}
-  var ext=(tpBlob.type||"").indexOf("mp4")>=0?"mp4":"webm";
-  var file=new File([tpBlob],"k2c-"+tpCurId+"."+ext,{type:tpBlob.type});
-  if(navigator.canShare&&navigator.canShare({files:[file]})){
-    navigator.share({files:[file],title:"K2C video for Laura"}).catch(function(){});
-  }else{
-    alert("Sharing isn't supported in this browser — tap ⬇ Save instead, then send the file to Laura from your Photos/Files app.");
-  }
+document.getElementById("tpAgain").addEventListener("click",function(){
+  document.getElementById("tpPost").classList.remove("show");
+  tpShowSaveHint(false);
+  var v=document.getElementById("tpPrev");if(v){v.removeAttribute("src");v.style.display="none";}
+  tpResetPos();tpSetPlaying(false);
 });
+/* Save used to be <a download> wrapping a <button> pointed at a blob: URL.
+   iOS Safari and Capacitor WKWebView ignore download= on blob: URLs, and a
+   nested button often eats the click — so "Save" did nothing after a take.
+   That is not a Netlify deploy issue. iPhone save/share is the Web Share
+   sheet (Save to Files / Save Video). Desktop still downloads the blob. */
+var tpPrevUrl="";
+function tpIsAppleMobile(){
+  var ua=navigator.userAgent||"";
+  return /iPhone|iPad|iPod/i.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+}
+function tpIsNative(){try{return !!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform());}catch(_){return false;}}
+function tpExtOf(blob){
+  var t=(blob&&blob.type)||"";
+  if(t.indexOf("mp4")>=0)return "mp4";
+  if(t.indexOf("webm")>=0)return "webm";
+  return "mp4";
+}
+function tpAsFile(){
+  if(!tpBlob||!tpBlob.size)return null;
+  var ext=tpExtOf(tpBlob),type=tpBlob.type||(ext==="mp4"?"video/mp4":"video/webm");
+  var name="k2c-"+(tpCurId||"video")+"-"+Date.now()+"."+ext;
+  try{return new File([tpBlob],name,{type:type});}catch(e){return null;}
+}
+function tpShowPreview(){
+  var v=document.getElementById("tpPrev");if(!v||!tpBlob)return;
+  if(tpPrevUrl)try{URL.revokeObjectURL(tpPrevUrl);}catch(_){}
+  tpPrevUrl=URL.createObjectURL(tpBlob);
+  v.src=tpPrevUrl;v.style.display="block";
+}
+function tpCanShareFile(file){
+  if(!file||!navigator.share)return false;
+  try{if(navigator.canShare)return !!navigator.canShare({files:[file]});}catch(_){return false;}
+  return true;
+}
+function tpDownloadBlob(){
+  var file=tpAsFile();if(!file)return false;
+  var url=URL.createObjectURL(file);
+  var a=document.getElementById("tpDl");
+  if(!a){a=document.createElement("a");a.id="tpDl";a.hidden=true;document.body.appendChild(a);}
+  a.href=url;a.download=file.name;
+  a.click();
+  setTimeout(function(){try{URL.revokeObjectURL(url);}catch(_){}},4000);
+  return true;
+}
+function tpShowSaveHint(on){
+  var h=document.getElementById("tpSaveHint");if(h)h.style.display=on?"block":"none";
+}
+function tpSaveVideo(){
+  if(!tpBlob||!tpBlob.size){toast("No video yet — record a take first");return;}
+  var file=tpAsFile();
+  if(!file){toast("Couldn't package the video — try recording again");return;}
+  var apple=tpIsAppleMobile()||tpIsNative();
+  if(tpCanShareFile(file)){
+    navigator.share({files:[file],title:"K2C video for Laura"}).then(function(){
+      toast("📤 Pick Save to Files or send it to Laura");
+    }).catch(function(err){
+      if(err&&err.name==="AbortError")return;
+      tpShowSaveHint(true);
+      if(!apple&&tpDownloadBlob()){toast("⬇ Saving to Downloads");return;}
+      toast("Share didn't open — long-press the preview to Save Video");
+    });
+    return;
+  }
+  if(apple){
+    tpShowSaveHint(true);
+    toast("This phone can't file-share from the browser. Long-press the preview → Save Video, then send it to Laura.");
+    return;
+  }
+  if(tpDownloadBlob())toast("⬇ Saving to Downloads");
+  else{tpShowSaveHint(true);toast("Couldn't start the download — try Share, or long-press the preview");}
+}
+document.getElementById("tpSaveBtn").addEventListener("click",function(){tpSaveVideo();});
+document.getElementById("tpShare").addEventListener("click",function(){tpSaveVideo();});
 /* ---- Mark done ---- */
 document.getElementById("tpMarkDone").addEventListener("click",function(){
   document.getElementById("tpInitials").value=MY.name||"";
