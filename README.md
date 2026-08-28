@@ -863,6 +863,18 @@ on **Android only**. A `plugins.SystemBars` block would not pad the iPhone
 header. Android still gets a second `padding-top: var(--safe-area-inset-top, env(...))`
 fallback for WebView &lt;140. On web, both values are `0px`.
 
+## Tour cards clear the Dynamic Island (v1.18.6)
+
+The guided-tour pop-ups sit fully **below** `env(safe-area-inset-top)` on
+notched iPhones. TestFlight v1.18.5 pinned a card that did not fit under
+its spotlight to `top: 12px`, so steps on Specialists, Recording Studio
+and Resources slid the beige title under the status bar / Dynamic Island.
+
+`#guideTip` now uses `top: max(calc(var(--sat) + 12px), var(--guide-top))`.
+`guidePlace` writes the spotlight-relative Y to `--guide-top` and never
+assigns a raw `top`. On web and Android `--sat` is `0px`, so those cards
+look the same as before.
+
 ## Website first paint & Day PIN gate (v1.18.3)
 
 The Event Day LIVE card is driven by the local schedule (`SEGMENTS` + the
