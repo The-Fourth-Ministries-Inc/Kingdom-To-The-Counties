@@ -863,6 +863,19 @@ on **Android only**. A `plugins.SystemBars` block would not pad the iPhone
 header. Android still gets a second `padding-top: var(--safe-area-inset-top, env(...))`
 fallback for WebView &lt;140. On web, both values are `0px`.
 
+## Website first paint & Day PIN gate (v1.18.3)
+
+The Event Day LIVE card is driven by the local schedule (`SEGMENTS` + the
+clock), so it paints that state on the first script tick instead of waiting
+for the board API. The old `#nowName` placeholder said "Loading…" for about a
+second on a live website load, then flipped to "Not started yet" / the real
+NOW segment.
+
+The "Did you check in?" banner is hidden while `#dayGate` is showing.
+Unlocking the Day PIN **is** the check-in; an untappable banner visible
+through the translucent overlay was confusing. After unlock the check-in
+flow is unchanged.
+
 ## Contributing
 
 Push changes to a branch and open a pull request, or commit to `main` to deploy.

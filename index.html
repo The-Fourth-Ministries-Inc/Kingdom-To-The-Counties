@@ -72,6 +72,11 @@ textarea, select { font-size: 16px !important; }
   .clock .d{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--slate);margin-top:3px}
   .annbar{background:var(--wine);color:#fff;display:none;align-items:flex-start;gap:10px;padding:11px 16px;font-size:13.5px;cursor:pointer;}
   .annbar.show{display:flex}
+  /* Day PIN overlay is translucent; a shown #annBar (check-in nudge or
+     announcement) is visible behind it but not tappable. Hide the bar
+     whenever the gate is up — unlocking the gate is the check-in. */
+  body:has(#dayGate.show) .annbar,
+  body:has(#dayGate.show) .annbar.show{display:none}
   .annbar .dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--rust);margin-top:5px;animation:pulse 1.6s infinite}
   .annbar b{font-weight:700}
   .annbar.urgentbar{background:#8C1D18}
@@ -1027,7 +1032,7 @@ textarea, select { font-size: 16px !important; }
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.2</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small style="font-weight:600;font-size:11px;letter-spacing:1px">TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.3</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1043,7 +1048,7 @@ textarea, select { font-size: 16px !important; }
     <p class="sub">Auto-updates by the clock — no refreshing needed.</p>
     <div class="hero">
       <span class="live" id="liveTag"><span class="blip"></span> <span id="liveTagText">Live</span></span>
-      <h2 id="nowName">Loading…</h2><div class="when" id="nowWhen"></div>
+      <h2 id="nowName">—</h2><div class="when" id="nowWhen"></div>
       <span class="badge setup" id="nowBadge" style="display:none"></span>
       <div class="progress" id="nowProgWrap" style="display:none"><i id="nowProg"></i></div>
       <div class="countdown" id="nowCountdown"></div>
