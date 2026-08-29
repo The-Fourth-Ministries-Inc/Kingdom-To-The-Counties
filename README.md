@@ -896,8 +896,11 @@ zoom-trap patch did not cover:
    under the 44px floor at the same time.
 
 `.back`, tour buttons, radio checkout, and the name-bar action are 44px.
-`--sal` / `--sar` pad the studio chrome. `#tpControls #tpRecBtn` keeps Rec
-at 72px in both orientations; other landscape studio buttons stay 44px.
+`--sal` / `--sar` pad the studio chrome **and** the volunteer shell (header,
+NOW/NEXT, announcement bar, main column, tab bar) so a rotated iPhone does
+not park the clock or Pre-Crusade / Resources under the island.
+`#tpControls #tpRecBtn` keeps Rec at 72px in both orientations; other
+landscape studio buttons stay 44px.
 
 ## Recording Studio zoom trap (v1.18.7)
 

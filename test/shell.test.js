@@ -33,10 +33,13 @@ test("sticky header uses env(safe-area-inset-top) on WKWebView, not a SystemBars
   assert.match(html, /name="viewport"[^>]*viewport-fit=cover/);
   assert.match(html, /--sat:env\(safe-area-inset-top,\s*0px\)/);
   assert.match(html, /\.topwrap\{[^}]*padding-top:env\(safe-area-inset-top,\s*0px\)/);
-  assert.match(html, /\.topbar\{[^}]*padding:12px 18px/);
+  assert.match(html, /\.topbar\{[^}]*padding:12px calc\(var\(--sar\) \+ 18px\) 12px calc\(var\(--sal\) \+ 18px\)/);
   assert.doesNotMatch(html, /\.topbar\{[^}]*safe-area-inset-top/);
   assert.match(html, /\.daygate\{[^}]*padding:calc\(env\(safe-area-inset-top,\s*0px\) \+ 24px\)/);
   assert.match(html, /\.tabbar\{[^}]*padding-bottom:env\(safe-area-inset-bottom,\s*0px\)/);
+  assert.match(html, /\.tabbar\{[^}]*padding-left:var\(--sal\)/);
+  assert.match(html, /--sal:env\(safe-area-inset-left,\s*0px\)/);
+  assert.match(html, /--sar:env\(safe-area-inset-right,\s*0px\)/);
 
   const cap = JSON.parse(read("capacitor.config.json"));
   assert.equal(cap.ios.contentInset, "never");

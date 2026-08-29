@@ -45,6 +45,14 @@ test("page-back, tour, radio, and name-bar controls are ≥44px in CSS", () => {
   assert.match(rule(".namebar button"), /min-height\s*:\s*44px/);
 });
 
+test("shell chrome also clears landscape island left/right insets", () => {
+  assert.match(html, /\.topbar\{[^}]*var\(--sal\)/);
+  assert.match(html, /\.topbar\{[^}]*var\(--sar\)/);
+  assert.match(html, /\.nowstrip\{[^}]*var\(--sal\)/);
+  assert.match(html, /\.tabbar\{[^}]*padding-left:var\(--sal\)/);
+  assert.match(html, /main\{[^}]*var\(--sal\)/);
+});
+
 test("studio reads left/right safe-area so landscape island cannot cover ‹ Scripts", () => {
   assert.match(html, /--sal:env\(safe-area-inset-left,\s*0px\)/);
   assert.match(html, /--sar:env\(safe-area-inset-right,\s*0px\)/);
