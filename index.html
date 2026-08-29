@@ -48,6 +48,8 @@ textarea, select,
        0px Android injection would hide a working env() on iPhone. */
     --sat:env(safe-area-inset-top, 0px);
     --sab:env(safe-area-inset-bottom, 0px);
+    --sal:env(safe-area-inset-left, 0px);
+    --sar:env(safe-area-inset-right, 0px);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
@@ -104,7 +106,7 @@ textarea, select,
   h1.title{font-family:var(--serif);font-weight:900;font-size:30px;line-height:1.04;margin:0 0 4px}
   .sub{color:var(--muted);font-size:13.5px;margin:0 0 16px}
   .eventtag{font-size:12px;color:var(--wine);font-weight:700;margin:-2px 0 14px}
-  .back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--rust);font-weight:700;font-size:13px;cursor:pointer;padding:0;margin:0 0 12px}
+  .back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--rust);font-weight:700;font-size:13px;cursor:pointer;padding:10px 4px 10px 0;margin:0 0 8px;min-height:44px;min-width:44px}
   .syncpill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.3px;padding:5px 10px;border-radius:99px;margin-bottom:14px;background:#e7e1d3;color:#6a5d45}
   .syncpill.live{background:#dfeee0;color:#2f6b3a}
   .syncpill .d{width:7px;height:7px;border-radius:50%;background:currentColor}
@@ -260,7 +262,7 @@ textarea, select,
   #guideTip p{font-size:13.5px;line-height:1.5;color:#4c463c;margin:0 0 12px}
   #guideTip .gnav{display:flex;align-items:center;gap:8px}
   #guideTip .gstep{font-size:11.5px;font-weight:700;color:var(--muted);margin-right:auto}
-  #guideTip button{border:none;border-radius:10px;font-weight:800;font-size:13px;padding:9px 14px;cursor:pointer}
+  #guideTip button{border:none;border-radius:10px;font-weight:800;font-size:13px;padding:10px 14px;cursor:pointer;min-height:44px;min-width:44px}
   #guideTip .gnext{background:var(--rust);color:#fff}
   #guideTip .gskip{background:transparent;color:var(--muted)}
   #guideTip .gback{background:#e8e2d5;color:var(--ink)}
@@ -268,7 +270,7 @@ textarea, select,
   .namebar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:12px;font-size:13px;color:var(--muted)}
   .namebar b{color:var(--ink)}
   .namebar .tagchip{background:var(--ink);color:var(--cream);font-weight:800;font-size:11px;padding:2px 7px;border-radius:8px;letter-spacing:1px}
-  .namebar button{margin-left:auto;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:9px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer}
+  .namebar button{margin-left:auto;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:9px;padding:10px 12px;font-weight:700;font-size:12px;cursor:pointer;min-height:44px;min-width:44px}
   /* checklist item notes (#9) */
   .chknotebtn{background:none;border:0;font-size:14px;line-height:1;cursor:pointer;padding:0 2px 0 6px;opacity:.65}
   .chknotebtn:active{opacity:1}
@@ -375,7 +377,7 @@ textarea, select,
   .radio-row .rn{font-weight:800;font-size:15px;min-width:74px}
   .radio-row .rs{flex:1;font-size:12.5px;color:var(--muted);line-height:1.45}
   .radio-row .rs b{color:var(--ink)}
-  .radio-row button{border:0;border-radius:10px;padding:9px 13px;font-weight:700;font-size:13px}
+  .radio-row button{border:0;border-radius:10px;padding:11px 13px;font-weight:700;font-size:13px;min-height:44px;min-width:44px}
   .radio-row button.co{background:var(--ink);color:var(--cream)}
   .radio-row button.ci{background:var(--rust);color:#fff}
   .radio-row.out{border-left:4px solid var(--rust)}
@@ -390,7 +392,7 @@ textarea, select,
   #tpPerm .pbox ol{margin:8px 0 0 18px;padding:0}
   #tpPerm .pbox li{margin-bottom:4px}
   #tpPerm .pbtns{display:flex;flex-direction:column;gap:9px;width:min(340px,86vw)}
-  #tpPerm .pbtns button{border:0;border-radius:12px;padding:13px;font-weight:700;font-size:14.5px}
+  #tpPerm .pbtns button{border:0;border-radius:12px;padding:13px;font-weight:700;font-size:14.5px;min-height:44px}
   #tpPerm .pbtns .try{background:var(--rust);color:#fff}
   #tpPerm .pbtns .prac{background:#3a3733;color:var(--cream)}
   #tpPerm .pbtns .bk{background:transparent;color:var(--powder);border:1px solid #3a3733}
@@ -577,14 +579,15 @@ textarea, select,
   #tpProg i{display:block;height:100%;width:0%;background:var(--rust)}
   #tpWrap.mirror #tpText{transform:scaleX(-1)}
   #tpControls button.on{background:rgba(184,98,57,.55);border-color:var(--rust)}
-  @media (orientation:landscape){#tpWrap{top:6%;height:56%}#tpControls{padding:6px 10px calc(var(--sab) + 6px)}#tpControls button{min-height:40px;padding:8px 12px}}
-  #tpLabel{position:absolute;top:calc(var(--sat) + 10px);left:12px;z-index:220;background:rgba(20,19,18,.8);border:1px solid rgba(245,242,233,.16);padding:6px 12px;border-radius:16px;font-size:12px;color:var(--powder);font-weight:700;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #tpBack{position:absolute;top:calc(var(--sat) + 6px);right:12px;z-index:220;min-height:44px;min-width:44px;padding:8px 14px;font-size:13px;border-radius:16px;border:1px solid rgba(245,242,233,.25);background:rgba(20,19,18,.72);color:var(--cream);cursor:pointer}
+  @media (orientation:landscape){#tpWrap{top:6%;height:56%}#tpControls{padding:6px calc(var(--sar) + 10px) calc(var(--sab) + 6px) calc(var(--sal) + 10px)}#tpControls button{min-height:44px;padding:8px 12px}}
+  #tpControls #tpRecBtn{min-height:72px;min-width:72px}
+  #tpLabel{position:absolute;top:calc(var(--sat) + 10px);left:calc(var(--sal) + 12px);z-index:220;background:rgba(20,19,18,.8);border:1px solid rgba(245,242,233,.16);padding:6px 12px;border-radius:16px;font-size:12px;color:var(--powder);font-weight:700;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #tpBack{position:absolute;top:calc(var(--sat) + 6px);right:calc(var(--sar) + 12px);z-index:220;min-height:44px;min-width:44px;padding:8px 14px;font-size:13px;border-radius:16px;border:1px solid rgba(245,242,233,.25);background:rgba(20,19,18,.72);color:var(--cream);cursor:pointer}
   #tpRecInd{position:absolute;top:calc(var(--sat) + 52px);left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;background:rgba(20,19,18,.8);padding:6px 14px;border-radius:20px;font-size:14px;color:var(--cream);font-variant-numeric:tabular-nums}
   #tpRecInd.show{display:flex}
   #tpRecDot{width:10px;height:10px;border-radius:50%;background:#e5484d;animation:tpPulse 1s infinite}
   @keyframes tpPulse{0%,100%{opacity:1}50%{opacity:.25}}
-  #tpControls{position:absolute;left:0;right:0;bottom:0;padding:10px 10px calc(var(--sab) + 10px);background:linear-gradient(to top,rgba(20,19,18,.92),rgba(20,19,18,.5) 70%,transparent);display:flex;flex-direction:column;gap:8px}
+  #tpControls{position:absolute;left:0;right:0;bottom:0;padding:10px calc(var(--sar) + 10px) calc(var(--sab) + 10px) calc(var(--sal) + 10px);background:linear-gradient(to top,rgba(20,19,18,.92),rgba(20,19,18,.5) 70%,transparent);display:flex;flex-direction:column;gap:8px}
   #tpControls .trow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
   #tpControls button{font-family:var(--sans);border:1px solid rgba(245,242,233,.14);border-radius:14px;background:rgba(20,19,18,.78);color:var(--cream);padding:12px 14px;font-size:15px;font-weight:600;min-width:54px;min-height:48px;cursor:pointer}
   #tpControls button:active{background:rgba(184,98,57,.45)}
@@ -597,22 +600,22 @@ textarea, select,
   #tpRecBtn.recording::before{border-radius:6px;background:#e5484d}
   #tpCountdown{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:130px;color:var(--cream);text-shadow:0 4px 24px rgba(0,0,0,.9);z-index:212;font-family:var(--serif);font-weight:900}
   #tpCountdown.show{display:flex}
-  #tpPerm{position:absolute;inset:0;display:none;align-items:flex-start;justify-content:center;text-align:center;padding:calc(var(--sat) + 16px) 16px calc(var(--sab) + 16px);color:var(--powder);font-size:15px;line-height:1.6;background:#141312;z-index:205}
-  #tpTips{position:absolute;inset:0;z-index:214;background:rgba(15,14,13,.86);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) 16px calc(var(--sab) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}
+  #tpPerm{position:absolute;inset:0;display:none;align-items:flex-start;justify-content:center;text-align:center;padding:calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);color:var(--powder);font-size:15px;line-height:1.6;background:#141312;z-index:205}
+  #tpTips{position:absolute;inset:0;z-index:214;background:rgba(15,14,13,.86);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}
   #tpTips.show{display:flex}
   #tpTips .tsheet{background:#221f1e;border:1px solid rgba(245,242,233,.16);border-radius:18px;padding:20px;max-width:400px;width:100%;color:var(--cream);margin-top:auto;margin-bottom:auto}
   #tpTips h3{font-family:var(--serif);font-weight:900;font-size:19px;margin:0 0 8px}
   #tpTips ul{margin:0 0 14px;padding-left:19px;font-size:13.5px;line-height:1.65;color:#ddd8cd}
   #tpTips li b{color:var(--powder)}
-  #tpTips button{width:100%;border:none;border-radius:13px;background:var(--rust);color:#fff;font-weight:800;font-size:15px;padding:14px;cursor:pointer}
-  #tpPost{position:absolute;left:0;right:0;bottom:0;z-index:213;padding:14px 14px calc(var(--sab) + 14px);background:rgba(20,19,18,.97);border-top:2px solid var(--rust);display:none;flex-direction:column;gap:10px}
+  #tpTips button{width:100%;border:none;border-radius:13px;background:var(--rust);color:#fff;font-weight:800;font-size:15px;padding:14px;cursor:pointer;min-height:44px}
+  #tpPost{position:absolute;left:0;right:0;bottom:0;z-index:213;padding:14px calc(var(--sar) + 14px) calc(var(--sab) + 14px) calc(var(--sal) + 14px);background:rgba(20,19,18,.97);border-top:2px solid var(--rust);display:none;flex-direction:column;gap:10px}
   #tpPost.show{display:flex}
   #tpPost p{margin:0;font-size:13px;color:var(--powder);text-align:center;line-height:1.5}
   #tpPost #tpPrev{display:none;width:100%;max-height:160px;border-radius:10px;background:#000}
   #tpPost #tpSaveHint{display:none;font-size:12px;color:#ddd8cd}
   #tpPost .trow{display:flex;gap:8px}
   #tpPost .trow>*{flex:1}
-  #tpPost button{border:1px solid rgba(245,242,233,.16);border-radius:13px;background:rgba(20,19,18,.8);color:var(--cream);font-weight:700;font-size:13.5px;padding:13px 8px;cursor:pointer;width:100%}
+  #tpPost button{border:1px solid rgba(245,242,233,.16);border-radius:13px;background:rgba(20,19,18,.8);color:var(--cream);font-weight:700;font-size:13.5px;padding:13px 8px;cursor:pointer;width:100%;min-height:44px}
   #tpPost .save{background:var(--rust);border-color:transparent}
   #tpPost a{text-decoration:none;display:flex}
   /* Script editor + done modal reuse .modal/.sheet; extra fields */
@@ -857,7 +860,7 @@ textarea, select,
      sheet (script editor, bin card) puts the title under the Dynamic Island
      and the Save row past the home indicator. flex-start + auto margins
      centers when it fits and starts below --sat when it doesn't. */
-  .modal{position:fixed;inset:0;z-index:300;background:rgba(43,42,40,.55);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) 16px calc(var(--sab) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}
+  .modal{position:fixed;inset:0;z-index:300;background:rgba(43,42,40,.55);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}
   .modal.show{display:flex}
   .sheet{background:var(--cream);border-radius:18px;padding:22px;width:100%;max-width:340px;box-shadow:0 20px 50px rgba(0,0,0,.3);margin-top:auto;margin-bottom:auto;flex:none}
   .sheet h3{font-family:var(--serif);font-weight:700;font-size:20px;margin:0 0 6px}
@@ -1066,7 +1069,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.7</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.8</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">

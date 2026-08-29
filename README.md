@@ -875,6 +875,30 @@ and Resources slid the beige title under the status bar / Dynamic Island.
 assigns a raw `top`. On web and Android `--sat` is `0px`, so those cards
 look the same as before.
 
+## Phone back-controls & landscape studio island (v1.18.8)
+
+Website / local QA on v1.18.7 found three volunteer-facing traps that the
+zoom-trap patch did not cover:
+
+1. **‹ Specialists / ‹ Resources back links were ~19px tall.** `.back` had
+   `padding: 0` and no min-height. Same class of miss-tap as the old Day PIN
+   Privacy link. Tour Next/Skip/Back, Radio Check out / Return, and the
+   attendance / radio “Set name” chip were also under 44px.
+2. **Landscape Recording Studio hid ‹ Scripts and Save under the island.**
+   `--sat` / `--sab` were wired; `--sal` / `--sar`
+   (`safe-area-inset-left/right`) did not exist. `#tpBack` was `right: 12px`
+   and `#tpLabel` was `left: 12px`. After a take, `#tpPost` Save / Mark done
+   used 14px side padding. On an iPhone on its side the island is a left or
+   right inset, not a top one.
+3. **Landscape Rec was a 72×40 oval.** `@media (orientation:landscape)` set
+   `#tpControls button { min-height: 40px }`, which beats `#tpRecBtn`’s 72px
+   (one ID + one element vs one ID). Play / Flip / font controls dropped
+   under the 44px floor at the same time.
+
+`.back`, tour buttons, radio checkout, and the name-bar action are 44px.
+`--sal` / `--sar` pad the studio chrome. `#tpControls #tpRecBtn` keeps Rec
+at 72px in both orientations; other landscape studio buttons stay 44px.
+
 ## Recording Studio zoom trap (v1.18.7)
 
 Editing a script on iPhone (TestFlight / WKWebView) zoomed the whole

@@ -65,7 +65,7 @@ test("header subline is outdoor-readable and brand stays one row on a phone", ()
   assert.ok(size, "brand subline font-size missing");
   assert.ok(Number(size[1]) >= 13, "brand subline is " + size[1] + "px, want ≥13");
   assert.match(title, /white-space\s*:\s*nowrap/);
-  assert.match(html, /<span class="ver">v1\.18\.7<\/span>/);
+  assert.match(html, /<span class="ver">v1\.18\.8<\/span>/);
 });
 
 test("tab labels are short and at least 12px, tap row stays ≥44px", () => {
