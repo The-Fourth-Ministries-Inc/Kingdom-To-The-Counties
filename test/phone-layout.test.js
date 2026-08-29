@@ -101,6 +101,10 @@ test("Day PIN overlay can scroll the whole card when the viewport is short", () 
   assert.match(sheet, /margin-bottom\s*:\s*auto/);
 });
 
+test("short landscape Day PIN sheet is capped so Unlock is not only below a scroll", () => {
+  assert.match(html, /@media \(max-height:500px\)\{[\s\S]*?\.dgsheet\{[^}]*max-height/);
+});
+
 function extract(re, label) {
   const m = html.match(re);
   assert.ok(m, label + " missing from index.html");
@@ -122,8 +126,8 @@ function probeDocument(width, height) {
 <style>${style}
 html,body{margin:0;padding:0;background:#ccc}
 #phone{width:${width}px;height:${height}px;position:relative;overflow:auto;background:var(--cream)}
-#phone .daygate,#phone .tabbar{position:absolute}
-#phone .tabbar{left:0;right:0;bottom:0}
+#phone .daygate{position:absolute;inset:0}
+#phone .tabbar{position:absolute;left:0;right:0;bottom:0}
 </style>
 </head><body>
 <div id="phone">
@@ -187,7 +191,9 @@ ${tabs}
     titleTop: document.querySelector(".dgsheet h3").getBoundingClientRect().top,
     privBottom: document.querySelector(".dgpv").getBoundingClientRect().bottom,
     phoneTop: phone.getBoundingClientRect().top,
-    phoneScroll: phone.scrollHeight
+    phoneScroll: phone.scrollHeight,
+    unlockBottomInPhone: Math.round((document.getElementById("dayPinOk").getBoundingClientRect().bottom - phone.getBoundingClientRect().top) * 10) / 10,
+    privBottomInPhone: Math.round((document.querySelector(".dgpv").getBoundingClientRect().bottom - phone.getBoundingClientRect().top) * 10) / 10
   };
   document.title = JSON.stringify(report);
 })();
@@ -303,4 +309,9 @@ test("landscape 390-tall Day PIN card stays fully reachable", { timeout: 70000 }
   assert.ok(r.privBottom <= r.gate.top + r.gate.sh + 1, "Privacy sits past the scrollable gate");
   assert.ok(r.privacy.h >= 44, "Privacy hit area is " + r.privacy.h + "px in landscape");
   assert.ok(r.unlock.h >= 44, "Unlock is " + r.unlock.h + "px in landscape");
+  /* First paint — not "reachable if you notice the overlay scrolls".
+     Production 1.18.7 at 844×390 parked Unlock below the fold and Privacy
+     fully off-screen. The hard wall stays; no skip/X. */
+  assert.ok(r.unlockBottomInPhone <= r.vh + 1, "Unlock bottom " + r.unlockBottomInPhone + " is below the " + r.vh + " viewport on first paint");
+  assert.ok(r.privBottomInPhone <= r.vh + 1, "Privacy bottom " + r.privBottomInPhone + " is below the " + r.vh + " viewport on first paint");
 });

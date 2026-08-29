@@ -902,6 +902,14 @@ not park the clock or Pre-Crusade / Resources under the island.
 `#tpControls #tpRecBtn` keeps Rec at 72px in both orientations; other
 landscape studio buttons stay 44px.
 
+**Landscape Day PIN first paint.** On a 390px-tall window the lock card
+was ~449px. Unlock sat below the fold and Privacy Policy was fully
+off-screen. The overlay already had `overflow-y: auto` — a volunteer
+could scroll — but first paint looked broken. There is no skip / close /
+X; the hard wall stays. Under `max-height: 500px` the sheet is capped to
+the gate, Unlock + Privacy stick to the visible bottom, and padding/type
+tighten so both controls are on screen before anyone scrolls.
+
 ## Recording Studio zoom trap (v1.18.7)
 
 Editing a script on iPhone (TestFlight / WKWebView) zoomed the whole
