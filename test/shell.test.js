@@ -76,9 +76,20 @@ test("version badge, service worker cache, and SW comment stay aligned", () => {
   const html = read("index.html");
   const sw = read("sw.js");
   const version = readAppVersion(html);
-  assert.equal(version, "1.18.5");
+  assert.equal(version, "1.18.6");
   assert.match(sw, new RegExp("app v" + version.replace(/\./g, "\\.")));
   const cache = sw.match(/var CACHE = "(k2c-v\d+)"/);
   assert.ok(cache, "SW cache name missing");
-  assert.equal(cache[1], "k2c-v57");
+  assert.equal(cache[1], "k2c-v58");
+});
+
+test("tour card is clamped below --sat / env(safe-area-inset-top)", () => {
+  const html = read("index.html");
+  const js = read("js/app-core.js");
+  assert.match(html, /#guideTip\{[^}]*top:max\(calc\(var\(--sat\) \+ 12px\)/);
+  assert.match(html, /#guideTip\{[^}]*var\(--guide-top/);
+  assert.match(js, /function guidePlace\(/);
+  assert.match(js, /setProperty\(["']--guide-top["']/);
+  assert.doesNotMatch(js, /tip\.style\.top\s*=/);
+  assert.doesNotMatch(js, /Math\.max\(12,\s*r\.top-tipH-12\)\s*\+\s*["']px["']/);
 });

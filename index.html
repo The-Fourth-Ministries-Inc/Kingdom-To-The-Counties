@@ -248,7 +248,10 @@ textarea, select { font-size: 16px !important; }
   /* guided spotlight tour (v1.5.0) */
   #guideCatch{position:fixed;inset:0;z-index:498;background:transparent}
   #guideDim{position:fixed;z-index:499;border-radius:14px;border:2px solid var(--cream);box-shadow:0 0 0 9999px rgba(20,19,18,.62);pointer-events:none;transition:all .25s ease}
-  #guideTip{position:fixed;left:50%;transform:translateX(-50%);z-index:500;width:min(360px,92vw);background:var(--cream);color:var(--ink);border-radius:16px;padding:15px 16px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  /* JS writes --guide-top (spotlight-relative). Clamp so a card that would
+     sit at 12px never slides under the Dynamic Island / status bar. --sat
+     is 0px on web and most Android, so those layouts stay as they were. */
+  #guideTip{position:fixed;left:50%;transform:translateX(-50%);z-index:500;width:min(360px,92vw);background:var(--cream);color:var(--ink);border-radius:16px;padding:15px 16px;box-shadow:0 10px 30px rgba(0,0,0,.35);top:max(calc(var(--sat) + 12px), var(--guide-top, calc(var(--sat) + 12px)))}
   #guideTip .gt{font-family:var(--serif);font-weight:900;font-size:17px;margin-bottom:5px}
   #guideTip p{font-size:13.5px;line-height:1.5;color:#4c463c;margin:0 0 12px}
   #guideTip .gnav{display:flex;align-items:center;gap:8px}
@@ -1055,7 +1058,7 @@ textarea, select { font-size: 16px !important; }
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.5</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.6</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">

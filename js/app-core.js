@@ -3158,8 +3158,12 @@ function guidePlace(el,st){
     +'<button class="gskip" onclick="guideEnd()">Skip</button>'
     +'<button class="gnext" onclick="guideNext()">'+(guideIdx===GUIDE_STEPS.length-1?"Finish 🎉":"Next ›")+'</button></div>';
   var below=r.bottom+12,tipH=tip.offsetHeight||150;
-  if(below+tipH>innerHeight-16)tip.style.top=Math.max(12,r.top-tipH-12)+"px";
-  else tip.style.top=below+"px";
+  /* Desired Y from the spotlight. CSS #guideTip clamps with
+     max(calc(var(--sat) + 12px), var(--guide-top)) so a card forced
+     to the top still clears env(safe-area-inset-top) on notched iPhones.
+     Do not assign tip.style.top — a raw 12px would sit under the island. */
+  var want=below+tipH>innerHeight-16?Math.max(12,r.top-tipH-12):below;
+  tip.style.setProperty("--guide-top",want+"px");
 }
 window.addEventListener("resize",function(){if(guideIdx>=0)guideShow();});
 function boot(){
