@@ -875,6 +875,24 @@ and Resources slid the beige title under the status bar / Dynamic Island.
 assigns a raw `top`. On web and Android `--sat` is `0px`, so those cards
 look the same as before.
 
+## Recording Studio zoom trap (v1.18.7)
+
+Editing a script on iPhone (TestFlight / WKWebView) zoomed the whole
+studio and trapped the filmer in the teleprompter. The 16px anti-zoom
+rule already covered `input` / `textarea` / `select`, but the script body
+is a **contenteditable** div that was 14.5px. iOS focus-zoom stuck after
+Save/Cancel: `object-fit:cover` on the camera looked like a close blurry
+crop, the UI felt huge, and ‹ Scripts sat outside the visual viewport.
+
+The editor body is now 16px (same rule as every other field). While the
+studio is open the viewport is locked to `maximum-scale=1` (WKWebView
+honors that; the page meta is not permanently `user-scalable=no`).
+Leaving Edit blurs the field, clears leftover `transform`/`zoom` on the
+camera and tip layers, and pulses the viewport back to 1. ‹ Scripts is a
+44px control above the video. Modals and the studio tips/permission
+sheets use the same `--sat` / `--sab` padding as the Day PIN gate so
+titles no longer slide under the Dynamic Island.
+
 ## Website first paint & Day PIN gate (v1.18.3)
 
 The Event Day LIVE card is driven by the local schedule (`SEGMENTS` + the
