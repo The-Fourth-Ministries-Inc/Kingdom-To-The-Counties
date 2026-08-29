@@ -94,11 +94,16 @@ test("check-in prompt buttons and Day PIN Privacy link are ≥44px", () => {
 test("Day PIN overlay can scroll the whole card when the viewport is short", () => {
   const gate = rule(".daygate");
   assert.match(gate, /align-items\s*:\s*flex-start/);
-  assert.match(gate, /overflow\s*:\s*auto/);
+  assert.match(gate, /overflow\s*:\s*hidden/);
   assert.doesNotMatch(gate, /align-items\s*:\s*center/);
   const sheet = rule(".dgsheet");
   assert.match(sheet, /margin-top\s*:\s*auto/);
   assert.match(sheet, /margin-bottom\s*:\s*auto/);
+  assert.match(sheet, /overflow-y\s*:\s*auto/);
+  /* 100svh alone is the Chrome *window*, not a 390-tall #phone frame.
+     min(100%, …) keeps the sheet inside the overlay on first paint. */
+  assert.match(sheet, /min\(100%,calc\(100svh - 16px\)\)/);
+  assert.match(sheet, /flex:\s*0 1 auto/);
 });
 
 test("short landscape Day PIN sheet is capped so Unlock is not only below a scroll", () => {
@@ -304,9 +309,8 @@ test("390-wide live layout: ticker, tabs, and 44px tap targets", { timeout: 7000
 
 test("landscape 390-tall Day PIN card stays fully reachable", { timeout: 70000 }, async () => {
   const r = await measure(844, 390);
-  assert.ok(r.gate.sh + 1 >= r.sheet.h, "gate scrollHeight " + r.gate.sh + " shorter than card " + r.sheet.h);
   assert.ok(r.titleTop >= r.gate.top - 1, "Day PIN title is clipped at the top (" + r.titleTop + ")");
-  assert.ok(r.privBottom <= r.gate.top + r.gate.sh + 1, "Privacy sits past the scrollable gate");
+  assert.ok(r.sheet.h <= r.vh + 1, "sheet height " + r.sheet.h + " overflows the " + r.vh + " viewport");
   assert.ok(r.privacy.h >= 44, "Privacy hit area is " + r.privacy.h + "px in landscape");
   assert.ok(r.unlock.h >= 44, "Unlock is " + r.unlock.h + "px in landscape");
   /* First paint — not "reachable if you notice the overlay scrolls".

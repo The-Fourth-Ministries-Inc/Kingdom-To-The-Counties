@@ -906,9 +906,12 @@ landscape studio buttons stay 44px.
 was ~449px. Unlock sat below the fold and Privacy Policy was fully
 off-screen. The overlay already had `overflow-y: auto` — a volunteer
 could scroll — but first paint looked broken. There is no skip / close /
-X; the hard wall stays. Under `max-height: 500px` the sheet is capped to
-the gate, Unlock + Privacy stick to the visible bottom, and padding/type
-tighten so both controls are on screen before anyone scrolls.
+X; the hard wall stays. The overlay is `overflow: hidden` so it cannot
+grow past the viewport. The sheet caps at `min(100%, 100svh − 16px)`
+(parent box **and** the small viewport — `100svh` alone follows the
+Chrome window, not a framed 390-tall phone) and scrolls internally.
+Unlock + Privacy stick to the visible bottom. Under `max-height: 500px`
+padding/type tighten so more of the form fits.
 
 ## Recording Studio zoom trap (v1.18.7)
 

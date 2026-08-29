@@ -976,13 +976,15 @@ textarea, select,
   #binBody .fyiadd{margin-top:4px}
   #binBody .fyiadd textarea,#binBody .fyiadd input{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;text-align:left;letter-spacing:normal;font-family:var(--sans);background:#fff;margin-bottom:8px;resize:vertical}
   /* Day PIN gate — locks the whole app.
-     align-items:center + a taller-than-viewport card clips the title and
-     Privacy link in landscape (card ~465px vs 390px tall). flex-start +
-     auto margins centers the card when it fits and starts it at the top
-     when it doesn't, so overflow:auto can reach every field. */
-  .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);overflow:auto;-webkit-overflow-scrolling:touch}
+     Production 844×390 (v1.18.7) clipped Unlock and hid Privacy: the
+     overlay was the scrollport (`overflow:auto`) and the card was ~449px.
+     The sheet is the only scrollport now. Cap it with min(100%, 100svh)
+     so Unlock + Privacy stay on first paint (100svh alone is the Chrome
+     window, not a framed 390-tall phone). No skip/X — the wall stays.
+     flex-start + auto margins still center the card when it fits. */
+  .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);overflow:hidden}
   .daygate.show{display:flex}
-  .dgsheet{background:var(--cream);border-radius:20px;padding:26px 22px;width:100%;max-width:360px;max-height:100%;box-shadow:0 24px 60px rgba(0,0,0,.45);text-align:center;margin-top:auto;margin-bottom:auto;flex:none;overflow-y:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box}
+  .dgsheet{background:var(--cream);border-radius:20px;padding:26px 22px;width:100%;max-width:360px;max-height:100%;max-height:min(100%,calc(100vh - 16px));max-height:min(100%,calc(100dvh - 16px));max-height:min(100%,calc(100svh - 16px));min-height:0;box-shadow:0 24px 60px rgba(0,0,0,.45);text-align:center;margin-top:auto;margin-bottom:auto;flex:0 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box}
   .dgbrand{font-weight:900;letter-spacing:1.5px;font-size:13px;color:var(--wine);margin-bottom:14px}
   .dgbrand small{font-weight:600;font-size:9px;letter-spacing:1px}
   .dgsheet h3{font-family:var(--serif);font-size:21px;margin:0 0 6px}
@@ -1001,7 +1003,7 @@ textarea, select,
      bottom, and tighten type/padding. No skip/X — the wall stays. */
   @media (max-height:500px){
     .daygate{padding:calc(var(--sat) + 8px) calc(var(--sar) + 16px) calc(var(--sab) + 8px) calc(var(--sal) + 16px)}
-    .dgsheet{padding:10px 16px 8px;margin-top:0;margin-bottom:0;max-height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box}
+    .dgsheet{padding:10px 16px 8px;margin-top:0;margin-bottom:0;max-height:100%;max-height:min(100%,calc(100svh - 16px));overflow-y:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box}
     .dgbrand{margin-bottom:4px;font-size:11px}
     .dgsheet h3{font-size:17px;margin:0 0 2px}
     .dgsheet p{margin:0 0 6px;font-size:12px;line-height:1.3}
