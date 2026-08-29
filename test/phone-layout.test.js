@@ -65,7 +65,7 @@ test("header subline is outdoor-readable and brand stays one row on a phone", ()
   assert.ok(size, "brand subline font-size missing");
   assert.ok(Number(size[1]) >= 13, "brand subline is " + size[1] + "px, want ≥13");
   assert.match(title, /white-space\s*:\s*nowrap/);
-  assert.match(html, /<span class="ver">v1\.18\.7<\/span>/);
+  assert.match(html, /<span class="ver">v1\.18\.8<\/span>/);
 });
 
 test("tab labels are short and at least 12px, tap row stays ≥44px", () => {
@@ -94,11 +94,20 @@ test("check-in prompt buttons and Day PIN Privacy link are ≥44px", () => {
 test("Day PIN overlay can scroll the whole card when the viewport is short", () => {
   const gate = rule(".daygate");
   assert.match(gate, /align-items\s*:\s*flex-start/);
-  assert.match(gate, /overflow\s*:\s*auto/);
+  assert.match(gate, /overflow\s*:\s*hidden/);
   assert.doesNotMatch(gate, /align-items\s*:\s*center/);
   const sheet = rule(".dgsheet");
   assert.match(sheet, /margin-top\s*:\s*auto/);
   assert.match(sheet, /margin-bottom\s*:\s*auto/);
+  assert.match(sheet, /overflow-y\s*:\s*auto/);
+  /* 100svh alone is the Chrome *window*, not a 390-tall #phone frame.
+     min(100%, …) keeps the sheet inside the overlay on first paint. */
+  assert.match(sheet, /min\(100%,calc\(100svh - 16px\)\)/);
+  assert.match(sheet, /flex:\s*0 1 auto/);
+});
+
+test("short landscape Day PIN sheet is capped so Unlock is not only below a scroll", () => {
+  assert.match(html, /@media \(max-height:500px\)\{[\s\S]*?\.dgsheet\{[^}]*max-height/);
 });
 
 function extract(re, label) {
@@ -122,8 +131,8 @@ function probeDocument(width, height) {
 <style>${style}
 html,body{margin:0;padding:0;background:#ccc}
 #phone{width:${width}px;height:${height}px;position:relative;overflow:auto;background:var(--cream)}
-#phone .daygate,#phone .tabbar{position:absolute}
-#phone .tabbar{left:0;right:0;bottom:0}
+#phone .daygate{position:absolute;inset:0}
+#phone .tabbar{position:absolute;left:0;right:0;bottom:0}
 </style>
 </head><body>
 <div id="phone">
@@ -187,7 +196,9 @@ ${tabs}
     titleTop: document.querySelector(".dgsheet h3").getBoundingClientRect().top,
     privBottom: document.querySelector(".dgpv").getBoundingClientRect().bottom,
     phoneTop: phone.getBoundingClientRect().top,
-    phoneScroll: phone.scrollHeight
+    phoneScroll: phone.scrollHeight,
+    unlockBottomInPhone: Math.round((document.getElementById("dayPinOk").getBoundingClientRect().bottom - phone.getBoundingClientRect().top) * 10) / 10,
+    privBottomInPhone: Math.round((document.querySelector(".dgpv").getBoundingClientRect().bottom - phone.getBoundingClientRect().top) * 10) / 10
   };
   document.title = JSON.stringify(report);
 })();
@@ -298,9 +309,13 @@ test("390-wide live layout: ticker, tabs, and 44px tap targets", { timeout: 7000
 
 test("landscape 390-tall Day PIN card stays fully reachable", { timeout: 70000 }, async () => {
   const r = await measure(844, 390);
-  assert.ok(r.gate.sh + 1 >= r.sheet.h, "gate scrollHeight " + r.gate.sh + " shorter than card " + r.sheet.h);
   assert.ok(r.titleTop >= r.gate.top - 1, "Day PIN title is clipped at the top (" + r.titleTop + ")");
-  assert.ok(r.privBottom <= r.gate.top + r.gate.sh + 1, "Privacy sits past the scrollable gate");
+  assert.ok(r.sheet.h <= r.vh + 1, "sheet height " + r.sheet.h + " overflows the " + r.vh + " viewport");
   assert.ok(r.privacy.h >= 44, "Privacy hit area is " + r.privacy.h + "px in landscape");
   assert.ok(r.unlock.h >= 44, "Unlock is " + r.unlock.h + "px in landscape");
+  /* First paint — not "reachable if you notice the overlay scrolls".
+     Production 1.18.7 at 844×390 parked Unlock below the fold and Privacy
+     fully off-screen. The hard wall stays; no skip/X. */
+  assert.ok(r.unlockBottomInPhone <= r.vh + 1, "Unlock bottom " + r.unlockBottomInPhone + " is below the " + r.vh + " viewport on first paint");
+  assert.ok(r.privBottomInPhone <= r.vh + 1, "Privacy bottom " + r.privBottomInPhone + " is below the " + r.vh + " viewport on first paint");
 });

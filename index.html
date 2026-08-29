@@ -48,6 +48,8 @@ textarea, select,
        0px Android injection would hide a working env() on iPhone. */
     --sat:env(safe-area-inset-top, 0px);
     --sab:env(safe-area-inset-bottom, 0px);
+    --sal:env(safe-area-inset-left, 0px);
+    --sar:env(safe-area-inset-right, 0px);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
@@ -58,10 +60,10 @@ textarea, select,
      when WKWebView also applied contentInset: automatic. Second padding-top
      is the Android WebView <140 fallback (injected --safe-area-inset-*). */
   .topwrap{position:sticky;top:0;z-index:40;background:var(--ink);padding-top:env(safe-area-inset-top, 0px);padding-top:var(--safe-area-inset-top, env(safe-area-inset-top, 0px))}
-  .topbar{background:var(--ink);color:var(--cream);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .topbar{background:var(--ink);color:var(--cream);padding:12px calc(var(--sar) + 18px) 12px calc(var(--sal) + 18px);display:flex;align-items:center;justify-content:space-between;gap:10px;}
   /* Phone: stack NOW over NEXT so a long segment name wraps instead of
      ellipsizing. Wider screens keep a two-column strip. Never clip. */
-  .nowstrip{display:flex;flex-direction:column;align-items:stretch;gap:4px;padding:8px 14px;background:var(--cream);border-bottom:1px solid var(--line);cursor:pointer;font-size:13px;line-height:1.25}
+  .nowstrip{display:flex;flex-direction:column;align-items:stretch;gap:4px;padding:8px calc(var(--sar) + 14px) 8px calc(var(--sal) + 14px);background:var(--cream);border-bottom:1px solid var(--line);cursor:pointer;font-size:13px;line-height:1.25}
   .nowstrip .lbl{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;font-weight:700;flex:none;padding-top:2px}
   .nowstrip .lbl.n{color:var(--rust)}.nowstrip .lbl.x{color:var(--muted)}
   .nowstrip .blip{width:7px;height:7px;border-radius:50%;background:var(--rust);flex:none;animation:pulse 1.5s infinite;margin-top:5px}
@@ -81,7 +83,7 @@ textarea, select,
   .clock{text-align:right;font-variant-numeric:tabular-nums;flex:none}
   .clock .t{font-family:var(--serif);font-weight:700;font-size:16px}
   .clock .d{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--slate);margin-top:3px}
-  .annbar{background:var(--wine);color:#fff;display:none;align-items:flex-start;gap:10px;padding:11px 16px;font-size:13.5px;cursor:pointer;}
+  .annbar{background:var(--wine);color:#fff;display:none;align-items:flex-start;gap:10px;padding:11px calc(var(--sar) + 16px) 11px calc(var(--sal) + 16px);font-size:13.5px;cursor:pointer;}
   .annbar.show{display:flex}
   /* Day PIN overlay is translucent; a shown #annBar (check-in nudge or
      announcement) is visible behind it but not tappable. Hide the bar
@@ -96,7 +98,7 @@ textarea, select,
      tap-to-open area, so a miss opened the announcement instead of closing
      it. The visual circle stays small; the hit area is 44px. */
   .annbar .x{margin-left:auto;flex:none;background:rgba(255,255,255,.18);border:none;color:#fff;width:44px;height:44px;margin:-10px -8px -10px 0;border-radius:50%;font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
-  main{padding:18px 16px 26px;max-width:560px;margin:0 auto}
+  main{padding:18px calc(var(--sar) + 16px) 26px calc(var(--sal) + 16px);max-width:560px;margin:0 auto}
   .page{display:none;animation:fade .28s ease}
   .page.active{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -104,7 +106,7 @@ textarea, select,
   h1.title{font-family:var(--serif);font-weight:900;font-size:30px;line-height:1.04;margin:0 0 4px}
   .sub{color:var(--muted);font-size:13.5px;margin:0 0 16px}
   .eventtag{font-size:12px;color:var(--wine);font-weight:700;margin:-2px 0 14px}
-  .back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--rust);font-weight:700;font-size:13px;cursor:pointer;padding:0;margin:0 0 12px}
+  .back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--rust);font-weight:700;font-size:13px;cursor:pointer;padding:10px 4px 10px 0;margin:0 0 8px;min-height:44px;min-width:44px}
   .syncpill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.3px;padding:5px 10px;border-radius:99px;margin-bottom:14px;background:#e7e1d3;color:#6a5d45}
   .syncpill.live{background:#dfeee0;color:#2f6b3a}
   .syncpill .d{width:7px;height:7px;border-radius:50%;background:currentColor}
@@ -260,7 +262,7 @@ textarea, select,
   #guideTip p{font-size:13.5px;line-height:1.5;color:#4c463c;margin:0 0 12px}
   #guideTip .gnav{display:flex;align-items:center;gap:8px}
   #guideTip .gstep{font-size:11.5px;font-weight:700;color:var(--muted);margin-right:auto}
-  #guideTip button{border:none;border-radius:10px;font-weight:800;font-size:13px;padding:9px 14px;cursor:pointer}
+  #guideTip button{border:none;border-radius:10px;font-weight:800;font-size:13px;padding:10px 14px;cursor:pointer;min-height:44px;min-width:44px}
   #guideTip .gnext{background:var(--rust);color:#fff}
   #guideTip .gskip{background:transparent;color:var(--muted)}
   #guideTip .gback{background:#e8e2d5;color:var(--ink)}
@@ -268,7 +270,7 @@ textarea, select,
   .namebar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:12px;font-size:13px;color:var(--muted)}
   .namebar b{color:var(--ink)}
   .namebar .tagchip{background:var(--ink);color:var(--cream);font-weight:800;font-size:11px;padding:2px 7px;border-radius:8px;letter-spacing:1px}
-  .namebar button{margin-left:auto;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:9px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer}
+  .namebar button{margin-left:auto;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:9px;padding:10px 12px;font-weight:700;font-size:12px;cursor:pointer;min-height:44px;min-width:44px}
   /* checklist item notes (#9) */
   .chknotebtn{background:none;border:0;font-size:14px;line-height:1;cursor:pointer;padding:0 2px 0 6px;opacity:.65}
   .chknotebtn:active{opacity:1}
@@ -375,7 +377,7 @@ textarea, select,
   .radio-row .rn{font-weight:800;font-size:15px;min-width:74px}
   .radio-row .rs{flex:1;font-size:12.5px;color:var(--muted);line-height:1.45}
   .radio-row .rs b{color:var(--ink)}
-  .radio-row button{border:0;border-radius:10px;padding:9px 13px;font-weight:700;font-size:13px}
+  .radio-row button{border:0;border-radius:10px;padding:11px 13px;font-weight:700;font-size:13px;min-height:44px;min-width:44px}
   .radio-row button.co{background:var(--ink);color:var(--cream)}
   .radio-row button.ci{background:var(--rust);color:#fff}
   .radio-row.out{border-left:4px solid var(--rust)}
@@ -390,7 +392,7 @@ textarea, select,
   #tpPerm .pbox ol{margin:8px 0 0 18px;padding:0}
   #tpPerm .pbox li{margin-bottom:4px}
   #tpPerm .pbtns{display:flex;flex-direction:column;gap:9px;width:min(340px,86vw)}
-  #tpPerm .pbtns button{border:0;border-radius:12px;padding:13px;font-weight:700;font-size:14.5px}
+  #tpPerm .pbtns button{border:0;border-radius:12px;padding:13px;font-weight:700;font-size:14.5px;min-height:44px}
   #tpPerm .pbtns .try{background:var(--rust);color:#fff}
   #tpPerm .pbtns .prac{background:#3a3733;color:var(--cream)}
   #tpPerm .pbtns .bk{background:transparent;color:var(--powder);border:1px solid #3a3733}
@@ -577,14 +579,15 @@ textarea, select,
   #tpProg i{display:block;height:100%;width:0%;background:var(--rust)}
   #tpWrap.mirror #tpText{transform:scaleX(-1)}
   #tpControls button.on{background:rgba(184,98,57,.55);border-color:var(--rust)}
-  @media (orientation:landscape){#tpWrap{top:6%;height:56%}#tpControls{padding:6px 10px calc(var(--sab) + 6px)}#tpControls button{min-height:40px;padding:8px 12px}}
-  #tpLabel{position:absolute;top:calc(var(--sat) + 10px);left:12px;z-index:220;background:rgba(20,19,18,.8);border:1px solid rgba(245,242,233,.16);padding:6px 12px;border-radius:16px;font-size:12px;color:var(--powder);font-weight:700;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #tpBack{position:absolute;top:calc(var(--sat) + 6px);right:12px;z-index:220;min-height:44px;min-width:44px;padding:8px 14px;font-size:13px;border-radius:16px;border:1px solid rgba(245,242,233,.25);background:rgba(20,19,18,.72);color:var(--cream);cursor:pointer}
+  @media (orientation:landscape){#tpWrap{top:6%;height:56%}#tpControls{padding:6px calc(var(--sar) + 10px) calc(var(--sab) + 6px) calc(var(--sal) + 10px)}#tpControls button{min-height:44px;padding:8px 12px}}
+  #tpControls #tpRecBtn{min-height:72px;min-width:72px}
+  #tpLabel{position:absolute;top:calc(var(--sat) + 10px);left:calc(var(--sal) + 12px);z-index:220;background:rgba(20,19,18,.8);border:1px solid rgba(245,242,233,.16);padding:6px 12px;border-radius:16px;font-size:12px;color:var(--powder);font-weight:700;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #tpBack{position:absolute;top:calc(var(--sat) + 6px);right:calc(var(--sar) + 12px);z-index:220;min-height:44px;min-width:44px;padding:8px 14px;font-size:13px;border-radius:16px;border:1px solid rgba(245,242,233,.25);background:rgba(20,19,18,.72);color:var(--cream);cursor:pointer}
   #tpRecInd{position:absolute;top:calc(var(--sat) + 52px);left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;background:rgba(20,19,18,.8);padding:6px 14px;border-radius:20px;font-size:14px;color:var(--cream);font-variant-numeric:tabular-nums}
   #tpRecInd.show{display:flex}
   #tpRecDot{width:10px;height:10px;border-radius:50%;background:#e5484d;animation:tpPulse 1s infinite}
   @keyframes tpPulse{0%,100%{opacity:1}50%{opacity:.25}}
-  #tpControls{position:absolute;left:0;right:0;bottom:0;padding:10px 10px calc(var(--sab) + 10px);background:linear-gradient(to top,rgba(20,19,18,.92),rgba(20,19,18,.5) 70%,transparent);display:flex;flex-direction:column;gap:8px}
+  #tpControls{position:absolute;left:0;right:0;bottom:0;padding:10px calc(var(--sar) + 10px) calc(var(--sab) + 10px) calc(var(--sal) + 10px);background:linear-gradient(to top,rgba(20,19,18,.92),rgba(20,19,18,.5) 70%,transparent);display:flex;flex-direction:column;gap:8px}
   #tpControls .trow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
   #tpControls button{font-family:var(--sans);border:1px solid rgba(245,242,233,.14);border-radius:14px;background:rgba(20,19,18,.78);color:var(--cream);padding:12px 14px;font-size:15px;font-weight:600;min-width:54px;min-height:48px;cursor:pointer}
   #tpControls button:active{background:rgba(184,98,57,.45)}
@@ -597,22 +600,22 @@ textarea, select,
   #tpRecBtn.recording::before{border-radius:6px;background:#e5484d}
   #tpCountdown{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:130px;color:var(--cream);text-shadow:0 4px 24px rgba(0,0,0,.9);z-index:212;font-family:var(--serif);font-weight:900}
   #tpCountdown.show{display:flex}
-  #tpPerm{position:absolute;inset:0;display:none;align-items:flex-start;justify-content:center;text-align:center;padding:calc(var(--sat) + 16px) 16px calc(var(--sab) + 16px);color:var(--powder);font-size:15px;line-height:1.6;background:#141312;z-index:205}
-  #tpTips{position:absolute;inset:0;z-index:214;background:rgba(15,14,13,.86);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) 16px calc(var(--sab) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}
+  #tpPerm{position:absolute;inset:0;display:none;align-items:flex-start;justify-content:center;text-align:center;padding:calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);color:var(--powder);font-size:15px;line-height:1.6;background:#141312;z-index:205}
+  #tpTips{position:absolute;inset:0;z-index:214;background:rgba(15,14,13,.86);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}
   #tpTips.show{display:flex}
   #tpTips .tsheet{background:#221f1e;border:1px solid rgba(245,242,233,.16);border-radius:18px;padding:20px;max-width:400px;width:100%;color:var(--cream);margin-top:auto;margin-bottom:auto}
   #tpTips h3{font-family:var(--serif);font-weight:900;font-size:19px;margin:0 0 8px}
   #tpTips ul{margin:0 0 14px;padding-left:19px;font-size:13.5px;line-height:1.65;color:#ddd8cd}
   #tpTips li b{color:var(--powder)}
-  #tpTips button{width:100%;border:none;border-radius:13px;background:var(--rust);color:#fff;font-weight:800;font-size:15px;padding:14px;cursor:pointer}
-  #tpPost{position:absolute;left:0;right:0;bottom:0;z-index:213;padding:14px 14px calc(var(--sab) + 14px);background:rgba(20,19,18,.97);border-top:2px solid var(--rust);display:none;flex-direction:column;gap:10px}
+  #tpTips button{width:100%;border:none;border-radius:13px;background:var(--rust);color:#fff;font-weight:800;font-size:15px;padding:14px;cursor:pointer;min-height:44px}
+  #tpPost{position:absolute;left:0;right:0;bottom:0;z-index:213;padding:14px calc(var(--sar) + 14px) calc(var(--sab) + 14px) calc(var(--sal) + 14px);background:rgba(20,19,18,.97);border-top:2px solid var(--rust);display:none;flex-direction:column;gap:10px}
   #tpPost.show{display:flex}
   #tpPost p{margin:0;font-size:13px;color:var(--powder);text-align:center;line-height:1.5}
   #tpPost #tpPrev{display:none;width:100%;max-height:160px;border-radius:10px;background:#000}
   #tpPost #tpSaveHint{display:none;font-size:12px;color:#ddd8cd}
   #tpPost .trow{display:flex;gap:8px}
   #tpPost .trow>*{flex:1}
-  #tpPost button{border:1px solid rgba(245,242,233,.16);border-radius:13px;background:rgba(20,19,18,.8);color:var(--cream);font-weight:700;font-size:13.5px;padding:13px 8px;cursor:pointer;width:100%}
+  #tpPost button{border:1px solid rgba(245,242,233,.16);border-radius:13px;background:rgba(20,19,18,.8);color:var(--cream);font-weight:700;font-size:13.5px;padding:13px 8px;cursor:pointer;width:100%;min-height:44px}
   #tpPost .save{background:var(--rust);border-color:transparent}
   #tpPost a{text-decoration:none;display:flex}
   /* Script editor + done modal reuse .modal/.sheet; extra fields */
@@ -857,7 +860,7 @@ textarea, select,
      sheet (script editor, bin card) puts the title under the Dynamic Island
      and the Save row past the home indicator. flex-start + auto margins
      centers when it fits and starts below --sat when it doesn't. */
-  .modal{position:fixed;inset:0;z-index:300;background:rgba(43,42,40,.55);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) 16px calc(var(--sab) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}
+  .modal{position:fixed;inset:0;z-index:300;background:rgba(43,42,40,.55);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}
   .modal.show{display:flex}
   .sheet{background:var(--cream);border-radius:18px;padding:22px;width:100%;max-width:340px;box-shadow:0 20px 50px rgba(0,0,0,.3);margin-top:auto;margin-bottom:auto;flex:none}
   .sheet h3{font-family:var(--serif);font-weight:700;font-size:20px;margin:0 0 6px}
@@ -879,7 +882,7 @@ textarea, select,
   .sheetx:active{background:var(--ink);color:var(--cream)}
   .binsheet #binBody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 18px 2px}
   .binsheet .row{flex:none;padding:12px 18px 16px}
-  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;height:calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));padding-bottom:env(safe-area-inset-bottom, 0px);padding-bottom:var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:stretch;box-shadow:0 -4px 18px rgba(43,42,40,.06);}
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;height:calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));padding-bottom:env(safe-area-inset-bottom, 0px);padding-bottom:var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));padding-left:var(--sal);padding-right:var(--sar);background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:stretch;box-shadow:0 -4px 18px rgba(43,42,40,.06);}
   .tab{flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:12px;letter-spacing:.2px;font-weight:600;position:relative;min-height:44px}
   .tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
   .tab .tl{max-width:100%;white-space:normal;text-align:center;line-height:1.15;font-size:12px}
@@ -973,13 +976,15 @@ textarea, select,
   #binBody .fyiadd{margin-top:4px}
   #binBody .fyiadd textarea,#binBody .fyiadd input{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;text-align:left;letter-spacing:normal;font-family:var(--sans);background:#fff;margin-bottom:8px;resize:vertical}
   /* Day PIN gate — locks the whole app.
-     align-items:center + a taller-than-viewport card clips the title and
-     Privacy link in landscape (card ~465px vs 390px tall). flex-start +
-     auto margins centers the card when it fits and starts it at the top
-     when it doesn't, so overflow:auto can reach every field. */
-  .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);overflow:auto;-webkit-overflow-scrolling:touch}
+     Production 844×390 (v1.18.7) clipped Unlock and hid Privacy: the
+     overlay was the scrollport (`overflow:auto`) and the card was ~449px.
+     The sheet is the only scrollport now. Cap it with min(100%, 100svh)
+     so Unlock + Privacy stay on first paint (100svh alone is the Chrome
+     window, not a framed 390-tall phone). No skip/X — the wall stays.
+     flex-start + auto margins still center the card when it fits. */
+  .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);overflow:hidden}
   .daygate.show{display:flex}
-  .dgsheet{background:var(--cream);border-radius:20px;padding:26px 22px;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(0,0,0,.45);text-align:center;margin-top:auto;margin-bottom:auto;flex:none}
+  .dgsheet{background:var(--cream);border-radius:20px;padding:26px 22px;width:100%;max-width:360px;max-height:100%;max-height:min(100%,calc(100vh - 16px));max-height:min(100%,calc(100dvh - 16px));max-height:min(100%,calc(100svh - 16px));min-height:0;box-shadow:0 24px 60px rgba(0,0,0,.45);text-align:center;margin-top:auto;margin-bottom:auto;flex:0 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box}
   .dgbrand{font-weight:900;letter-spacing:1.5px;font-size:13px;color:var(--wine);margin-bottom:14px}
   .dgbrand small{font-weight:600;font-size:9px;letter-spacing:1px}
   .dgsheet h3{font-family:var(--serif);font-size:21px;margin:0 0 6px}
@@ -988,13 +993,27 @@ textarea, select,
   .dgsheet select{width:100%;border:1px solid var(--line);border-radius:12px;padding:13px;font-size:15px;font-family:var(--sans);background:#fff;color:var(--ink);box-sizing:border-box;margin-top:9px}
   .dgsheet input+input,.dgsheet select+input{margin-top:9px}
   .dgsheet .err{color:var(--bad);font-size:12px;font-weight:700;min-height:16px;margin:8px 0 0}
-  .dgsheet .ok{margin-top:12px;width:100%;border:none;border-radius:12px;padding:13px;font-weight:700;font-size:15px;cursor:pointer;background:var(--wine);color:#fff;min-height:44px}
+  .dgsheet .ok{margin-top:12px;width:100%;border:none;border-radius:12px;padding:13px;font-weight:700;font-size:15px;cursor:pointer;background:var(--wine);color:#fff;min-height:44px;position:sticky;bottom:44px;z-index:2}
+  .dgsheet .hint{margin:0;position:sticky;bottom:0;background:var(--cream);z-index:2}
   .dgsheet .hint a,.dgsheet .dgpv{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;padding:12px 16px;font-size:14px;font-weight:700;color:var(--wine);text-decoration:underline}
+  /* 844×390 first paint (production v1.18.7): the card was ~449px in a
+     390px window. Unlock sat below the fold and Privacy was fully off-
+     screen. The overlay already scrolled — that is not first paint.
+     Cap the sheet to the gate, stick Unlock + Privacy to the visible
+     bottom, and tighten type/padding. No skip/X — the wall stays. */
   @media (max-height:500px){
-    .dgsheet{padding:16px 18px}
-    .dgbrand{margin-bottom:8px}
-    .dgsheet p{margin:0 0 10px}
-    .dgsheet h3{font-size:18px}
+    .daygate{padding:calc(var(--sat) + 8px) calc(var(--sar) + 16px) calc(var(--sab) + 8px) calc(var(--sal) + 16px)}
+    .dgsheet{padding:10px 16px 8px;margin-top:0;margin-bottom:0;max-height:100%;max-height:min(100%,calc(100svh - 16px));overflow-y:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box}
+    .dgbrand{margin-bottom:4px;font-size:11px}
+    .dgsheet h3{font-size:17px;margin:0 0 2px}
+    .dgsheet p{margin:0 0 6px;font-size:12px;line-height:1.3}
+    .dgsheet input,.dgsheet select{padding:8px 12px;margin-top:0}
+    .dgsheet select{margin-top:6px}
+    .dgsheet input+input,.dgsheet select+input{margin-top:6px}
+    .dgsheet .err{min-height:0;margin:4px 0 0}
+    .dgsheet .ok{margin-top:8px;position:sticky;bottom:44px;z-index:2}
+    .dgsheet .hint{margin:0;position:sticky;bottom:0;background:var(--cream);z-index:2}
+    .dgsheet .hint a,.dgsheet .dgpv{padding:8px 12px}
   }
   /* v1.6.1 — dynamic print / save-as-PDF for the Playbook & Counselor Booklet */
   .printbtn{display:block;width:100%;border:none;border-radius:12px;background:var(--ink);color:var(--cream);font-weight:700;font-size:13.5px;padding:12px;cursor:pointer;margin:0 0 14px}
@@ -1066,7 +1085,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.7</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.8</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">

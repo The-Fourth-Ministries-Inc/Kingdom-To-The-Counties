@@ -33,10 +33,13 @@ test("sticky header uses env(safe-area-inset-top) on WKWebView, not a SystemBars
   assert.match(html, /name="viewport"[^>]*viewport-fit=cover/);
   assert.match(html, /--sat:env\(safe-area-inset-top,\s*0px\)/);
   assert.match(html, /\.topwrap\{[^}]*padding-top:env\(safe-area-inset-top,\s*0px\)/);
-  assert.match(html, /\.topbar\{[^}]*padding:12px 18px/);
+  assert.match(html, /\.topbar\{[^}]*padding:12px calc\(var\(--sar\) \+ 18px\) 12px calc\(var\(--sal\) \+ 18px\)/);
   assert.doesNotMatch(html, /\.topbar\{[^}]*safe-area-inset-top/);
   assert.match(html, /\.daygate\{[^}]*padding:calc\(env\(safe-area-inset-top,\s*0px\) \+ 24px\)/);
   assert.match(html, /\.tabbar\{[^}]*padding-bottom:env\(safe-area-inset-bottom,\s*0px\)/);
+  assert.match(html, /\.tabbar\{[^}]*padding-left:var\(--sal\)/);
+  assert.match(html, /--sal:env\(safe-area-inset-left,\s*0px\)/);
+  assert.match(html, /--sar:env\(safe-area-inset-right,\s*0px\)/);
 
   const cap = JSON.parse(read("capacitor.config.json"));
   assert.equal(cap.ios.contentInset, "never");
@@ -76,11 +79,11 @@ test("version badge, service worker cache, and SW comment stay aligned", () => {
   const html = read("index.html");
   const sw = read("sw.js");
   const version = readAppVersion(html);
-  assert.equal(version, "1.18.7");
+  assert.equal(version, "1.18.8");
   assert.match(sw, new RegExp("app v" + version.replace(/\./g, "\\.")));
   const cache = sw.match(/var CACHE = "(k2c-v\d+)"/);
   assert.ok(cache, "SW cache name missing");
-  assert.equal(cache[1], "k2c-v59");
+  assert.equal(cache[1], "k2c-v60");
 });
 
 test("tour card is clamped below --sat / env(safe-area-inset-top)", () => {
