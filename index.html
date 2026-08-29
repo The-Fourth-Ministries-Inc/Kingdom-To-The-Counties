@@ -15,13 +15,17 @@
 <title>Kingdom to the Counties '26 — Ambassador</title>
 <script src="assets/qrcode.min.js" defer></script>
 <style>
-/* iOS Safari zooms the whole page when a focused field is under 16px, leaving
-   volunteers zoomed in and panning to find the submit button. Every entry
-   field in the app was 13–15px, including inline-styled ones in the church
-   CRM — hence the blanket rule with !important. Applies to real inputs only,
-   so nothing else in the type scale is affected. */
+/* iOS Safari / WKWebView zooms the whole page when a focused field is under
+   16px, leaving volunteers zoomed in and panning to find the submit button.
+   Every entry field in the app was 13–15px, including inline-styled ones in
+   the church CRM — hence the blanket rule with !important. The Recording
+   Studio script body is a contenteditable div (not an input), so it has to
+   be listed here too: 14.5px there left a leftover visualViewport zoom that
+   cropped the camera and hid ‹ Scripts. Applies to real entry fields only. */
 input:not([type=checkbox]):not([type=radio]):not([type=range]),
-textarea, select { font-size: 16px !important; }
+textarea, select,
+[contenteditable="true"],
+[contenteditable=""] { font-size: 16px !important; }
 /* Icon-sized controls need a real hit area even when the glyph is small. */
 .chknotebtn, .cmtbtn, .cattabs button, .chstars button { min-height: 44px; min-width: 44px; }
 /* Self-hosted Fraunces (variable opsz+wght) — offline-safe, replaces Google Fonts */
@@ -552,7 +556,7 @@ textarea, select { font-size: 16px !important; }
   #capRemindList li{margin-bottom:6px;font-size:14px}
 
   /* ===== Recording Studio — full-screen teleprompter overlay (dark) ===== */
-  #tpApp{position:fixed;inset:0;background:#000;display:none;z-index:200}
+  #tpApp{position:fixed;inset:0;background:#000;display:none;z-index:200;touch-action:manipulation}
   #tpApp.show{display:block}
   #tpCam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;transform:scaleX(-1)}
   #tpCam.rear{transform:none}
@@ -574,8 +578,8 @@ textarea, select { font-size: 16px !important; }
   #tpWrap.mirror #tpText{transform:scaleX(-1)}
   #tpControls button.on{background:rgba(184,98,57,.55);border-color:var(--rust)}
   @media (orientation:landscape){#tpWrap{top:6%;height:56%}#tpControls{padding:6px 10px calc(var(--sab) + 6px)}#tpControls button{min-height:40px;padding:8px 12px}}
-  #tpLabel{position:absolute;top:calc(var(--sat) + 10px);left:12px;background:rgba(20,19,18,.8);border:1px solid rgba(245,242,233,.16);padding:6px 12px;border-radius:16px;font-size:12px;color:var(--powder);font-weight:700;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #tpBack{position:absolute;top:calc(var(--sat) + 6px);right:12px;min-height:36px;padding:7px 13px;font-size:13px;border-radius:16px;border:1px solid rgba(245,242,233,.25);background:transparent;color:var(--cream);cursor:pointer}
+  #tpLabel{position:absolute;top:calc(var(--sat) + 10px);left:12px;z-index:220;background:rgba(20,19,18,.8);border:1px solid rgba(245,242,233,.16);padding:6px 12px;border-radius:16px;font-size:12px;color:var(--powder);font-weight:700;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #tpBack{position:absolute;top:calc(var(--sat) + 6px);right:12px;z-index:220;min-height:44px;min-width:44px;padding:8px 14px;font-size:13px;border-radius:16px;border:1px solid rgba(245,242,233,.25);background:rgba(20,19,18,.72);color:var(--cream);cursor:pointer}
   #tpRecInd{position:absolute;top:calc(var(--sat) + 52px);left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;background:rgba(20,19,18,.8);padding:6px 14px;border-radius:20px;font-size:14px;color:var(--cream);font-variant-numeric:tabular-nums}
   #tpRecInd.show{display:flex}
   #tpRecDot{width:10px;height:10px;border-radius:50%;background:#e5484d;animation:tpPulse 1s infinite}
@@ -593,10 +597,10 @@ textarea, select { font-size: 16px !important; }
   #tpRecBtn.recording::before{border-radius:6px;background:#e5484d}
   #tpCountdown{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:130px;color:var(--cream);text-shadow:0 4px 24px rgba(0,0,0,.9);z-index:212;font-family:var(--serif);font-weight:900}
   #tpCountdown.show{display:flex}
-  #tpPerm{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:30px;color:var(--powder);font-size:15px;line-height:1.6;background:#141312;z-index:205}
-  #tpTips{position:absolute;inset:0;z-index:214;background:rgba(15,14,13,.86);display:none;align-items:center;justify-content:center;padding:22px}
+  #tpPerm{position:absolute;inset:0;display:none;align-items:flex-start;justify-content:center;text-align:center;padding:calc(var(--sat) + 16px) 16px calc(var(--sab) + 16px);color:var(--powder);font-size:15px;line-height:1.6;background:#141312;z-index:205}
+  #tpTips{position:absolute;inset:0;z-index:214;background:rgba(15,14,13,.86);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) 16px calc(var(--sab) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}
   #tpTips.show{display:flex}
-  #tpTips .tsheet{background:#221f1e;border:1px solid rgba(245,242,233,.16);border-radius:18px;padding:20px;max-width:400px;width:100%;color:var(--cream)}
+  #tpTips .tsheet{background:#221f1e;border:1px solid rgba(245,242,233,.16);border-radius:18px;padding:20px;max-width:400px;width:100%;color:var(--cream);margin-top:auto;margin-bottom:auto}
   #tpTips h3{font-family:var(--serif);font-weight:900;font-size:19px;margin:0 0 8px}
   #tpTips ul{margin:0 0 14px;padding-left:19px;font-size:13.5px;line-height:1.65;color:#ddd8cd}
   #tpTips li b{color:var(--powder)}
@@ -613,7 +617,7 @@ textarea, select { font-size: 16px !important; }
   #tpPost a{text-decoration:none;display:flex}
   /* Script editor + done modal reuse .modal/.sheet; extra fields */
   #tpEdSheet input,#tpEdSheet select{width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;font-size:14px;font-family:var(--sans);background:#fff;margin-bottom:9px;box-sizing:border-box}
-  #tpEdBody{border:1px solid var(--line);border-radius:11px;padding:12px;font-size:14.5px;line-height:1.6;background:#fff;min-height:150px;max-height:38vh;overflow-y:auto;margin-bottom:9px;-webkit-user-modify:read-write;outline:none}
+  #tpEdBody{border:1px solid var(--line);border-radius:11px;padding:12px;font-size:16px;line-height:1.6;background:#fff;min-height:150px;max-height:38vh;overflow-y:auto;margin-bottom:9px;-webkit-user-modify:read-write;outline:none}
   #tpFmt{display:flex;gap:8px;margin-bottom:9px}
   #tpFmt button{flex:none;min-width:52px;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:9px 0;font-size:15px;cursor:pointer}
   #tpEdDel{background:none;border:none;color:var(--bad);font-size:12.5px;font-weight:700;text-decoration:underline;cursor:pointer;padding:6px 0;margin-bottom:4px}
@@ -849,15 +853,19 @@ textarea, select { font-size: 16px !important; }
   .eventedit{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 15px;box-shadow:var(--shadow);margin-bottom:14px}
   .eventedit .ttl{font-family:var(--serif);font-weight:600;font-size:15px;margin:0 0 9px}
   .eventedit input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:14px;margin-bottom:8px;font-family:var(--sans)}
-  .modal{position:fixed;inset:0;z-index:300;background:rgba(43,42,40,.55);display:none;align-items:center;justify-content:center;padding:24px}
+  /* Same clip trap as the Day PIN gate: center + a taller-than-viewport
+     sheet (script editor, bin card) puts the title under the Dynamic Island
+     and the Save row past the home indicator. flex-start + auto margins
+     centers when it fits and starts below --sat when it doesn't. */
+  .modal{position:fixed;inset:0;z-index:300;background:rgba(43,42,40,.55);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) 16px calc(var(--sab) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}
   .modal.show{display:flex}
-  .sheet{background:var(--cream);border-radius:18px;padding:22px;width:100%;max-width:340px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+  .sheet{background:var(--cream);border-radius:18px;padding:22px;width:100%;max-width:340px;box-shadow:0 20px 50px rgba(0,0,0,.3);margin-top:auto;margin-bottom:auto;flex:none}
   .sheet h3{font-family:var(--serif);font-weight:700;font-size:20px;margin:0 0 6px}
   .sheet p{font-size:13px;color:var(--muted);margin:0 0 14px}
   .sheet input{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:18px;text-align:center;letter-spacing:6px;font-family:var(--serif);margin-bottom:8px;background:#fff}
   .sheet .err{color:var(--bad);font-size:12px;font-weight:700;min-height:16px;margin-bottom:8px}
   .sheet .row{display:flex;gap:9px}
-  .sheet .row button{flex:1;border:none;border-radius:11px;padding:12px;font-weight:700;font-size:14px;cursor:pointer}
+  .sheet .row button{flex:1;border:none;border-radius:11px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;min-height:44px}
   .sheet .row .cancel{background:var(--card);border:1px solid var(--line);color:var(--ink)}
   .sheet .row .ok{background:var(--wine);color:#fff}
   /* Bin card. A full bin — contents, reports, and the leader edit form — is
@@ -1058,7 +1066,7 @@ textarea, select { font-size: 16px !important; }
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.6</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.18.7</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -2378,7 +2386,7 @@ textarea, select { font-size: 16px !important; }
   <div id="tpFmt"><button onclick="tpFmt('bold')"><b>B</b></button><button onclick="tpFmt('italic')"><i>I</i></button><button onclick="tpFmt('underline')"><u>U</u></button></div>
   <div id="tpEdBody" contenteditable="true"></div>
   <button id="tpEdDel" style="display:none" onclick="tpDelete()">🗑 Delete this script</button>
-  <div class="row"><button class="cancel" onclick="document.getElementById('tpEditor').classList.remove('show')">Cancel</button><button class="ok" onclick="tpSaveEditor()">Save</button></div>
+  <div class="row"><button class="cancel" onclick="tpCloseEditor()">Cancel</button><button class="ok" onclick="tpSaveEditor()">Save</button></div>
 </div></div>
 <!-- Done confirmation -->
 <div class="modal" id="tpDoneModal"><div class="sheet">

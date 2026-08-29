@@ -605,6 +605,60 @@ function tpOpenEditor(id){
   document.getElementById("tpEdDel").style.display=id?"block":"none";
   document.getElementById("tpEditor").classList.add("show");
 }
+/* iOS WKWebView (TestFlight) zooms the page when a focused field is under
+   16px. The studio camera is object-fit:cover, so leftover visualViewport
+   zoom looks like a close blurry crop and can push ‹ Scripts off-screen.
+   Inputs already use 16px; we also lock maximum-scale while the studio is
+   open (Safari ignores user-scalable=no; WKWebView honors maximum-scale)
+   and snap any leftover scale back when the editor closes. */
+var TP_VP_BASE="width=device-width, initial-scale=1, viewport-fit=cover";
+function tpViewportMeta(){return document.querySelector('meta[name="viewport"]');}
+function tpSetViewport(extra){
+  var m=tpViewportMeta();if(!m)return;
+  m.setAttribute("content", extra?TP_VP_BASE+", "+extra:TP_VP_BASE);
+}
+function tpStudioOpen(){var a=document.getElementById("tpApp");return !!(a&&a.classList.contains("show"));}
+function tpLockScale(){tpSetViewport("maximum-scale=1");}
+function tpUnlockScale(){tpSetViewport("");}
+function tpResetLeftoverScale(){
+  tpSetViewport("maximum-scale=1");
+  var keep=tpStudioOpen();
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      if(keep)tpLockScale();else tpUnlockScale();
+    });
+  });
+}
+function tpResetCamLayer(){
+  var v=document.getElementById("tpCam");
+  if(!v)return;
+  v.style.transform="";
+  v.style.zoom="";
+  v.classList.toggle("rear", tpFacing==="environment");
+}
+function tpResetTipLayer(){
+  var tips=document.getElementById("tpTips"),wrap=document.getElementById("tpWrap");
+  if(tips){tips.style.transform="";tips.style.zoom="";}
+  if(wrap){wrap.style.zoom="";}
+  if(tpTextEl){
+    tpTextEl.style.zoom="";
+    tpTextEl.style.fontSize=tpFontSize+"px";
+    tpTextEl.style.transform="";
+  }
+  if(tpTrack)tpTrack.style.transform=tpPos?"translateY(-"+tpPos+"px)":"translateY(0)";
+}
+function tpBlurEditor(){
+  try{var a=document.activeElement;if(a&&a.blur)a.blur();}catch(_){}
+  try{if(window.scrollTo)window.scrollTo(0,0);}catch(_){}
+}
+function tpCloseEditor(){
+  var ed=document.getElementById("tpEditor");
+  if(ed)ed.classList.remove("show");
+  tpBlurEditor();
+  tpResetCamLayer();
+  tpResetTipLayer();
+  tpResetLeftoverScale();
+}
 function tpFmt(cmd){document.getElementById("tpEdBody").focus();document.execCommand(cmd,false,null);}
 function tpSaveEditor(){
   if(!LEADER){askPin(function(){});return;}
@@ -623,14 +677,14 @@ function tpSaveEditor(){
     document.getElementById("tpLabel").textContent=patch.event.split("—")[0].trim()+" · "+patch.title;
     tpUpdateEta();
   }
-  document.getElementById("tpEditor").classList.remove("show");
+  tpCloseEditor();
 }
 function tpDelete(){
   if(!tpEdId||!LEADER)return;
   if(!confirm("Delete this script for everyone? This can't be undone."))return;
   var id=tpEdId;
   doAction("promptDelete",{id:id},function(){STATE.prompter.scripts=tpScripts().filter(function(x){return x.id!==id;});});
-  document.getElementById("tpEditor").classList.remove("show");
+  tpCloseEditor();
 }
 
 /* ---- Teleprompter overlay ---- */
@@ -650,6 +704,7 @@ function tpOpen(id){
   document.getElementById("tpPost").classList.remove("show");
   document.getElementById("tpApp").classList.add("show");
   document.body.style.overflow="hidden";
+  tpLockScale();
   if(!tpTipsSeen){
     document.getElementById("tpTips").classList.add("show");
     tpTipsSeen=true;
@@ -667,6 +722,7 @@ function tpClose(){
   tpPracticeMode=false;
   document.getElementById("tpApp").classList.remove("show");
   document.body.style.overflow="";
+  tpUnlockScale();
   tpWakeOff();tpStopCam();if(tpRAF){cancelAnimationFrame(tpRAF);tpRAF=null;}
   if(tpPrevUrl)try{URL.revokeObjectURL(tpPrevUrl);tpPrevUrl="";}catch(_){}
   renderPrompt();
@@ -708,6 +764,7 @@ function tpForceClose(){
   document.getElementById("tpPerm").style.display="none";
   document.getElementById("tpApp").classList.remove("show");
   document.body.style.overflow="";
+  tpUnlockScale();
   tpWakeOff();tpStopCam();if(tpRAF){cancelAnimationFrame(tpRAF);tpRAF=null;}
   renderPrompt();
 }
