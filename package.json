@@ -12,7 +12,8 @@
     "patch:native": "node scripts/patch-native.mjs",
     "mobile:add:android": "npm run prepare:mobile && npx cap add android && node scripts/patch-native.mjs android",
     "mobile:add:ios": "npm run prepare:mobile && npx cap add ios && node scripts/patch-native.mjs ios",
-    "mobile:sync": "npm run prepare:mobile && npx cap sync && node scripts/patch-native.mjs"
+    "mobile:sync": "npm run prepare:mobile && npx cap sync && node scripts/patch-native.mjs",
+    "capture:screenshots": "node scripts/capture-store-screenshots.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.4.2",

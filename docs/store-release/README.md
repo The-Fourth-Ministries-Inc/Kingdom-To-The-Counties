@@ -63,3 +63,4 @@ absent until a human confirms otherwise.
 - [app-store-listing.DRAFT.md](app-store-listing.DRAFT.md) — App Store copy. **Not live.**
 - [google-play-listing.DRAFT.md](google-play-listing.DRAFT.md) — Play copy. **Not live.**
 - [reviewer-notes.DRAFT.md](reviewer-notes.DRAFT.md) — review Day PIN placeholder. **Not live.**
+- [screenshots/](screenshots/) — **DRAFT** iPhone 6.7-inch (1290×2796) PNGs for the App Store Connect 6.9-inch slot. Not submitted.
