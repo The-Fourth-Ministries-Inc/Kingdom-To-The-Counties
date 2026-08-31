@@ -351,19 +351,32 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
-## Graphics for Sharing (v1.15.1)
+## Graphics for Sharing (v1.19.0)
 
 Under **Ambassador Resources → 🖼️ Graphics for Sharing**: a download-and-post
 strip of everything a volunteer can put on their own feed. Two formats per
 county — the tall `· Flyer` (print/story shaped) and the wide `· Banner` (built
-for a Facebook event header or cover photo) — plus the **Come and See** hero,
-the **Mission & Vision** card, and the promo video. Cards run in season order
-so the next county is near the top.
+for a Facebook event header or cover photo) — plus the **BUILD HIS KINGDOM**
+fund card at the top, the **Come and See** hero, the **Mission & Vision**
+card, and the promo video. Cards run in season order so the next county is
+near the top. Upcoming-county flyers sit with the other county graphics.
+
+**v1.19.0** adds three share files ambassadors can download from the same
+page (and from the Mobilization **Graphics** button, which opens this page):
+
+- **BUILD HIS KINGDOM** — 99 Days to Get the One until October 31, 2026.
+  We’re Funded! 28%. $15,500 raised. Goal $55,000.
+- **Merrimack County · Flyer** — Sat 9/12/26 · 2–5pm · Hugh Gallen Soccer
+  Field, Concord NH. Free, all ages.
+- **Hillsborough County · Flyer** — Sat 9/26/26 · 2–5pm · Derryfield Park,
+  Manchester NH. Free, all ages.
 
 Card copy (dates, venues, towns) is written from the county roster in
-`js/counties.js`, **not** transcribed off the artwork, so the page can't drift
-from the schedule the rest of the app runs on. When you add a graphic, copy the
-venue string from the roster entry.
+`js/counties.js` when that county is on the roster, **not** transcribed off
+the artwork, so the page can't drift from the schedule the rest of the app
+runs on. Merrimack and Hillsborough are not on the Recording Studio roster
+yet, so those two captions match the flyer. When you add a graphic for a
+rostered county, copy the venue string from the roster entry.
 
 **A card whose image is missing hides itself.** `gfxMiss()` (inline at the
 bottom of `#page-graphics`) drops the whole card on an image `error`, and a
