@@ -42,6 +42,59 @@ test("native shell depends on Capacitor App for backButton", () => {
   assert.match(extractFunction(js, "show"), /fromBack/);
 });
 
+test("show() pushes history so OS / live-site back can pop a page", () => {
+  assert.match(extractFunction(js, "show"), /pushPageHistory\(/);
+  assert.match(extractFunction(js, "boot"), /bindPageHistory\(\)/);
+  assert.match(js, /function pushPageHistory\(/);
+  assert.match(js, /function bindPageHistory\(/);
+  assert.match(js, /history\.pushState/);
+  assert.match(js, /history\.replaceState/);
+  assert.match(js, /popstate/);
+  assert.match(js, /k2cPage/);
+  assert.match(extractFunction(js, "handleAppBack"), /history\.back/);
+  assert.match(extractFunction(js, "pushPageHistory"), /fromBack/);
+});
+
+test("pushPageHistory writes k2cPage and skips same-page / fromBack", () => {
+  const pushed = [];
+  const ctx = createContext({
+    history: { pushState: (state) => { pushed.push(state); } },
+    location: { href: "https://ambassadorcompanion.netlify.app/" }
+  });
+  runInContext(
+    extractFunction(js, "pushPageHistory") +
+      "\npushPageHistory('now','capture',false);" +
+      "\npushPageHistory('capture','capture',false);" +
+      "\npushPageHistory('capture','now',true);",
+    ctx
+  );
+  assert.equal(pushed.length, 1);
+  assert.equal(pushed[0].k2cPage, "capture");
+});
+
+test("handleAppBack uses history.back when a page is stacked", () => {
+  let backs = 0;
+  const shown = [];
+  const ctx = createContext({
+    PAGE_STACK: ["now"],
+    PARENT: { capture: "guides" },
+    ROOT_PAGE: "now",
+    history: { back: () => { backs++; } },
+    show: (id, opts) => { shown.push({ id, fromBack: !!(opts && opts.fromBack) }); },
+    document: { querySelector: () => ({ id: "page-capture" }) }
+  });
+  const src = [
+    extractFunction(js, "pageId"),
+    extractFunction(js, "popPage"),
+    extractFunction(js, "handleAppBack")
+  ].join("\n");
+  const stayed = runInContext(src + "\nresult = handleAppBack();", ctx);
+  assert.equal(stayed, true);
+  assert.equal(backs, 1);
+  assert.deepEqual(shown, [], "popstate, not handleAppBack, must show() the previous page");
+  assert.equal(ctx.PAGE_STACK.length, 1, "PAGE_STACK waits for popstate");
+});
+
 test("handleAppBack pops an inner page and stays in the app", () => {
   const shown = [];
   const ctx = createContext({

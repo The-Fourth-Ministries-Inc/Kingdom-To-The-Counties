@@ -351,28 +351,35 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
-## Play tester fixes (v1.19.1)
+## Play tester fixes (v1.19.2)
 
 Internal Play testers on release 15 / v1.19.0 reported three field bugs.
-This patch does not skip the Day PIN, does not add a new cloud backend, and
-does not change store-submit or Play production promotion.
+A live-site pass on ambassadorcompanion.netlify.app v1.19.0 confirmed the
+first two. This patch does not skip the Day PIN, does not add a new cloud
+backend, and does not change store-submit or Play production promotion.
 
-- **Android system back stays in the app.** The gesture / old back-arrow now
-  pops `show()` pages (Quick Capture, checklists, a hub you just left). It
-  only leaves the app on Event Day with nothing under it. Wired through
-  Capacitor `App.addListener("backButton")` — the same `show()` / `PARENT`
-  map the in-app ‹ links already use.
-- **Photo upload is not an in-app account wall.** “Upload media” still goes
-  to the SharePoint dump (`bit.ly/uploadk2c`). On the native shell it opens
-  in the system browser (`@capacitor/browser` / `App.openUrl` / `_system`)
-  so Microsoft login uses Chrome’s cookies instead of the WebView. Quick
-  Capture card photos still save in-app; the Camera prompt is plain language
-  and does not ask for a Microsoft account.
-- **LIVE / next-stop is the next county before the event.** Laura’s Play
-  screenshot (v1.19.0, Monday ~9:50 PM) still showed **Belknap County ·
-  Saturday, August 22nd** and a blank **NEXT —**. Belknap was Sat Aug 22;
-  the board rolls on the Monday after (Aug 24). By Aug 31 / Sep 1 the
-  current county is **Coös** (Sat Sep 5, Gorham Town Common). The leftover
+- **Android / browser back stays in the app (John).** `show()` now
+  `pushState({k2cPage})` so `history.length` grows and the URL can stay
+  `/`. Android gesture back and the live site fire `popstate` and pop the
+  page. Capacitor `App.addListener("backButton")` calls `history.back()`
+  (the WebView does not pop on its own once we listen). Root is Event Day
+  (`now`); only then does the app exit. v1.19.0 never pushed history
+  (`history.length` stayed 2) so OS back left the app.
+- **Photo upload does not require a work Microsoft account (John).**
+  `bit.ly/uploadk2c` 301s to Zach’s SharePoint folder and 403s without a
+  Microsoft sign-in. The Now card primary path is **Share / save** — pick
+  photos or video on the phone and use the OS share sheet (Messages,
+  personal Drive, save to the phone). No new backend. The secondary
+  **Team dump** still opens SharePoint in the system browser
+  (`@capacitor/browser` / `App.openUrl` / `_system`) for people who have
+  a work login. Quick Capture card photos stay in-app.
+- **LIVE / next-stop is the Now-tab line, not studio/graphics headings
+  (Laura).** The bug is the Event Day card: leftover **Belknap County ·
+  Saturday, August 22nd** on `#eventTag` and a blank **NEXT —** on
+  `#stripNext` after that Saturday is over. Coös in Recording Studio or
+  Graphics headings is not this fix. Belknap was Sat Aug 22; the board
+  rolls on the Monday after (Aug 24). By Aug 31 / Sep 1 the current
+  county is **Coös** (Sat Sep 5, Gorham Town Common). The leftover
   `setEvent` label is ignored; Coös / Coos / coos all match. On the event
   Saturday and Sunday rain date the clock segments stay in charge.
 

@@ -1700,7 +1700,7 @@ function renderCountySelect(){
 /* The Day PIN is the event's Saturday as MMDD and rolls to the next event on
    the Monday after. Leaders see the live value (so they can read it out) and
    exactly when it changes; volunteers never receive it. */
-/* Next-stop line (v1.19.1). Same Monday-after rule as SCHEDULE in data.mjs
+/* Next-stop line (v1.19.2). Same Monday-after rule as SCHEDULE in data.mjs
    and COUNTIES in counties.js — current through Sunday, next county Monday.
    Kept here so Event Day can paint before counties.js loads. A test fails
    the build if these dates drift from COUNTIES. */
@@ -2435,8 +2435,14 @@ document.getElementById("annBarX").addEventListener("click",function(e){
 var annBarMode="checkin";
 document.getElementById("annBar").addEventListener("click",function(){show(annBarMode==="checkin"?"checkin":"announcements");});
 var PARENT={dashboard:"crew",checkin:"guides",count:"crew",setup:"crew",techio:"crew",inventory:"crew",announcements:"board",praise:"board",issue:"board",leaders:"guides",graphics:"guides",donate:"guides",playbook:"guides",handbook:"guides",tour:"guides",radios:"crew",shareapp:"guides",capture:"guides",church:"mobilize",faith:"guides"};
-/* Android system/gesture back (v1.19.1). show() is the only navigator —
-   we remember the page we left so Capacitor App.backButton can pop it.
+/* Android system/gesture back (v1.19.2). show() is the only navigator.
+   Two stacks stay in lockstep:
+   1) history.pushState({k2cPage}) so the live site and Android gesture
+      back have a real history entry (v1.19.0 left history.length at 2
+      and URL at /, so OS back exited).
+   2) PAGE_STACK + Capacitor App.backButton — the WebView does not pop
+      history on its own when we listen for backButton, so we history.back()
+      and popstate calls show(..., {fromBack:true}).
    Root/home is Event Day (`now`). Only then do we leave the app. */
 var PAGE_STACK=[];
 var ROOT_PAGE="now";
@@ -2450,9 +2456,31 @@ function rememberPage(fromId,toId,fromBack){
   if(PAGE_STACK.length>40)PAGE_STACK.shift();
 }
 function popPage(){return PAGE_STACK.length?PAGE_STACK.pop():"";}
+function pushPageHistory(fromId,toId,fromBack){
+  if(fromBack||!toId||fromId===toId)return;
+  try{if(history.pushState)history.pushState({k2cPage:toId},"",location.href);}catch(_){}
+}
+function bindPageHistory(){
+  if(bindPageHistory._on)return;
+  bindPageHistory._on=true;
+  try{if(history.replaceState)history.replaceState({k2cPage:pageId()},"",location.href);}catch(_){}
+  window.addEventListener("popstate",function(e){
+    var id=(e&&e.state&&e.state.k2cPage)||ROOT_PAGE;
+    if(PAGE_STACK.length)popPage();
+    show(id,{fromBack:true});
+  });
+}
 function handleAppBack(){
-  var prev=popPage();
-  if(prev){show(prev,{fromBack:true});return true;}
+  /* Prefer the history we pushed so gesture back and Capacitor back
+     take the same path. popstate does the show() — do not show() here
+     or we double-navigate. Fall back to PAGE_STACK if history is missing. */
+  if(PAGE_STACK.length){
+    try{
+      if(typeof history!=="undefined"&&history.back){history.back();return true;}
+    }catch(_){}
+    var prev=popPage();
+    if(prev){show(prev,{fromBack:true});return true;}
+  }
   var cur=pageId();
   if(cur!==ROOT_PAGE){
     show(PARENT[cur]||ROOT_PAGE,{fromBack:true});
@@ -2498,6 +2526,50 @@ function openUploadMedia(ev){
   openSystemUrl("https://bit.ly/uploadk2c");
   return false;
 }
+function pickShareMedia(){
+  var inp=document.getElementById("shareMediaInput");
+  if(!inp)return;
+  inp.value="";
+  inp.click();
+}
+function onShareMediaPicked(){
+  var inp=document.getElementById("shareMediaInput");
+  if(!inp||!inp.files||!inp.files.length)return;
+  shareEventMedia(inp.files);
+}
+function shareEventMedia(fileList){
+  var files=[],i;
+  for(i=0;i<fileList.length;i++)files.push(fileList[i]);
+  if(!files.length)return;
+  var payload={files:files,title:"K2C event photos",text:"Kingdom to the Counties — event photos"};
+  if(navigator.share&&(!navigator.canShare||navigator.canShare(payload))){
+    navigator.share(payload).then(function(){
+      toast("Shared — no Microsoft login needed");
+    }).catch(function(err){
+      if(err&&err.name==="AbortError")return;
+      saveMediaToPhone(files);
+    });
+    return;
+  }
+  saveMediaToPhone(files);
+}
+function saveMediaToPhone(files){
+  var n=0,i,a;
+  for(i=0;i<files.length;i++){
+    try{
+      a=document.createElement("a");
+      a.href=URL.createObjectURL(files[i]);
+      a.download=files[i].name||("k2c-photo-"+Date.now()+"-"+i+".jpg");
+      a.rel="noopener";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      n++;
+    }catch(_){}
+  }
+  if(n)toast("Saved "+n+" file"+(n===1?"":"s")+" to this phone — no Microsoft login");
+  else toast("Couldn’t share or save on this phone. Team dump needs a work Microsoft login.");
+}
 function bindUploadLinks(){
   if(bindUploadLinks._on)return;
   bindUploadLinks._on=true;
@@ -2510,11 +2582,15 @@ function bindUploadLinks(){
     e.preventDefault();
     openSystemUrl(t.href||href);
   },true);
+  var sm=document.getElementById("shareMediaInput");
+  if(sm)sm.addEventListener("change",onShareMediaPicked);
 }
 function show(id,opts){
   opts=opts||{};
   if(id==="dashboard"&&!LEADER){askPin(function(){show("dashboard",opts);});}
-  rememberPage(pageId(),id,!!opts.fromBack);
+  var fromId=pageId();
+  rememberPage(fromId,id,!!opts.fromBack);
+  pushPageHistory(fromId,id,!!opts.fromBack);
   var pages=document.querySelectorAll(".page");for(var i=0;i<pages.length;i++)pages[i].classList.remove("active");
   var el=document.getElementById("page-"+id);if(el)el.classList.add("active");
   /* Tech I/O is the one page routinely used at a laptop — the tables are wider
@@ -3361,6 +3437,7 @@ function boot(){
   /* The LIVE card is SEGMENTS + the clock — no server needed. Paint it
      before apiGet so first JS tick is the real NOW state, not "Loading…". */
   refreshAll();
+  bindPageHistory();
   bindNativeBack();
   bindUploadLinks();
   renderIOList();renderLeaders();

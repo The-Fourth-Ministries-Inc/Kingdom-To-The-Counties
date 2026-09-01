@@ -1,7 +1,8 @@
 /* Event-photo upload must not dump ambassadors on an in-app Microsoft
-   "account access" wall. SharePoint (bit.ly/uploadk2c) opens in the system
-   browser. Quick Capture card photos stay in-app and never ask for a
-   Microsoft login. */
+   "account access" wall. bit.ly/uploadk2c 301s to SharePoint and 403s
+   without a work login. The primary path is Share / save on this phone
+   (OS share sheet or a local download). Team dump still opens SharePoint
+   in the system browser. Quick Capture card photos stay in-app. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createContext, runInContext } from "node:vm";
@@ -42,6 +43,42 @@ test("SharePoint upload is opened via Capacitor Browser / App / _system", () => 
   assert.match(extractFunction(js, "boot"), /bindUploadLinks\(\)/);
   assert.match(html, /onclick="return openUploadMedia\(event\)"/);
   assert.match(html, /https:\/\/bit\.ly\/uploadk2c/);
+  assert.match(html, />Team dump</);
+});
+
+test("Share / save path does not require a Microsoft account", () => {
+  assert.match(js, /function pickShareMedia\(/);
+  assert.match(js, /function shareEventMedia\(/);
+  assert.match(js, /function saveMediaToPhone\(/);
+  assert.match(js, /navigator\.share/);
+  assert.match(extractFunction(js, "shareEventMedia"), /files/);
+  assert.doesNotMatch(extractFunction(js, "shareEventMedia"), /bit\.ly|sharepoint|openSystemUrl|openUploadMedia/);
+  assert.doesNotMatch(extractFunction(js, "saveMediaToPhone"), /bit\.ly|sharepoint|openSystemUrl/);
+  assert.match(html, /id="shareMediaInput"/);
+  assert.match(html, /onclick="pickShareMedia\(\)"/);
+  assert.match(html, /Share \/ save/);
+  assert.match(html, /no Microsoft login/);
+  const shareCard = html.match(/<div class="checkinprompt"><span>📸[\s\S]*?<\/div>/);
+  assert.ok(shareCard, "Share / save card missing");
+  assert.doesNotMatch(shareCard[0], /bit\.ly\/uploadk2c/);
+  assert.doesNotMatch(shareCard[0], /openUploadMedia/);
+});
+
+test("shareEventMedia uses the OS share sheet and never opens SharePoint", () => {
+  const calls = [];
+  const files = [{ name: "field.jpg", type: "image/jpeg" }];
+  const ctx = createContext({
+    navigator: {
+      share: (payload) => { calls.push(["share", payload]); return Promise.resolve(); },
+      canShare: () => true
+    },
+    toast: (msg) => { calls.push(["toast", msg]); }
+  });
+  runInContext(extractFunction(js, "shareEventMedia"), ctx);
+  runInContext("shareEventMedia(files)", Object.assign(ctx, { files }));
+  assert.equal(calls[0][0], "share");
+  assert.equal(calls[0][1].files.length, 1);
+  assert.equal(calls[0][1].files[0].name, "field.jpg");
 });
 
 test("isSharePointUpload matches the dump link and SharePoint hosts", () => {

@@ -198,6 +198,15 @@ test("Coös / Coos / coos all resolve to the coos key", () => {
   assert.equal(runSeason('countyKeyOf("")'), "");
 });
 
+test("Laura's leftover-Belknap bug is the Now-tab strip, not studio/graphics headings", () => {
+  assert.match(html, /id="stripNext"/);
+  assert.match(html, /id="eventTag"/);
+  assert.match(extractFunction(js, "paintOffDayStrip"), /stripNext/);
+  assert.match(extractFunction(js, "eventTagLine"), /seasonCurrent|SEASON_STOPS|seasonStopLine/);
+  assert.doesNotMatch(extractFunction(js, "paintOffDayStrip"), /studio|graphics|recording/i);
+  assert.doesNotMatch(extractFunction(js, "eventTagLine"), /studio|graphics|recording/i);
+});
+
 test("LIVE first paint is not Loading… and the strip can wrap a county line", () => {
   const m = html.match(/<h2 id="nowName">([^<]*)<\/h2>/);
   assert.ok(m, "#nowName missing");

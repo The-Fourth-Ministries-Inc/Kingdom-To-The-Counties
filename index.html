@@ -1085,7 +1085,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.1</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.2</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1108,7 +1108,9 @@ textarea, select,
     </div>
     <div class="next" id="nextCard"><div class="lbl">Up Next</div><h3 id="nextName">—</h3><div class="when" id="nextWhen"></div></div>
     <div class="checkinprompt"><span>📇 Met someone on the field? Capture their info before you lose it.</span><button onclick="show('capture')">Quick Capture</button></div>
-    <div class="checkinprompt"><span>📸 Got photos or video from today? Opens in your phone’s browser.</span><a href="https://bit.ly/uploadk2c" target="_blank" rel="noopener" onclick="return openUploadMedia(event)">Upload media</a></div>
+    <div class="checkinprompt"><span>📸 Got photos or video from today? Share or save them on this phone — no Microsoft login.</span><button type="button" onclick="pickShareMedia()">Share / save</button></div>
+    <input type="file" id="shareMediaInput" accept="image/*,video/*" multiple style="display:none" aria-hidden="true" />
+    <div class="checkinprompt"><span>🗂️ Team dump needs a work Microsoft login. Opens in your phone’s browser.</span><a href="https://bit.ly/uploadk2c" target="_blank" rel="noopener" onclick="return openUploadMedia(event)">Team dump</a></div>
     <div class="checkinprompt" id="tourPrompt" style="display:none"><span>🧭 First time in the app?</span><button onclick="guideStart()">Take the tour</button></div>
     <div id="scheduleAnchor" style="margin-top:28px;padding-top:22px;border-top:1px solid var(--line)">
       <p class="eyebrow">Order of Events</p><h1 class="title">The Day</h1>
