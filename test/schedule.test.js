@@ -5,7 +5,7 @@
    quietly wrong for one weekend a season, so it is pinned down here. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { currentEvent, autoDayPin, pinForDate } from "../netlify/functions/data.mjs";
+import { currentEvent, autoDayPin, pinForDate, scheduledEvent, countyDeburr } from "../netlify/functions/data.mjs";
 
 test("the PIN is the event Saturday as MMDD", () => {
   assert.equal(pinForDate("2026-07-25"), "0725");
@@ -45,6 +45,18 @@ test("back-to-back weekends roll correctly", () => {
   assert.equal(currentEvent("2026-08-22").key, "belknap");
   assert.equal(currentEvent("2026-08-23").key, "belknap");    // Sunday
   assert.equal(currentEvent("2026-08-24").key, "coos");       // Monday
+  assert.equal(currentEvent("2026-08-31").key, "coos");       // Laura's Monday 9:50 PM
+  assert.equal(currentEvent("2026-09-01").key, "coos");
+});
+
+test("Coös / Coos / coos is one county", () => {
+  assert.equal(countyDeburr("Coös"), "coos");
+  assert.equal(countyDeburr("Coos"), "coos");
+  assert.equal(countyDeburr("coos"), "coos");
+  assert.equal(countyDeburr("Coös County"), "coos county");
+  assert.equal(scheduledEvent("2026-08-31").key, "coos");
+  assert.equal(scheduledEvent("2026-08-31").name, "Coös County");
+  assert.match(scheduledEvent("2026-08-31").place, /Gorham/);
 });
 
 test("every event in the season resolves to itself on its own day", () => {

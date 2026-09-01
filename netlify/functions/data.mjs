@@ -788,15 +788,17 @@ const LEADER_ACTIONS = new Set([
  Keep in step with COUNTIES in js/counties.js (same keys); the dates live here
  because the server is the one that has to be right about them. */
 const SCHEDULE = [
- { key:"sullivan",   date:"2026-06-13" },
- { key:"grafton",    date:"2026-06-27" },
- { key:"strafford",  date:"2026-07-11" },
- { key:"carroll",    date:"2026-07-25" },
- { key:"cheshire",   date:"2026-08-15" },
- { key:"belknap",    date:"2026-08-22" },
- { key:"coos",       date:"2026-09-05" },
- { key:"rockingham", date:"2026-10-10" }
+ { key:"sullivan",   date:"2026-06-13", name:"Sullivan County",   dateLong:"Saturday, June 13th",    place:"Monadnock Park" },
+ { key:"grafton",    date:"2026-06-27", name:"Grafton County",    dateLong:"Saturday, June 27th",    place:"Loon Mountain Resort" },
+ { key:"strafford",  date:"2026-07-11", name:"Strafford County",  dateLong:"Saturday, July 11th",    place:"Rochester Fairgrounds" },
+ { key:"carroll",    date:"2026-07-25", name:"Carroll County",    dateLong:"Saturday, July 25th",    place:"King Pine Ski Area" },
+ { key:"cheshire",   date:"2026-08-15", name:"Cheshire County",   dateLong:"Saturday, August 15th",  place:"Cheshire Fair" },
+ { key:"belknap",    date:"2026-08-22", name:"Belknap County",    dateLong:"Saturday, August 22nd",  place:"Belknap 4-H Fairgrounds" },
+ { key:"coos",       date:"2026-09-05", name:"Coös County",       dateLong:"Saturday, September 5th",place:"Gorham Town Common" },
+ { key:"rockingham", date:"2026-10-10", name:"Rockingham County", dateLong:"Saturday, October 10th", place:"Star Speedway" }
 ];
+/* Coös vs Coos vs coos — ö must not hide the county. */
+export const countyDeburr = s => (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const COUNTY_KEYS = new Set(SCHEDULE.map(e => e.key));
 /* "Today" in New Hampshire, not UTC — otherwise the PIN would roll over at
    8pm local on the Sunday, mid-teardown. */
@@ -823,6 +825,13 @@ export function currentEvent(todayISO){
   if(addDaysISO(e.date, 1) >= today) return e;   // still on/through its Sunday
  }
  return SCHEDULE[SCHEDULE.length - 1];
+}
+/* Volunteer-facing event label for the LIVE card. Auto mode must not keep
+   last weekend's setEvent ("Belknap County · Saturday, August 22nd") after
+   the Monday rollover — that is Laura's Play screenshot. */
+export function scheduledEvent(todayISO){
+ const e = currentEvent(todayISO);
+ return { name: e.name || e.key, date: e.dateLong || e.date, place: e.place || "", key: e.key };
 }
 /* Day PIN for an event = its Saturday as MMDD. */
 export const pinForDate = iso => (iso || "").slice(5, 7) + (iso || "").slice(8, 10);
@@ -1191,6 +1200,7 @@ async function assemble(s, K, active, lvl){
  const prompterAll = await compareAndSwap(s, "prompter", normPrompter,
   p => mergeStarterScripts(p) ? p : undefined, () => ({ scripts: [] }));
  const prompter = { ...prompterAll, scripts: liveScripts(prompterAll.scripts) };
+ const evOut = active.manual ? core.event : { name: scheduledEvent().name, date: scheduledEvent().date, shift: (core.event && core.event.shift) || 0 };
  return {
  checklist: core.checklist,
  extras: core.extras,
@@ -1205,7 +1215,9 @@ async function assemble(s, K, active, lvl){
  decBy: decAgg.by || {},
  tallyEpoch,
  radios: normRadios(parts.radios).list,
- event: core.event,
+ /* Auto: schedule wins over a leftover setEvent from last weekend.
+    Manual pin keeps the leader's event label (they are looking at that board). */
+ event: evOut,
  /* Normalized on the way out too, so a roster written by an older deploy —
     before setIOList normalized on write — is neutralized on read. */
  ioList: normIO(parts.io).list,

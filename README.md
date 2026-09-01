@@ -368,11 +368,13 @@ does not change store-submit or Play production promotion.
   so Microsoft login uses Chrome’s cookies instead of the WebView. Quick
   Capture card photos still save in-app; the Camera prompt is plain language
   and does not ask for a Microsoft account.
-- **LIVE / next-stop is the next county before the event.** On 2026-09-01
-  that is **Coös County · Sep 5 · Gorham Town Common**, not a blank Next
-  line or Saturday’s “Program complete”. The board still moves Monday after
-  each event. On the event Saturday and Sunday rain date the clock segments
-  stay in charge.
+- **LIVE / next-stop is the next county before the event.** Laura’s Play
+  screenshot (v1.19.0, Monday ~9:50 PM) still showed **Belknap County ·
+  Saturday, August 22nd** and a blank **NEXT —**. Belknap was Sat Aug 22;
+  the board rolls on the Monday after (Aug 24). By Aug 31 / Sep 1 the
+  current county is **Coös** (Sat Sep 5, Gorham Town Common). The leftover
+  `setEvent` label is ignored; Coös / Coos / coos all match. On the event
+  Saturday and Sunday rain date the clock segments stay in charge.
 
 ## Graphics for Sharing (v1.19.0)
 

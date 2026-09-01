@@ -51,10 +51,13 @@ function seasonSrc() {
     extractVarArray(js, "SEASON_STOPS"),
     extractFunction(js, "seasonTodayISO"),
     extractFunction(js, "seasonAddDays"),
+    extractFunction(js, "seasonDeburr"),
+    extractFunction(js, "countyKeyOf"),
     extractFunction(js, "seasonCurrent"),
     extractFunction(js, "seasonEventDay"),
     extractFunction(js, "seasonStopLine"),
-    extractFunction(js, "seasonStopWhen")
+    extractFunction(js, "seasonStopWhen"),
+    extractFunction(js, "eventTagLine")
   ].join("\n");
 }
 
@@ -158,6 +161,41 @@ test("paintOffDayStop writes the full Coös line and never a blank Next", () => 
   assert.notEqual(els.stripNext.textContent.trim(), "");
   assert.notEqual(els.stripNext.textContent, "—");
   assert.doesNotMatch(els.stripNext.textContent, /Next\.\.\s*coos/i);
+});
+
+test("Laura's Play shot: leftover Belknap + Monday 9:50 PM must not blank NEXT", () => {
+  /* Exact v1.19.0 state: STATE.event still Belknap Aug 22, clock after 5 PM
+     on Mon Aug 31, stripNext would have been "—". */
+  for (const day of ["2026-08-31", "2026-09-01"]) {
+    assert.equal(runSeason('seasonCurrent("' + day + '").key'), "coos", day);
+    const tag = runSeason('eventTagLine("' + day + '")');
+    assert.match(tag, /Coös County/, day);
+    assert.match(tag, /Sep 5|September 5/, day);
+    assert.match(tag, /Gorham/, day);
+    assert.doesNotMatch(tag, /Belknap/);
+    assert.doesNotMatch(tag, /August 22/);
+    assert.notEqual(tag.trim(), "—");
+  }
+  function fakeEl(init) {
+    return { textContent: init.textContent || "", innerHTML: "", style: { display: "", background: "" }, classList: { add: () => {}, remove: () => {} } };
+  }
+  const els = { stripNow: fakeEl({}), stripNext: fakeEl({ textContent: "—" }), stripBlip: fakeEl({}) };
+  const ctx = createContext({
+    Date, String, Math, Intl, COUNTIES: undefined, countyByKey: undefined,
+    document: { getElementById: (id) => els[id] || fakeEl({}) }
+  });
+  runInContext(seasonSrc() + "\n" + extractFunction(js, "paintOffDayStrip") + '\npaintOffDayStrip("2026-08-31");', ctx);
+  assert.notEqual(els.stripNext.textContent, "—");
+  assert.match(els.stripNext.textContent, /Coös County/);
+  assert.match(els.stripNext.textContent, /Gorham/);
+});
+
+test("Coös / Coos / coos all resolve to the coos key", () => {
+  for (const s of ["coos", "Coos", "Coös", "Coös County", "Coos County — Sep 5 · Gorham Town Common"]) {
+    assert.equal(runSeason("countyKeyOf(" + JSON.stringify(s) + ")"), "coos", s);
+  }
+  assert.equal(runSeason('countyKeyOf("Belknap County")'), "belknap");
+  assert.equal(runSeason('countyKeyOf("")'), "");
 });
 
 test("LIVE first paint is not Loading… and the strip can wrap a county line", () => {

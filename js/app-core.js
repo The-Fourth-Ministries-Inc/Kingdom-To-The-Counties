@@ -1727,6 +1727,21 @@ function seasonAddDays(iso,n){
   d.setUTCDate(d.getUTCDate()+n);
   return d.toISOString().slice(0,10);
 }
+function seasonDeburr(s){return (s||"").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
+function countyKeyOf(s){
+  var d=seasonDeburr(s),i;
+  if(!d)return "";
+  if(d==="coos"||d.indexOf("coos")===0)return "coos";
+  if(typeof COUNTIES!=="undefined"&&COUNTIES){
+    for(i=0;i<COUNTIES.length;i++){
+      if(d===COUNTIES[i].key||d.indexOf(COUNTIES[i].key+" county")===0||d.indexOf(COUNTIES[i].key)===0)return COUNTIES[i].key;
+    }
+  }
+  for(i=0;i<SEASON_STOPS.length;i++){
+    if(d===SEASON_STOPS[i].key||d.indexOf(SEASON_STOPS[i].key+" county")===0||d.indexOf(SEASON_STOPS[i].key)===0)return SEASON_STOPS[i].key;
+  }
+  return "";
+}
 function seasonCurrent(todayISO){
   var today=todayISO||seasonTodayISO(),list=SEASON_STOPS,i,hit=list[list.length-1];
   for(i=0;i<list.length;i++){
@@ -1737,6 +1752,12 @@ function seasonCurrent(todayISO){
     if(c)return c;
   }
   return hit;
+}
+function eventTagLine(todayISO){
+  /* LIVE card county line — always the scheduled stop, never last week's
+     leftover setEvent (Laura's "Belknap County · Saturday, August 22nd"). */
+  var stop=seasonCurrent(todayISO);
+  return stop?seasonStopLine(stop):"";
 }
 function seasonEventDay(stop,todayISO){
   var today=todayISO||seasonTodayISO();
@@ -1851,20 +1872,8 @@ function renderEvent(){
   var ev=STATE.event||{},tag=document.getElementById("eventTag");
   renderCountySelect();renderPinPanel();
   var shifted=eventShift()>0;
-  var line="",stop=seasonCurrent();
-  if(STATE.countyAuto!==false&&stop){
-    line=seasonStopLine(stop);
-  }else if(STATE.county&&typeof countyByKey==="function"){
-    var pinned=countyByKey(STATE.county);
-    if(pinned)line=seasonStopLine(pinned);
-  }
-  if(!line&&(ev.name||ev.date)){
-    if(ev.name&&/^[a-z0-9]+$/.test(ev.name)&&typeof countyByKey==="function"){
-      var keyed=countyByKey(ev.name);
-      if(keyed)line=seasonStopLine(keyed);
-    }
-    if(!line)line=[ev.name,ev.date].filter(Boolean).join(" · ");
-  }
+  var line=eventTagLine();
+  if(!line&&(ev.name||ev.date))line=[ev.name,ev.date].filter(Boolean).join(" · ");
   if(line){tag.style.display="block";tag.textContent="📍 "+line+(shifted?" · ☔ RAIN DATE (+"+eventShift()+"d)":"");}
   else{tag.style.display="none";}
   var cb=document.getElementById("evShift");if(cb&&document.activeElement!==cb)cb.checked=shifted;
