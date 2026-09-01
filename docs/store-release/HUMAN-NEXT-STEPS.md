@@ -62,8 +62,9 @@ Re-run the same workflow with **upload_internal** on.
 
 ## 5. Finish listings and screenshots
 
-Use the DRAFT files in this folder. Capture screenshots from TestFlight / an
-internal-testing device. Do not fabricate announcements or counts.
+Use the DRAFT files in this folder. Capture **iPhone** screenshots from
+TestFlight. The iOS app is iPhone-only; iPad screenshots are not required.
+Do not fabricate announcements or counts.
 
 ## 6. Production (explicit human approval only)
 

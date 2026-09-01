@@ -29,7 +29,9 @@ Native `android/` and `ios/` folders are generated in CI with `npx cap add` and
 are gitignored. Usage strings live in `capacitor.config.json` (`ios.infoPlist`
 and `android.permissions`). After add/sync, `scripts/patch-native.mjs` copies
 those into Info.plist / AndroidManifest, plus HTTPS-only flags, K2C
-icons/splash, and version numbers.
+icons/splash, and version numbers. The iOS patch also sets
+`TARGETED_DEVICE_FAMILY = 1` and `UIDeviceFamily` to iPhone only so App
+Store review does not require iPad screenshots. Android is unchanged.
 
 ## Release gates
 

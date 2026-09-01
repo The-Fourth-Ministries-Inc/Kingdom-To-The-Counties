@@ -883,6 +883,9 @@ projects on hosted runners (`Mobile validation` for unsigned checks,
 `Mobile signed internal` for signed AAB/IPA). Listing copy and the remaining
 human console steps live in [docs/store-release](docs/store-release/README.md).
 Production submit is still a human click in App Store Connect and Play Console.
+Native iOS is **iPhone-only** (`TARGETED_DEVICE_FAMILY = 1` / `UIDeviceFamily = 1`
+in `scripts/patch-native.mjs`); App Store review does not need iPad screenshots.
+Android is unchanged. The web PWA still opens in any browser.
 
 ## iOS / Android safe-area header (v1.18.2)
 
