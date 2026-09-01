@@ -97,6 +97,7 @@ test("LIVE card HTML first paint is not Loading…", () => {
   assert.ok(m, "#nowName missing");
   assert.equal(/Loading/.test(m[1]), false, "HTML #nowName must not say Loading");
   assert.notEqual(m[1].trim(), "");
+  assert.notEqual(m[1].trim(), "Loading…");
 });
 
 test("boot paints the local schedule before apiGet", () => {

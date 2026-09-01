@@ -50,6 +50,8 @@ test("sticky header uses env(safe-area-inset-top) on WKWebView, not a SystemBars
   assert.equal(deps["@capacitor/system-bars"], undefined);
   assert.equal(deps["@capacitor/status-bar"], undefined);
   assert.ok(deps["@capacitor/core"]);
+  assert.ok(deps["@capacitor/app"]);
+  assert.ok(deps["@capacitor/browser"]);
   assert.ok(deps["@capacitor/ios"]);
 });
 
@@ -79,11 +81,11 @@ test("version badge, service worker cache, and SW comment stay aligned", () => {
   const html = read("index.html");
   const sw = read("sw.js");
   const version = readAppVersion(html);
-  assert.equal(version, "1.19.0");
+  assert.equal(version, "1.19.1");
   assert.match(sw, new RegExp("app v" + version.replace(/\./g, "\\.")));
   const cache = sw.match(/var CACHE = "(k2c-v\d+)"/);
   assert.ok(cache, "SW cache name missing");
-  assert.equal(cache[1], "k2c-v61");
+  assert.equal(cache[1], "k2c-v62");
 });
 
 test("tour card is clamped below --sat / env(safe-area-inset-top)", () => {

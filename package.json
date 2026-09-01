@@ -15,6 +15,8 @@
     "mobile:sync": "npm run prepare:mobile && npx cap sync && node scripts/patch-native.mjs"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
     "@capacitor/core": "^8.4.2",
     "@netlify/blobs": "^8.1.0"
   },

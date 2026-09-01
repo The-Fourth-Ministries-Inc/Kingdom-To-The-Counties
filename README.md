@@ -351,6 +351,29 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
+## Play tester fixes (v1.19.1)
+
+Internal Play testers on release 15 / v1.19.0 reported three field bugs.
+This patch does not skip the Day PIN, does not add a new cloud backend, and
+does not change store-submit or Play production promotion.
+
+- **Android system back stays in the app.** The gesture / old back-arrow now
+  pops `show()` pages (Quick Capture, checklists, a hub you just left). It
+  only leaves the app on Event Day with nothing under it. Wired through
+  Capacitor `App.addListener("backButton")` — the same `show()` / `PARENT`
+  map the in-app ‹ links already use.
+- **Photo upload is not an in-app account wall.** “Upload media” still goes
+  to the SharePoint dump (`bit.ly/uploadk2c`). On the native shell it opens
+  in the system browser (`@capacitor/browser` / `App.openUrl` / `_system`)
+  so Microsoft login uses Chrome’s cookies instead of the WebView. Quick
+  Capture card photos still save in-app; the Camera prompt is plain language
+  and does not ask for a Microsoft account.
+- **LIVE / next-stop is the next county before the event.** On 2026-09-01
+  that is **Coös County · Sep 5 · Gorham Town Common**, not a blank Next
+  line or Saturday’s “Program complete”. The board still moves Monday after
+  each event. On the event Saturday and Sunday rain date the clock segments
+  stay in charge.
+
 ## Graphics for Sharing (v1.19.0)
 
 Under **Ambassador Resources → 🖼️ Graphics for Sharing**: a download-and-post
