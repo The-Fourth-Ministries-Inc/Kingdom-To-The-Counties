@@ -61,6 +61,9 @@ function findCurrent(t){for(var i=0;i<SEGMENTS.length;i++){if(t>=SEGMENTS[i].s&&
 function findNext(t){for(var i=0;i<SEGMENTS.length;i++){if(SEGMENTS[i].s>t)return i;}return -1;}
 function countdownStr(toMin){var diff=toMin-nowMinutes();if(diff<0)diff=0;var h=Math.floor(diff/60),mn=Math.floor(diff%60),s=Math.floor((diff*60)%60);if(h>0)return h+"h "+mn+"m";if(mn>0)return mn+"m "+String(s).padStart(2,"0")+"s";return s+"s";}
 function renderNow(){
+  /* Off event-weekend the LIVE card is the next county stop, not Saturday's
+     clock segments (those look empty or "Program complete" on a Tuesday). */
+  if(typeof paintOffDayStop==="function"&&paintOffDayStop())return;
   var t=nowMinutes(),ci=findCurrent(t),ni=findNext(t);
   var liveTag=document.getElementById("liveTag"),liveTxt=document.getElementById("liveTagText");
   var badge=document.getElementById("nowBadge"),progWrap=document.getElementById("nowProgWrap"),prog=document.getElementById("nowProg"),cd=document.getElementById("nowCountdown");
@@ -103,6 +106,7 @@ function renderSpine(){
   mount.innerHTML=html;
 }
 function renderStrip(){
+  if(typeof paintOffDayStrip==="function"&&paintOffDayStrip())return;
   var t=nowMinutes(),ci=findCurrent(t),ni=findNext(t),nowEl=document.getElementById("stripNow"),nextEl=document.getElementById("stripNext"),blip=document.getElementById("stripBlip");
   if(ci>=0){nowEl.textContent=(SEGMENTS[ci].altar?"🙏 ":"")+SEGMENTS[ci].name;blip.style.background="var(--rust)";}
   else if(t<SEGMENTS[0].s){nowEl.textContent="Pre-event setup";blip.style.background="var(--slate)";}
@@ -1696,6 +1700,113 @@ function renderCountySelect(){
 /* The Day PIN is the event's Saturday as MMDD and rolls to the next event on
    the Monday after. Leaders see the live value (so they can read it out) and
    exactly when it changes; volunteers never receive it. */
+/* Next-stop line (v1.19.2). Same Monday-after rule as SCHEDULE in data.mjs
+   and COUNTIES in counties.js — current through Sunday, next county Monday.
+   Kept here so Event Day can paint before counties.js loads. A test fails
+   the build if these dates drift from COUNTIES. */
+var SEASON_STOPS=[
+  {key:"sullivan",date:"2026-06-13",name:"Sullivan County",place:"Monadnock Park",md:"Jun 13"},
+  {key:"grafton",date:"2026-06-27",name:"Grafton County",place:"Loon Mountain Resort",md:"Jun 27"},
+  {key:"strafford",date:"2026-07-11",name:"Strafford County",place:"Rochester Fairgrounds",md:"Jul 11"},
+  {key:"carroll",date:"2026-07-25",name:"Carroll County",place:"King Pine Ski Area",md:"Jul 25"},
+  {key:"cheshire",date:"2026-08-15",name:"Cheshire County",place:"Cheshire Fair",md:"Aug 15"},
+  {key:"belknap",date:"2026-08-22",name:"Belknap County",place:"Belknap 4-H Fairgrounds",md:"Aug 22"},
+  {key:"coos",date:"2026-09-05",name:"Coös County",place:"Gorham Town Common",md:"Sep 5"},
+  {key:"rockingham",date:"2026-10-10",name:"Rockingham County",place:"Star Speedway",md:"Oct 10"}
+];
+function seasonTodayISO(now){
+  try{
+    return new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(now||new Date());
+  }catch(_){
+    var d=now||new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+}
+function seasonAddDays(iso,n){
+  var d=new Date(iso+"T12:00:00Z");
+  d.setUTCDate(d.getUTCDate()+n);
+  return d.toISOString().slice(0,10);
+}
+function seasonDeburr(s){return (s||"").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
+function countyKeyOf(s){
+  var d=seasonDeburr(s),i;
+  if(!d)return "";
+  if(d==="coos"||d.indexOf("coos")===0)return "coos";
+  if(typeof COUNTIES!=="undefined"&&COUNTIES){
+    for(i=0;i<COUNTIES.length;i++){
+      if(d===COUNTIES[i].key||d.indexOf(COUNTIES[i].key+" county")===0||d.indexOf(COUNTIES[i].key)===0)return COUNTIES[i].key;
+    }
+  }
+  for(i=0;i<SEASON_STOPS.length;i++){
+    if(d===SEASON_STOPS[i].key||d.indexOf(SEASON_STOPS[i].key+" county")===0||d.indexOf(SEASON_STOPS[i].key)===0)return SEASON_STOPS[i].key;
+  }
+  return "";
+}
+function seasonCurrent(todayISO){
+  var today=todayISO||seasonTodayISO(),list=SEASON_STOPS,i,hit=list[list.length-1];
+  for(i=0;i<list.length;i++){
+    if(seasonAddDays(list[i].date,1)>=today){hit=list[i];break;}
+  }
+  if(typeof COUNTIES!=="undefined"&&typeof countyByKey==="function"){
+    var c=countyByKey(hit.key);
+    if(c)return c;
+  }
+  return hit;
+}
+function eventTagLine(todayISO){
+  /* LIVE card county line — always the scheduled stop, never last week's
+     leftover setEvent (Laura's "Belknap County · Saturday, August 22nd"). */
+  var stop=seasonCurrent(todayISO);
+  return stop?seasonStopLine(stop):"";
+}
+function seasonEventDay(stop,todayISO){
+  var today=todayISO||seasonTodayISO();
+  if(!stop||!stop.date)return false;
+  return today===stop.date||today===seasonAddDays(stop.date,1);
+}
+function seasonStopLine(stop){
+  if(!stop)return "";
+  if(stop.event)return stop.event;
+  return (stop.name||"")+" · "+(stop.md||"")+" · "+(stop.place||"");
+}
+function seasonStopWhen(stop){
+  if(!stop)return "";
+  if(stop.venue)return (stop.dateShort||stop.md||"")+" · "+stop.venue;
+  return (stop.md||"")+" · "+(stop.place||"");
+}
+function paintOffDayStop(todayISO){
+  var stop=seasonCurrent(todayISO);
+  if(!stop||seasonEventDay(stop,todayISO))return false;
+  var liveTag=document.getElementById("liveTag"),liveTxt=document.getElementById("liveTagText");
+  if(liveTag)liveTag.classList.add("off");
+  if(liveTxt)liveTxt.textContent="Next Stop";
+  var name=stop.county||stop.name||"";
+  var when=seasonStopWhen(stop);
+  var nowName=document.getElementById("nowName"),nowWhen=document.getElementById("nowWhen");
+  if(nowName)nowName.textContent=name;
+  if(nowWhen)nowWhen.textContent=when;
+  var badge=document.getElementById("nowBadge"),progWrap=document.getElementById("nowProgWrap"),cd=document.getElementById("nowCountdown");
+  if(badge)badge.style.display="none";
+  if(progWrap)progWrap.style.display="none";
+  if(cd)cd.textContent="Saturday 2–5 PM · free, all ages";
+  var nc=document.getElementById("nextCard");
+  if(nc){
+    nc.style.display="block";
+    var nn=document.getElementById("nextName"),nw=document.getElementById("nextWhen");
+    if(nn)nn.textContent=name;
+    if(nw)nw.textContent=when;
+  }
+  return true;
+}
+function paintOffDayStrip(todayISO){
+  var stop=seasonCurrent(todayISO);
+  if(!stop||seasonEventDay(stop,todayISO))return false;
+  var nowEl=document.getElementById("stripNow"),nextEl=document.getElementById("stripNext"),blip=document.getElementById("stripBlip");
+  if(nowEl)nowEl.textContent="Next stop";
+  if(nextEl)nextEl.textContent=seasonStopLine(stop);
+  if(blip)blip.style.background="var(--slate)";
+  return true;
+}
 function fmtDay(iso){
   if(!iso)return "";
   var d=new Date(iso+"T12:00:00");
@@ -1761,7 +1872,9 @@ function renderEvent(){
   var ev=STATE.event||{},tag=document.getElementById("eventTag");
   renderCountySelect();renderPinPanel();
   var shifted=eventShift()>0;
-  if(ev.name||ev.date){tag.style.display="block";tag.textContent="📍 "+[ev.name,ev.date].filter(Boolean).join(" · ")+(shifted?" · ☔ RAIN DATE (+"+eventShift()+"d)":"");}
+  var line=eventTagLine();
+  if(!line&&(ev.name||ev.date))line=[ev.name,ev.date].filter(Boolean).join(" · ");
+  if(line){tag.style.display="block";tag.textContent="📍 "+line+(shifted?" · ☔ RAIN DATE (+"+eventShift()+"d)":"");}
   else{tag.style.display="none";}
   var cb=document.getElementById("evShift");if(cb&&document.activeElement!==cb)cb.checked=shifted;
   var warn=document.getElementById("evDateWarn");if(warn)warn.style.display=parseEventSaturday()?"none":"block";
@@ -2322,8 +2435,162 @@ document.getElementById("annBarX").addEventListener("click",function(e){
 var annBarMode="checkin";
 document.getElementById("annBar").addEventListener("click",function(){show(annBarMode==="checkin"?"checkin":"announcements");});
 var PARENT={dashboard:"crew",checkin:"guides",count:"crew",setup:"crew",techio:"crew",inventory:"crew",announcements:"board",praise:"board",issue:"board",leaders:"guides",graphics:"guides",donate:"guides",playbook:"guides",handbook:"guides",tour:"guides",radios:"crew",shareapp:"guides",capture:"guides",church:"mobilize",faith:"guides"};
-function show(id){
-  if(id==="dashboard"&&!LEADER){askPin(function(){show("dashboard");});}
+/* Android system/gesture back (v1.19.2). show() is the only navigator.
+   Two stacks stay in lockstep:
+   1) history.pushState({k2cPage}) so the live site and Android gesture
+      back have a real history entry (v1.19.0 left history.length at 2
+      and URL at /, so OS back exited).
+   2) PAGE_STACK + Capacitor App.backButton — the WebView does not pop
+      history on its own when we listen for backButton, so we history.back()
+      and popstate calls show(..., {fromBack:true}).
+   Root/home is Event Day (`now`). Only then do we leave the app. */
+var PAGE_STACK=[];
+var ROOT_PAGE="now";
+function pageId(){
+  var p=document.querySelector(".page.active");
+  return p?(p.id||"").replace(/^page-/,""):ROOT_PAGE;
+}
+function rememberPage(fromId,toId,fromBack){
+  if(fromBack||!fromId||!toId||fromId===toId)return;
+  PAGE_STACK.push(fromId);
+  if(PAGE_STACK.length>40)PAGE_STACK.shift();
+}
+function popPage(){return PAGE_STACK.length?PAGE_STACK.pop():"";}
+function pushPageHistory(fromId,toId,fromBack){
+  if(fromBack||!toId||fromId===toId)return;
+  try{if(history.pushState)history.pushState({k2cPage:toId},"",location.href);}catch(_){}
+}
+function bindPageHistory(){
+  if(bindPageHistory._on)return;
+  bindPageHistory._on=true;
+  try{if(history.replaceState)history.replaceState({k2cPage:pageId()},"",location.href);}catch(_){}
+  window.addEventListener("popstate",function(e){
+    var id=(e&&e.state&&e.state.k2cPage)||ROOT_PAGE;
+    if(PAGE_STACK.length)popPage();
+    show(id,{fromBack:true});
+  });
+}
+function handleAppBack(){
+  /* Prefer the history we pushed so gesture back and Capacitor back
+     take the same path. popstate does the show() — do not show() here
+     or we double-navigate. Fall back to PAGE_STACK if history is missing. */
+  if(PAGE_STACK.length){
+    try{
+      if(typeof history!=="undefined"&&history.back){history.back();return true;}
+    }catch(_){}
+    var prev=popPage();
+    if(prev){show(prev,{fromBack:true});return true;}
+  }
+  var cur=pageId();
+  if(cur!==ROOT_PAGE){
+    show(PARENT[cur]||ROOT_PAGE,{fromBack:true});
+    return true;
+  }
+  return false;
+}
+function bindNativeBack(){
+  var Cap=window.Capacitor,App=Cap&&Cap.Plugins&&Cap.Plugins.App;
+  if(!(App&&App.addListener))return;
+  if(bindNativeBack._on)return;
+  bindNativeBack._on=true;
+  App.addListener("backButton",function(){
+    if(handleAppBack())return;
+    if(App.exitApp)App.exitApp();
+  });
+}
+function capNative(){
+  try{return !!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform());}catch(_){return false;}
+}
+function isSharePointUpload(href){
+  href=(href||"").toLowerCase();
+  return href.indexOf("bit.ly/uploadk2c")>=0||href.indexOf("sharepoint.com")>=0||href.indexOf("1drv.ms")>=0;
+}
+function openSystemUrl(url){
+  var Cap=window.Capacitor,P=Cap&&Cap.Plugins||{};
+  if(P.Browser&&P.Browser.open){
+    P.Browser.open({url:url}).catch(function(){fallbackOpen(url);});
+    return;
+  }
+  if(P.App&&P.App.openUrl){
+    P.App.openUrl({url:url}).catch(function(){fallbackOpen(url);});
+    return;
+  }
+  fallbackOpen(url);
+}
+function fallbackOpen(url){
+  var w=window.open(url,capNative()?"_system":"_blank","noopener");
+  if(!w&&capNative())window.open(url,"_blank","noopener");
+}
+function openUploadMedia(ev){
+  if(ev&&ev.preventDefault)ev.preventDefault();
+  openSystemUrl("https://bit.ly/uploadk2c");
+  return false;
+}
+function pickShareMedia(){
+  var inp=document.getElementById("shareMediaInput");
+  if(!inp)return;
+  inp.value="";
+  inp.click();
+}
+function onShareMediaPicked(){
+  var inp=document.getElementById("shareMediaInput");
+  if(!inp||!inp.files||!inp.files.length)return;
+  shareEventMedia(inp.files);
+}
+function shareEventMedia(fileList){
+  var files=[],i;
+  for(i=0;i<fileList.length;i++)files.push(fileList[i]);
+  if(!files.length)return;
+  var payload={files:files,title:"K2C event photos",text:"Kingdom to the Counties — event photos"};
+  if(navigator.share&&(!navigator.canShare||navigator.canShare(payload))){
+    navigator.share(payload).then(function(){
+      toast("Shared — no Microsoft login needed");
+    }).catch(function(err){
+      if(err&&err.name==="AbortError")return;
+      saveMediaToPhone(files);
+    });
+    return;
+  }
+  saveMediaToPhone(files);
+}
+function saveMediaToPhone(files){
+  var n=0,i,a;
+  for(i=0;i<files.length;i++){
+    try{
+      a=document.createElement("a");
+      a.href=URL.createObjectURL(files[i]);
+      a.download=files[i].name||("k2c-photo-"+Date.now()+"-"+i+".jpg");
+      a.rel="noopener";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      n++;
+    }catch(_){}
+  }
+  if(n)toast("Saved "+n+" file"+(n===1?"":"s")+" to this phone — no Microsoft login");
+  else toast("Couldn’t share or save on this phone. Team dump needs a work Microsoft login.");
+}
+function bindUploadLinks(){
+  if(bindUploadLinks._on)return;
+  bindUploadLinks._on=true;
+  document.addEventListener("click",function(e){
+    var t=e.target;
+    while(t&&t!==document&&!(t.tagName==="A"))t=t.parentNode;
+    if(!t||t.tagName!=="A")return;
+    var href=t.getAttribute("href")||"";
+    if(!isSharePointUpload(href))return;
+    e.preventDefault();
+    openSystemUrl(t.href||href);
+  },true);
+  var sm=document.getElementById("shareMediaInput");
+  if(sm)sm.addEventListener("change",onShareMediaPicked);
+}
+function show(id,opts){
+  opts=opts||{};
+  if(id==="dashboard"&&!LEADER){askPin(function(){show("dashboard",opts);});}
+  var fromId=pageId();
+  rememberPage(fromId,id,!!opts.fromBack);
+  pushPageHistory(fromId,id,!!opts.fromBack);
   var pages=document.querySelectorAll(".page");for(var i=0;i<pages.length;i++)pages[i].classList.remove("active");
   var el=document.getElementById("page-"+id);if(el)el.classList.add("active");
   /* Tech I/O is the one page routinely used at a laptop — the tables are wider
@@ -3170,6 +3437,9 @@ function boot(){
   /* The LIVE card is SEGMENTS + the clock — no server needed. Paint it
      before apiGet so first JS tick is the real NOW state, not "Loading…". */
   refreshAll();
+  bindPageHistory();
+  bindNativeBack();
+  bindUploadLinks();
   renderIOList();renderLeaders();
   if(LEADERPIN){verifyPin("verifyLeaderPin",LEADERPIN).then(function(res){if(res&&res.ok){LEADER=true;if(res.token)LEADERPIN=res.token;setDayOK();applyLeaderUI();renderDynamic();obFlush();}else{LEADERPIN="";sessionStorage.removeItem("k2c_lpin");}}).catch(function(){});}
   apiGet().then(function(s){STATE=applyPending(normalize(s));LIVE=true;adoptTallyEpoch(s);adoptDecEpoch(s);finishBoot();if(TALLY.dirty)scheduleFlush(500);})

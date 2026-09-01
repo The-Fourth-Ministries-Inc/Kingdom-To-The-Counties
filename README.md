@@ -351,6 +351,38 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
+## Play tester fixes (v1.19.2)
+
+Internal Play testers on release 15 / v1.19.0 reported three field bugs.
+A live-site pass on ambassadorcompanion.netlify.app v1.19.0 confirmed the
+first two. This patch does not skip the Day PIN, does not add a new cloud
+backend, and does not change store-submit or Play production promotion.
+
+- **Android / browser back stays in the app (John).** `show()` now
+  `pushState({k2cPage})` so `history.length` grows and the URL can stay
+  `/`. Android gesture back and the live site fire `popstate` and pop the
+  page. Capacitor `App.addListener("backButton")` calls `history.back()`
+  (the WebView does not pop on its own once we listen). Root is Event Day
+  (`now`); only then does the app exit. v1.19.0 never pushed history
+  (`history.length` stayed 2) so OS back left the app.
+- **Photo upload does not require a work Microsoft account (John).**
+  `bit.ly/uploadk2c` 301s to Zach’s SharePoint folder and 403s without a
+  Microsoft sign-in. The Now card primary path is **Share / save** — pick
+  photos or video on the phone and use the OS share sheet (Messages,
+  personal Drive, save to the phone). No new backend. The secondary
+  **Team dump** still opens SharePoint in the system browser
+  (`@capacitor/browser` / `App.openUrl` / `_system`) for people who have
+  a work login. Quick Capture card photos stay in-app.
+- **LIVE / next-stop is the Now-tab line, not studio/graphics headings
+  (Laura).** The bug is the Event Day card: leftover **Belknap County ·
+  Saturday, August 22nd** on `#eventTag` and a blank **NEXT —** on
+  `#stripNext` after that Saturday is over. Coös in Recording Studio or
+  Graphics headings is not this fix. Belknap was Sat Aug 22; the board
+  rolls on the Monday after (Aug 24). By Aug 31 / Sep 1 the current
+  county is **Coös** (Sat Sep 5, Gorham Town Common). The leftover
+  `setEvent` label is ignored; Coös / Coos / coos all match. On the event
+  Saturday and Sunday rain date the clock segments stay in charge.
+
 ## Graphics for Sharing (v1.19.0)
 
 Under **Ambassador Resources → 🖼️ Graphics for Sharing**: a download-and-post

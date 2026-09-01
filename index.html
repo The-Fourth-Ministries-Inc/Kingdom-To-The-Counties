@@ -1085,7 +1085,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.0</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.2</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1101,14 +1101,16 @@ textarea, select,
     <p class="sub">Auto-updates by the clock — no refreshing needed.</p>
     <div class="hero">
       <span class="live" id="liveTag"><span class="blip"></span> <span id="liveTagText">Live</span></span>
-      <h2 id="nowName">—</h2><div class="when" id="nowWhen"></div>
+      <h2 id="nowName">Next stop</h2><div class="when" id="nowWhen"></div>
       <span class="badge setup" id="nowBadge" style="display:none"></span>
       <div class="progress" id="nowProgWrap" style="display:none"><i id="nowProg"></i></div>
       <div class="countdown" id="nowCountdown"></div>
     </div>
     <div class="next" id="nextCard"><div class="lbl">Up Next</div><h3 id="nextName">—</h3><div class="when" id="nextWhen"></div></div>
     <div class="checkinprompt"><span>📇 Met someone on the field? Capture their info before you lose it.</span><button onclick="show('capture')">Quick Capture</button></div>
-    <div class="checkinprompt"><span>📸 Got photos or video from today?</span><a href="https://bit.ly/uploadk2c" target="_blank" rel="noopener">Upload media</a></div>
+    <div class="checkinprompt"><span>📸 Got photos or video from today? Share or save them on this phone — no Microsoft login.</span><button type="button" onclick="pickShareMedia()">Share / save</button></div>
+    <input type="file" id="shareMediaInput" accept="image/*,video/*" multiple style="display:none" aria-hidden="true" />
+    <div class="checkinprompt"><span>🗂️ Team dump needs a work Microsoft login. Opens in your phone’s browser.</span><a href="https://bit.ly/uploadk2c" target="_blank" rel="noopener" onclick="return openUploadMedia(event)">Team dump</a></div>
     <div class="checkinprompt" id="tourPrompt" style="display:none"><span>🧭 First time in the app?</span><button onclick="guideStart()">Take the tour</button></div>
     <div id="scheduleAnchor" style="margin-top:28px;padding-top:22px;border-top:1px solid var(--line)">
       <p class="eyebrow">Order of Events</p><h1 class="title">The Day</h1>
@@ -1387,7 +1389,7 @@ textarea, select,
     </div>
     <div class="form">
       <div id="capPhotoWrap" style="display:none">
-        <p class="capperm" id="capPhotoPerm">📷 Your phone will ask for the <b>Camera</b>. Tap <b>Allow</b> — or turn Camera on in the browser / iPhone Settings. If you tap Block, the photo will not save.</p>
+        <p class="capperm" id="capPhotoPerm">📷 Your phone will ask to use the <b>Camera</b>. Tap <b>Allow</b>. This is only a picture of the contact card — you do not need a Microsoft or Google login. If you tapped Don’t allow, open Settings, turn Camera on for this app, and try again.</p>
         <input type="file" id="capPhotoInput" accept="image/*" capture="environment" style="display:none" />
         <button class="capshot" id="capShotBtn" onclick="document.getElementById('capPhotoInput').click()">📷 Snap the contact card<small>Fill the frame · good light · make sure the writing is readable</small></button>
         <div class="cappreview" id="capPhotoPrev" style="display:none"><img id="capPhotoImg" alt="Contact card photo" /><button class="redo" onclick="capPhotoRetake()">↺ Retake</button></div>

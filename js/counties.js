@@ -145,16 +145,25 @@ function capRecStop(){
    capture — one more thing to get wrong on the street. The field is filled in
    and shown as confirmation, with an override for the edge case of capturing
    someone from a different county. */
-function countyByKey(k){for(var i=0;i<COUNTIES.length;i++)if(COUNTIES[i].key===k)return COUNTIES[i];return null;}
+function countyByKey(k){
+  var key=(typeof countyKeyOf==="function")?countyKeyOf(k):(k||"");
+  if(!key)key=(k||"").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  for(var i=0;i<COUNTIES.length;i++)if(COUNTIES[i].key===key)return COUNTIES[i];
+  return null;
+}
 function activeCountyName(){
+  /* Prefer the scheduled county so a leftover Belknap setEvent cannot keep
+     Quick Capture on last weekend after the Monday rollover. Coös/Coos/coos
+     all resolve through countyKeyOf / countyByKey. */
+  if(typeof seasonCurrent==="function"){
+    var stop=seasonCurrent();
+    if(stop&&(stop.county||stop.name))return stop.county||stop.name;
+  }
   var c=countyByKey(STATE.county||"");
   if(c)return c.county;
-  /* Fall back to matching the free-text event name, as before. */
-  var evn=((STATE.event&&STATE.event.name)||"").toLowerCase();
-  if(evn)for(var i=0;i<COUNTIES.length;i++){
-    var first=COUNTIES[i].county.split(" ")[0].toLowerCase();
-    if(evn.indexOf(first)>=0||(COUNTIES[i].key==="coos"&&evn.indexOf("coos")>=0))return COUNTIES[i].county;
-  }
+  var evn=((STATE.event&&STATE.event.name)||"");
+  c=countyByKey(evn);
+  if(c)return c.county;
   return "";
 }
 function capFillCounty(){
