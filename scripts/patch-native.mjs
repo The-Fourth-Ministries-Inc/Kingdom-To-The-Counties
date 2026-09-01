@@ -39,6 +39,27 @@ export function setPlistFalse(xml, key) {
   return insertBeforePlistClose(xml, block);
 }
 
+/* iPhone = 1, iPad = 2. App Store review wants iPhone-only so iPad
+   screenshots are not required. Write the official integer-array form. */
+export function setPlistIntegerArray(xml, key, values) {
+  const items = values.map(function (n) {
+    return "\t\t<integer>" + n + "</integer>";
+  }).join("\n");
+  const block = "<key>" + key + "</key>\n\t<array>\n" + items + "\n\t</array>";
+  const reArray = new RegExp("<key>" + key + "</key>\\s*<array>[\\s\\S]*?</array>");
+  const reInt = new RegExp("<key>" + key + "</key>\\s*<integer>[^<]*</integer>");
+  if (reArray.test(xml)) return xml.replace(reArray, block);
+  if (reInt.test(xml)) return xml.replace(reInt, block);
+  return insertBeforePlistClose(xml, block);
+}
+
+export function patchPbxDeviceFamily(pbx) {
+  if (!/TARGETED_DEVICE_FAMILY = /.test(pbx)) {
+    throw new Error("project.pbxproj is missing TARGETED_DEVICE_FAMILY");
+  }
+  return pbx.replace(/TARGETED_DEVICE_FAMILY = [^;]+;/g, "TARGETED_DEVICE_FAMILY = 1;");
+}
+
 function insertBeforePlistClose(xml, block) {
   const needle = "</dict>\n</plist>";
   const idx = xml.lastIndexOf(needle);
@@ -122,12 +143,14 @@ async function patchIos(versionCode, versionName) {
     plist = setPlistString(plist, key, value);
   }
   plist = setPlistFalse(plist, "ITSAppUsesNonExemptEncryption");
+  plist = setPlistIntegerArray(plist, "UIDeviceFamily", [1]);
   await writeFile(plistPath, plist);
 
   const pbxPath = join(root, "ios/App/App.xcodeproj/project.pbxproj");
   if (existsSync(pbxPath)) {
     let pbx = await readFile(pbxPath, "utf8");
     pbx = patchPbxVersions(pbx, versionCode, versionName);
+    pbx = patchPbxDeviceFamily(pbx);
     pbx = pbx.replace(/PRODUCT_BUNDLE_IDENTIFIER = [^;]+;/g, "PRODUCT_BUNDLE_IDENTIFIER = " + APP_ID + ";");
     await writeFile(pbxPath, pbx);
   }

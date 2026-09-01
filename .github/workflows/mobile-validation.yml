@@ -126,6 +126,17 @@ jobs:
           grep -F 'NSCameraUsageDescription' ios/App/App/Info.plist
           grep -F 'NSMicrophoneUsageDescription' ios/App/App/Info.plist
           grep -F 'com.thefourthministries.ambassadorcompanion' ios/App/App.xcodeproj/project.pbxproj
+          grep -F 'TARGETED_DEVICE_FAMILY = 1;' ios/App/App.xcodeproj/project.pbxproj
+          if grep -E 'TARGETED_DEVICE_FAMILY = "?1,2"?' ios/App/App.xcodeproj/project.pbxproj; then
+            echo "TARGETED_DEVICE_FAMILY still includes iPad (2)" >&2
+            exit 1
+          fi
+          grep -F '<key>UIDeviceFamily</key>' ios/App/App/Info.plist
+          grep -A4 '<key>UIDeviceFamily</key>' ios/App/App/Info.plist | grep -F '<integer>1</integer>'
+          if grep -A8 '<key>UIDeviceFamily</key>' ios/App/App/Info.plist | grep -F '<integer>2</integer>'; then
+            echo "UIDeviceFamily still includes iPad (2)" >&2
+            exit 1
+          fi
       - name: Build unsigned iOS simulator app
         run: >
           xcodebuild

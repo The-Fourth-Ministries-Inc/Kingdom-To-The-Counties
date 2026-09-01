@@ -44,8 +44,9 @@ review notes at submit time. Do not print a standing PIN in this draft.
 
 ## Screenshots
 
-Not included in this draft. Capture from a TestFlight build. No fabricated
-announcements or counts.
+iPhone only. The native iOS binary is iPhone-family (`UIDeviceFamily` = 1);
+App Store Connect should not ask for iPad screenshots. Capture from a
+TestFlight build on an iPhone. No fabricated announcements or counts.
 
 ## Encryption / export
 

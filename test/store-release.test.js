@@ -10,11 +10,13 @@ import {
   USAGE,
   setPlistString,
   setPlistFalse,
+  setPlistIntegerArray,
   ensureAndroidPermission,
   ensureAndroidFeature,
   setUsesCleartextTrafficFalse,
   patchGradleVersionsAndSigning,
-  patchPbxVersions
+  patchPbxVersions,
+  patchPbxDeviceFamily
 } from "../scripts/patch-native.mjs";
 import { mobileVersionCode, readAppVersion, versionCodeFromName } from "../scripts/app-version.mjs";
 
@@ -37,6 +39,8 @@ test("permanent identity is consistent across config and docs", () => {
   assert.match(storeReadme, /Ambassador Companion/);
   assert.match(storeReadme, /https:\/\/ambassadorcompanion\.netlify\.app/);
   assert.match(storeReadme, /info@thefourthministries\.com/);
+  assert.match(storeReadme, /TARGETED_DEVICE_FAMILY = 1/);
+  assert.match(storeReadme, /iPhone only/);
 });
 
 test("privacy and support pages exist and name the publisher", () => {
@@ -63,6 +67,8 @@ test("draft listings are marked DRAFT NOT LIVE and stay within field limits", ()
   assert.match(play, /thefourthministries@gmail\.com/);
   assert.match(ios, /Productivity/);
   assert.match(play, /Productivity/);
+  assert.match(ios, /iPhone only/);
+  assert.match(ios, /iPad screenshots/);
 });
 
 test("capacitor.config.json holds camera, mic, and photo library usage strings", () => {
@@ -122,6 +128,16 @@ test("signed workflow is dispatch-only and never mentions production submit", ()
   assert.match(wf, /status: draft/);
   assert.match(wf, /altool --upload-app/);
   assert.doesNotMatch(wf, /submitForReview|production\s*track|track: production|halt-track/i);
+});
+
+test("unsigned iOS validation asserts iPhone-only device family after patch", () => {
+  const validation = read(".github/workflows/mobile-validation.yml");
+  assert.match(validation, /TARGETED_DEVICE_FAMILY = 1;/);
+  assert.match(validation, /<key>UIDeviceFamily<\/key>/);
+  assert.match(validation, /still includes iPad/);
+  const signed = read(".github/workflows/mobile-signed-internal.yml");
+  assert.match(signed, /node scripts\/patch-native\.mjs ios/);
+  assert.doesNotMatch(signed, /skip-PIN|skipDayPin|bypassDay/i);
 });
 
 test("iOS jobs use macos-26 so App Store Connect gets the iOS 26 SDK", () => {
@@ -199,10 +215,55 @@ test("native patcher writes usage strings, HTTPS flag, versions, and signing hoo
   assert.match(patched, /signingConfigs/);
   assert.match(patched, /signingConfig signingConfigs.release/);
 
-  const pbx = "MARKETING_VERSION = 1.0;\nCURRENT_PROJECT_VERSION = 1;\n";
+  const pbx = "MARKETING_VERSION = 1.0;\nCURRENT_PROJECT_VERSION = 1;\nTARGETED_DEVICE_FAMILY = \"1,2\";\n";
   const pbxPatched = patchPbxVersions(pbx, 42, "1.18.0");
   assert.match(pbxPatched, /MARKETING_VERSION = 1.18.0;/);
   assert.match(pbxPatched, /CURRENT_PROJECT_VERSION = 42;/);
+  const pbxPhone = patchPbxDeviceFamily(pbxPatched);
+  assert.match(pbxPhone, /TARGETED_DEVICE_FAMILY = 1;/);
+  assert.doesNotMatch(pbxPhone, /1,2/);
+});
+
+test("native patcher pins iOS to iPhone-only (not iPhone+iPad)", () => {
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>My App</string>
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+		<integer>2</integer>
+	</array>
+</dict>
+</plist>`;
+  const next = setPlistIntegerArray(plist, "UIDeviceFamily", [1]);
+  assert.match(next, /<key>UIDeviceFamily<\/key>\s*<array>\s*<integer>1<\/integer>\s*<\/array>/);
+  assert.doesNotMatch(next, /<integer>2<\/integer>/);
+  assert.equal((next.match(/<key>UIDeviceFamily<\/key>/g) || []).length, 1);
+
+  const missing = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>My App</string>
+</dict>
+</plist>`;
+  const inserted = setPlistIntegerArray(missing, "UIDeviceFamily", [1]);
+  assert.match(inserted, /<key>UIDeviceFamily<\/key>\s*<array>\s*<integer>1<\/integer>\s*<\/array>/);
+
+  const debugAndRelease = [
+    'TARGETED_DEVICE_FAMILY = "1,2";',
+    "TARGETED_DEVICE_FAMILY = 1,2;",
+    'TARGETED_DEVICE_FAMILY = "1";'
+  ].join("\n");
+  const families = patchPbxDeviceFamily(debugAndRelease);
+  assert.equal((families.match(/TARGETED_DEVICE_FAMILY = 1;/g) || []).length, 3);
+  assert.doesNotMatch(families, /1,2/);
+
+  assert.throws(() => patchPbxDeviceFamily("PRODUCT_BUNDLE_IDENTIFIER = com.example;\n"));
 });
 
 test("app version helpers read the badge and prefer the CI run number", () => {
@@ -211,6 +272,8 @@ test("app version helpers read the badge and prefer the CI run number", () => {
   assert.equal(versionCodeFromName("1.18.0"), 11800);
   assert.equal(mobileVersionCode("1.18.0", "77"), 77);
   assert.equal(mobileVersionCode("1.18.0", ""), 11800);
+  assert.equal(mobileVersionCode("1.19.2", "16"), 16);
+  assert.equal(mobileVersionCode("1.19.2", "17"), 17);
 });
 
 test("require-mobile-secrets fails closed when names are empty", () => {
