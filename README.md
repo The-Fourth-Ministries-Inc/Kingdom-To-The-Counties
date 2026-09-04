@@ -351,6 +351,14 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
+## Recording Studio script size (v1.19.3)
+
+Laura (Android, live Play build) could not read the teleprompter script
+at arm's length. A+ added 4px from a 28px default and stopped at 96px,
+and nested editor HTML kept its own 16px. Default is 44px, steps are
+12px, max is 160px, and `--tp-font` wins on the script and its children.
+The v1.18.7 focus-zoom lock is unchanged.
+
 ## Play tester fixes (v1.19.2)
 
 Internal Play testers on release 15 / v1.19.0 reported three field bugs.
@@ -605,7 +613,7 @@ header text, not by hard-coded row numbers, so the other county tabs import with
 `--sheet`. Note that this only changes the *defaults* — phones keep whatever
 roster is stored on the server until a leader taps **Reload defaults**.
 
-## Recording Studio (Teleprompter) (v1.17.0)
+## Recording Studio (Teleprompter) (v1.19.3)
 
 Under **Ambassador Resources → 🎬 Recording Studio**: invite-video scripts for
 every county, each with a due date and assignee, opening into a full-screen
@@ -615,8 +623,18 @@ PIN; **adding/editing scripts, due dates, and assignees is leader-PIN only**
 (that's Laura's board). After recording, the app reminds the filmer to save the
 video and send it to Laura, then mark the script ✅ done with their initials.
 
+**Teleprompter type is readable at arm's length (v1.19.3).** The A+/A−
+control used to add 4px from a 28px default and stop at 96px, and it only
+set `font-size` on `#tpText` — so a script saved from the 16px editor (or
+a paste with its own spans) stayed tiny no matter how many times you
+tapped A+. Default is now 44px, each tap is 12px, the top end is 160px,
+and `--tp-font` applies to the script *and* its children. The Font badge
+shows the current size. This does not use `transform: scale` (that would
+fight mirror mode and the v1.18.7 zoom-trap reset) and does not change
+the 16px editor / `maximum-scale=1` studio lock.
+
 **The default scroll speed halved in v1.14.2.** Measured on a 390px phone at
-the stock 28px font, `1.0×` used to scroll ~220 wpm — far faster than anyone
+the then-stock 28px font, `1.0×` used to scroll ~220 wpm — far faster than anyone
 reads aloud on camera — so every filmer tapped `⟨⟨` a few times before their
 first take. It now runs ~110 wpm, a natural speaking pace. The `⟨⟨` / `⟩⟩`
 range is unchanged (0.1×–4.0×), so the old pace is `2.0×`.

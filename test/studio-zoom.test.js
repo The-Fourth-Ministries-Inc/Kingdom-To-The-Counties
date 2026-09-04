@@ -98,6 +98,7 @@ test("modals and studio sheets clear the Dynamic Island safe-area", () => {
 function fakeEl(init) {
   const classes = new Set(init.classes || []);
   const style = Object.assign({}, init.style || {});
+  style.setProperty = function (name, value) { this[name] = value; };
   const attrs = Object.assign({}, init.attrs || {});
   return {
     style,
@@ -127,7 +128,7 @@ test("leaving the editor clears leftover scale and keeps the studio open", () =>
   const names = [
     "tpViewportMeta", "tpSetViewport", "tpStudioOpen", "tpLockScale",
     "tpUnlockScale", "tpResetLeftoverScale", "tpResetCamLayer",
-    "tpResetTipLayer", "tpBlurEditor", "tpCloseEditor"
+    "tpResetTipLayer", "tpApplyFont", "tpBlurEditor", "tpCloseEditor"
   ];
   const src = names.map((n) => extractFunction(studio, n)).join("\n");
   const cam = fakeEl({ style: { transform: "scale(2.4)", zoom: "1.5" }, classes: [] });
@@ -147,7 +148,7 @@ test("leaving the editor clears leftover scale and keeps the studio open", () =>
   const ctx = createContext({
     TP_VP_BASE: "width=device-width, initial-scale=1, viewport-fit=cover",
     tpFacing: "user",
-    tpFontSize: 28,
+    tpFontSize: 44,
     tpTextEl: text,
     tpTrack: track,
     tpPos: 40,
@@ -166,7 +167,7 @@ test("leaving the editor clears leftover scale and keeps the studio open", () =>
   assert.equal(cam.style.zoom, "", "camera leftover zoom must clear");
   assert.equal(tips.style.transform, "", "tips leftover transform must clear");
   assert.equal(text.style.transform, "", "text leftover scale must clear");
-  assert.equal(text.style.fontSize, "28px", "teleprompter font must return to the stock size, not the zoomed leftover");
+  assert.equal(text.style.fontSize, "44px", "teleprompter font must return to the stock size, not the zoomed leftover");
   assert.equal(track.style.transform, "translateY(-40px)", "script scroll is not a leftover scale");
   assert.ok(back.textContent.indexOf("Scripts") >= 0, "‹ Scripts control still present");
   assert.match(meta._attrs.content, /maximum-scale=1/, "studio viewport stays locked after Edit");
@@ -178,7 +179,7 @@ function probeDocument() {
   const names = [
     "tpViewportMeta", "tpSetViewport", "tpStudioOpen", "tpLockScale",
     "tpUnlockScale", "tpResetLeftoverScale", "tpResetCamLayer",
-    "tpResetTipLayer", "tpBlurEditor", "tpCloseEditor"
+    "tpResetTipLayer", "tpApplyFont", "tpBlurEditor", "tpCloseEditor"
   ];
   const fns = names.map((n) => extractFunction(studio, n)).join("\n");
   return `<!DOCTYPE html><html><head>
@@ -203,7 +204,7 @@ html,body{margin:0;padding:0}
 </div></div>
 <script>
 var TP_VP_BASE="width=device-width, initial-scale=1, viewport-fit=cover";
-var tpFacing="user",tpFontSize=28,tpPos=0;
+var tpFacing="user",tpFontSize=44,tpPos=0;
 var tpTrack=document.getElementById("tpTrack"),tpTextEl=document.getElementById("tpText");
 ${fns}
 function box(el){
@@ -326,7 +327,7 @@ test("edit script → leave editor → no leftover scale / back control still pr
   assert.equal(r.camZoom, "", "camera leftover zoom");
   assert.equal(r.textTransform, "", "text leftover scale");
   assert.equal(r.textZoom, "", "text leftover zoom");
-  assert.equal(r.textFont, "28px");
+  assert.equal(r.textFont, "44px");
   assert.match(r.trackTransform, /^translateY\(0(px)?\)$/);
   assert.ok(r.back && r.back.visible, "‹ Scripts must still be on screen");
   assert.ok(r.back.h + 0.5 >= 44, "‹ Scripts height " + r.back.h + " is under 44px");

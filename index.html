@@ -567,7 +567,11 @@ textarea, select,
     mask-image:linear-gradient(to bottom,transparent 0%,black 10%,black 90%,transparent 100%)}
   #tpBand{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(20,19,18,.15),rgba(20,19,18,.62) 20%,rgba(20,19,18,.62) 80%,rgba(20,19,18,.15))}
   #tpTrack{position:relative;width:88%;max-width:720px;will-change:transform}
-  #tpText{font-weight:700;line-height:1.35;text-align:center;color:var(--cream);text-shadow:0 2px 10px rgba(0,0,0,.85);white-space:pre-wrap;word-wrap:break-word;padding:40vh 0;font-size:28px}
+  #tpText{font-weight:700;line-height:1.35;text-align:center;color:var(--cream);text-shadow:0 2px 10px rgba(0,0,0,.85);white-space:pre-wrap;word-wrap:break-word;padding:40vh 0;--tp-font:44px;font-size:var(--tp-font);-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  /* Nested script HTML from the 16px editor (or a paste) must not stay tiny
+     when A+ raises --tp-font. !important beats inline font-size on children.
+     Do not use transform:scale — that fights #tpWrap.mirror and the zoom reset. */
+  #tpText,#tpText *{font-size:var(--tp-font) !important}
   #tpText u{text-underline-offset:4px}
   #tpGuide{position:absolute;left:6%;right:6%;top:50%;border-top:1px dashed rgba(184,98,57,.6);pointer-events:none}
   /* v1.2.0 — reading-window contrast: dim copy away from the guide line */
@@ -1085,7 +1089,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.2</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.3</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -2368,8 +2372,8 @@ textarea, select,
   </div>
   <div id="tpControls">
     <div class="trow">
-      <div style="text-align:center"><button id="tpFontDown">A−</button><div class="tlbl">Font</div></div>
-      <div style="text-align:center"><button id="tpFontUp">A+</button></div>
+      <div style="text-align:center"><button type="button" id="tpFontDown">A−</button><div class="tlbl">Font <span id="tpFontVal">44</span></div></div>
+      <div style="text-align:center"><button type="button" id="tpFontUp">A+</button></div>
       <div style="text-align:center"><button id="tpSpeedDown">⟨⟨</button><div class="tlbl">Speed <span id="tpSpeedVal">1.0×</span> · <span id="tpEta">–:–</span></div></div>
       <div style="text-align:center"><button id="tpSpeedUp">⟩⟩</button></div>
       <div style="text-align:center"><button id="tpFlip">🔄</button><div class="tlbl">Flip</div></div>
