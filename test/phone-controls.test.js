@@ -80,7 +80,7 @@ function probeDocument(width, height) {
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <style>${style}
-html,body{margin:0;padding:0;background:#ccc}
+html,body{margin:0;padding:0;background:#ccc;height:auto !important;max-height:none !important;overflow:visible !important;display:block !important}
 #phone{width:${width}px;height:${height}px;position:relative;overflow:hidden;background:var(--cream)}
 #phone #tpApp,#phone #guideTip{position:absolute}
 #phone #tpApp{inset:0}

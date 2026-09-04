@@ -38,6 +38,13 @@ test("sticky header uses env(safe-area-inset-top) on WKWebView, not a SystemBars
   assert.match(html, /\.daygate\{[^}]*padding:calc\(env\(safe-area-inset-top,\s*0px\) \+ 24px\)/);
   assert.match(html, /\.tabbar\{[^}]*padding-bottom:env\(safe-area-inset-bottom,\s*0px\)/);
   assert.match(html, /\.tabbar\{[^}]*padding-left:var\(--sal\)/);
+  /* In-flow tab bar — not position:fixed. iOS Safari's layout viewport
+     parks a fixed bottom bar mid-screen (see v1.19.4 README). */
+  assert.match(html, /\.tabbar\{[^}]*position:relative/);
+  assert.doesNotMatch(html, /\.tabbar\{[^}]*position:fixed/);
+  assert.match(html, /html\{[^}]*height:100dvh/);
+  assert.match(html, /body\{[^}]*display:flex;flex-direction:column/);
+  assert.match(html, /main\{[^}]*overflow-y:auto/);
   assert.match(html, /--sal:env\(safe-area-inset-left,\s*0px\)/);
   assert.match(html, /--sar:env\(safe-area-inset-right,\s*0px\)/);
 
@@ -81,11 +88,20 @@ test("version badge, service worker cache, and SW comment stay aligned", () => {
   const html = read("index.html");
   const sw = read("sw.js");
   const version = readAppVersion(html);
-  assert.equal(version, "1.19.3");
+  assert.equal(version, "1.19.4");
   assert.match(sw, new RegExp("app v" + version.replace(/\./g, "\\.")));
   const cache = sw.match(/var CACHE = "(k2c-v\d+)"/);
   assert.ok(cache, "SW cache name missing");
-  assert.equal(cache[1], "k2c-v64");
+  assert.equal(cache[1], "k2c-v65");
+});
+
+test("page scroll and in-page sticky offset follow the main scrollport", () => {
+  const js = read("js/app-core.js");
+  assert.match(js, /function pageScroller\(/);
+  assert.match(js, /function scrollPageTop\(/);
+  assert.match(js, /scrollPageTop\(true\)/);
+  assert.match(js, /sc\.contains\(tw\)/);
+  assert.doesNotMatch(js, /window\.scrollTo\(\{top:0,behavior:"smooth"\}\)/);
 });
 
 test("tour card is clamped below --sat / env(safe-area-inset-top)", () => {

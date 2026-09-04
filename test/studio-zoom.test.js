@@ -186,7 +186,7 @@ function probeDocument() {
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <style>${style}
-html,body{margin:0;padding:0}
+html,body{margin:0;padding:0;height:auto !important;max-height:none !important;overflow:visible !important;display:block !important}
 :root{--sat:47px !important;--sab:34px !important}
 </style>
 </head><body>
