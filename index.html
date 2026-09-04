@@ -52,14 +52,21 @@ textarea, select,
     --sar:env(safe-area-inset-right, 0px);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  /* Locked viewport column. iOS Safari (iOS 26 liquid-glass chrome especially)
+     resolves position:fixed;bottom:0 against a layout viewport shorter than
+     the visible page, so the tab bar floated mid-screen with checklist cards
+     showing underneath. Header + tab bar stay in-flow; only main scrolls.
+     Capacitor WKWebView / Android WebView have a stable 100dvh, so native
+     chrome lands in the same place as the old fixed pin. */
+  html{height:100%;height:-webkit-fill-available;height:100dvh;overflow:hidden}
   html,body{margin:0;padding:0}
-  body{font-family:var(--sans);background:var(--cream);color:var(--ink);line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:calc(var(--tab-h) + var(--sab));}
+  body{font-family:var(--sans);background:var(--cream);color:var(--ink);line-height:1.45;-webkit-font-smoothing:antialiased;min-height:0;height:100%;height:-webkit-fill-available;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
   /* Ink fills the status-bar/notch so the translucent iOS bar stays
      readable. Title + clock live in .topbar with normal 12px padding —
      putting the inset on .topbar used to leave a dead gap above NOW/NEXT
      when WKWebView also applied contentInset: automatic. Second padding-top
      is the Android WebView <140 fallback (injected --safe-area-inset-*). */
-  .topwrap{position:sticky;top:0;z-index:40;background:var(--ink);padding-top:env(safe-area-inset-top, 0px);padding-top:var(--safe-area-inset-top, env(safe-area-inset-top, 0px))}
+  .topwrap{position:sticky;top:0;z-index:40;flex:none;background:var(--ink);padding-top:env(safe-area-inset-top, 0px);padding-top:var(--safe-area-inset-top, env(safe-area-inset-top, 0px))}
   .topbar{background:var(--ink);color:var(--cream);padding:12px calc(var(--sar) + 18px) 12px calc(var(--sal) + 18px);display:flex;align-items:center;justify-content:space-between;gap:10px;}
   /* Phone: stack NOW over NEXT so a long segment name wraps instead of
      ellipsizing. Wider screens keep a two-column strip. Never clip. */
@@ -98,7 +105,7 @@ textarea, select,
      tap-to-open area, so a miss opened the announcement instead of closing
      it. The visual circle stays small; the hit area is 44px. */
   .annbar .x{margin-left:auto;flex:none;background:rgba(255,255,255,.18);border:none;color:#fff;width:44px;height:44px;margin:-10px -8px -10px 0;border-radius:50%;font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
-  main{padding:18px calc(var(--sar) + 16px) 26px calc(var(--sal) + 16px);max-width:560px;margin:0 auto}
+  main{flex:1 1 auto;min-height:0;min-width:0;width:100%;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px calc(var(--sar) + 16px) 26px calc(var(--sal) + 16px);max-width:560px;margin:0 auto}
   .page{display:none;animation:fade .28s ease}
   .page.active{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -886,7 +893,7 @@ textarea, select,
   .sheetx:active{background:var(--ink);color:var(--cream)}
   .binsheet #binBody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 18px 2px}
   .binsheet .row{flex:none;padding:12px 18px 16px}
-  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;height:calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));padding-bottom:env(safe-area-inset-bottom, 0px);padding-bottom:var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));padding-left:var(--sal);padding-right:var(--sar);background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:stretch;box-shadow:0 -4px 18px rgba(43,42,40,.06);}
+  .tabbar{position:relative;flex:none;width:100%;z-index:50;height:calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));padding-bottom:env(safe-area-inset-bottom, 0px);padding-bottom:var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));padding-left:var(--sal);padding-right:var(--sar);background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:stretch;box-shadow:0 -4px 18px rgba(43,42,40,.06);}
   .tab{flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:12px;letter-spacing:.2px;font-weight:600;position:relative;min-height:44px}
   .tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
   .tab .tl{max-width:100%;white-space:normal;text-align:center;line-height:1.15;font-size:12px}
@@ -1023,10 +1030,12 @@ textarea, select,
   .printbtn{display:block;width:100%;border:none;border-radius:12px;background:var(--ink);color:var(--cream);font-weight:700;font-size:13.5px;padding:12px;cursor:pointer;margin:0 0 14px}
   @media print{
     @page{margin:11mm}
+    html,body{height:auto !important;max-height:none !important;overflow:visible !important;display:block !important}
     body{background:#fff !important;padding-bottom:0 !important}
+    main{overflow:visible !important;height:auto !important;flex:none !important}
     /* only the doc being printed is visible */
     body[data-print] .topwrap,body[data-print] .tabbar,body[data-print] .annbar,body[data-print] .toast,body[data-print] .daygate,body[data-print] .modal,body[data-print] #guideTip,body[data-print] #guideDim,body[data-print] #guideCatch{display:none !important}
-    body[data-print] main{max-width:none;padding:0}
+    body[data-print] main{max-width:none;padding:0;overflow:visible !important;height:auto !important}
     body[data-print] .page{display:none !important}
     body[data-print="playbook"] #page-playbook{display:block !important}
     body[data-print="handbook"] #page-handbook{display:block !important}
@@ -1089,7 +1098,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.3</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.4</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">

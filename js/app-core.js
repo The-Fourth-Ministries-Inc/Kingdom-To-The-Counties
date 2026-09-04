@@ -2585,6 +2585,14 @@ function bindUploadLinks(){
   var sm=document.getElementById("shareMediaInput");
   if(sm)sm.addEventListener("change",onShareMediaPicked);
 }
+function pageScroller(){return document.querySelector("main")||document.documentElement;}
+function scrollPageTop(smooth){
+  var sc=pageScroller();
+  try{
+    if(sc.scrollTo)sc.scrollTo({top:0,behavior:smooth?"smooth":"auto"});
+    else sc.scrollTop=0;
+  }catch(_){try{sc.scrollTop=0;}catch(__){}}
+}
 function show(id,opts){
   opts=opts||{};
   if(id==="dashboard"&&!LEADER){askPin(function(){show("dashboard",opts);});}
@@ -2597,7 +2605,7 @@ function show(id,opts){
      than a phone column and there is no reason to letterbox them on a desktop. */
   var mainEl=document.querySelector("main");if(mainEl)mainEl.classList.toggle("wide",id==="techio");
   var tab=PARENT[id]||id;var tabs=document.querySelectorAll(".tab");for(var j=0;j<tabs.length;j++)tabs[j].classList.toggle("active",tabs[j].getAttribute("data-tab")===tab);
-  window.scrollTo({top:0,behavior:"smooth"});
+  scrollPageTop(true);
   if(id==="now")renderSpine();
   if(id==="dashboard"){applyLeaderUI();renderDashboard();}
   if(id==="announcements"||id==="issue"){seenAnn=visCount(STATE.announcements);seenIssue=visCount(STATE.feedback);updateBadges();}
@@ -3455,7 +3463,14 @@ function boot(){
     finishBoot();
   });
 }
-function setStickyTop(){var tw=document.querySelector(".topwrap");document.documentElement.style.setProperty("--toph",((tw?tw.offsetHeight:0)+6)+"px");}
+function setStickyTop(){
+  var tw=document.querySelector(".topwrap"),sc=document.querySelector("main");
+  /* Header lives outside the main scrollport, so in-page sticky rows
+     (checklist section heads, trailer search) pin to the top of main.
+     If a probe or old layout keeps .topwrap inside main, still offset. */
+  var h=(tw&&sc&&sc.contains(tw))?tw.offsetHeight:0;
+  document.documentElement.style.setProperty("--toph",(h+6)+"px");
+}
 window.addEventListener("resize",setStickyTop);
 function finishBoot(){
   updateSync();applyLeaderUI();maybeDayGate();renderDynamic();refreshAll();updateTourPrompts();renderNameBars();setStickyTop();

@@ -65,7 +65,7 @@ test("header subline is outdoor-readable and brand stays one row on a phone", ()
   assert.ok(size, "brand subline font-size missing");
   assert.ok(Number(size[1]) >= 13, "brand subline is " + size[1] + "px, want ≥13");
   assert.match(title, /white-space\s*:\s*nowrap/);
-  assert.match(html, /<span class="ver">v1\.19\.3<\/span>/);
+  assert.match(html, /<span class="ver">v1\.19\.4<\/span>/);
 });
 
 test("tab labels are short and at least 12px, tap row stays ≥44px", () => {
@@ -79,6 +79,8 @@ test("tab labels are short and at least 12px, tap row stays ≥44px", () => {
   assert.ok(tlPx >= 12, "tab label font-size is " + tlPx);
   assert.match(tab, /min-height\s*:\s*44px/);
   assert.match(html, /\.tabbar\{[^}]*padding-bottom:env\(safe-area-inset-bottom,\s*0px\)/);
+  assert.match(html, /\.tabbar\{[^}]*position:relative/);
+  assert.doesNotMatch(html, /\.tabbar\{[^}]*position:fixed/);
   assert.match(html, /--tab-h:64px/);
 });
 
@@ -129,10 +131,12 @@ function probeDocument(width, height) {
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <style>${style}
-html,body{margin:0;padding:0;background:#ccc}
-#phone{width:${width}px;height:${height}px;position:relative;overflow:auto;background:var(--cream)}
+html,body{margin:0;padding:0;background:#ccc;height:auto !important;max-height:none !important;overflow:visible !important;display:block !important}
+#phone{width:${width}px;height:${height}px;position:relative;overflow:hidden;background:var(--cream);display:flex;flex-direction:column}
+#phone .topwrap{flex:none}
+#phone main{flex:1 1 auto;min-height:0;overflow:auto}
 #phone .daygate{position:absolute;inset:0}
-#phone .tabbar{position:absolute;left:0;right:0;bottom:0}
+#phone .tabbar{position:relative;flex:none;left:auto;right:auto;bottom:auto}
 </style>
 </head><body>
 <div id="phone">
@@ -198,7 +202,9 @@ ${tabs}
     phoneTop: phone.getBoundingClientRect().top,
     phoneScroll: phone.scrollHeight,
     unlockBottomInPhone: Math.round((document.getElementById("dayPinOk").getBoundingClientRect().bottom - phone.getBoundingClientRect().top) * 10) / 10,
-    privBottomInPhone: Math.round((document.querySelector(".dgpv").getBoundingClientRect().bottom - phone.getBoundingClientRect().top) * 10) / 10
+    privBottomInPhone: Math.round((document.querySelector(".dgpv").getBoundingClientRect().bottom - phone.getBoundingClientRect().top) * 10) / 10,
+    tabbar: box(document.querySelector(".tabbar")),
+    phoneBottom: Math.round(phone.getBoundingClientRect().bottom * 10) / 10
   };
   document.title = JSON.stringify(report);
 })();
@@ -305,6 +311,9 @@ test("390-wide live layout: ticker, tabs, and 44px tap targets", { timeout: 7000
   }
   assert.ok(r.unlock.h >= 44, "Unlock is " + r.unlock.h + "px tall");
   assert.ok(r.privacy.h >= 44, "Privacy Policy hit area is " + r.privacy.h + "px tall");
+  assert.ok(r.tabbar, "tabbar missing from probe");
+  assert.ok(Math.abs(r.tabbar.bottom - r.phoneBottom) <= 1.5,
+    "tabbar bottom " + r.tabbar.bottom + " is not flush with phone bottom " + r.phoneBottom);
 });
 
 test("landscape 390-tall Day PIN card stays fully reachable", { timeout: 70000 }, async () => {

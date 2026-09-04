@@ -351,6 +351,27 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
+## Safari tab bar flush with the viewport (v1.19.4)
+
+On mobile Safari (iPhone, including iOS 26 liquid-glass chrome) the bottom
+tab bar (Pre-Crusade / Now / Specialists / Post / Resources) sat in the
+lower third of the screen. Checklist cards scrolled both under it and in
+the gap below it.
+
+`position: fixed; bottom: 0` is resolved against Safari's layout viewport,
+which is shorter than the visible page when the address bar / floating
+toolbar is showing — and on iOS 26 `bottom: 0` is the *top* of the
+transparent browser controls, so page content shows through the hole.
+`100vh` / a leftover spacer / a missing `dvh` was not the cause; the
+header safe-area (`--sat`) and Capacitor `contentInset: never` path are
+unchanged.
+
+The shell is now a locked `100dvh` column: header and tab bar are in-flow,
+only `main` scrolls, and the tab bar still pads `env(safe-area-inset-bottom)`
+so the home indicator does not clip labels. Native iOS / Android WebView
+already has a stable viewport, so the bar lands in the same place as the
+old fixed pin.
+
 ## Recording Studio script size (v1.19.3)
 
 Laura (Android, live Play build) could not read the teleprompter script
