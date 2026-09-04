@@ -651,8 +651,8 @@ function tpResetTipLayer(){
   if(wrap){wrap.style.zoom="";}
   if(tpTextEl){
     tpTextEl.style.zoom="";
-    tpTextEl.style.fontSize=tpFontSize+"px";
     tpTextEl.style.transform="";
+    tpApplyFont();
   }
   if(tpTrack)tpTrack.style.transform=tpPos?"translateY(-"+tpPos+"px)":"translateY(0)";
 }
@@ -698,16 +698,24 @@ function tpDelete(){
 
 /* ---- Teleprompter overlay ---- */
 /* v1.14.2 — tpBase halved (0.6 → 0.3 px/frame). Measured on a 390px phone at
-   the stock 28px font, 0.6 scrolled ~220 wpm, so filmers had to thumb the
+   the then-stock 28px font, 0.6 scrolled ~220 wpm, so filmers had to thumb the
    speed down before every take; 0.3 lands at ~110 wpm, a natural on-camera
    pace. The badge still reads 1.0× and the ⟨⟨ / ⟩⟩ range is unchanged, so
-   anyone who wants the old pace taps up to 2.0×. */
-var tpCurId=null,tpFontSize=28,tpSpeed=1.0,tpBase=0.3,tpPlaying=false,tpPos=0,tpFacing="user",tpStream=null,tpRAF=null;
+   anyone who wants the old pace taps up to 2.0×.
+   v1.19.3 — teleprompter type. 28px / +4 / cap 96 was too small to read at
+   arm's length (Laura, Android Play). Nested editor HTML (16px spans) also
+   ignored style.fontSize on #tpText. Size now lives in --tp-font so children
+   inherit, steps are larger, and the top end is a real prompter size. Do not
+   scale #tpText with transform — that fights mirror mode and the zoom-trap
+   reset. */
+var TP_FONT_MIN=20,TP_FONT_MAX=160,TP_FONT_STEP=12,TP_FONT_DEFAULT=44;
+var tpCurId=null,tpFontSize=TP_FONT_DEFAULT,tpSpeed=1.0,tpBase=0.3,tpPlaying=false,tpPos=0,tpFacing="user",tpStream=null,tpRAF=null;
 var tpRecorder=null,tpChunks=[],tpRecording=false,tpSecs=0,tpTimer=null,tpBlob=null,tpTipsSeen=false;
 var tpTrack=document.getElementById("tpTrack"),tpTextEl=document.getElementById("tpText");
 function tpOpen(id){
   tpCurId=id;var s=tpById(id);if(!s)return;
   tpTextEl.innerHTML=s.body;
+  tpApplyFont();
   document.getElementById("tpLabel").textContent=s.event.split("—")[0].trim()+" · "+s.title;
   tpResetPos();tpSetPlaying(false);tpUpdateEta();
   document.getElementById("tpPost").classList.remove("show");
@@ -779,8 +787,15 @@ function tpForceClose(){
 }
 function tpStopCam(){if(tpStream){tpStream.getTracks().forEach(function(t){t.stop();});tpStream=null;}}
 document.getElementById("tpFlip").addEventListener("click",function(){if(tpRecording)return;tpFacing=tpFacing==="user"?"environment":"user";tpStartCam(tpFacing);});
-document.getElementById("tpFontUp").addEventListener("click",function(){tpFontSize=Math.min(tpFontSize+4,96);tpTextEl.style.fontSize=tpFontSize+"px";});
-document.getElementById("tpFontDown").addEventListener("click",function(){tpFontSize=Math.max(tpFontSize-4,14);tpTextEl.style.fontSize=tpFontSize+"px";});
+function tpApplyFont(){
+  if(!tpTextEl)return;
+  tpTextEl.style.setProperty("--tp-font", tpFontSize+"px");
+  tpTextEl.style.fontSize=tpFontSize+"px";
+  var lab=document.getElementById("tpFontVal");
+  if(lab)lab.textContent=String(tpFontSize);
+}
+document.getElementById("tpFontUp").addEventListener("click",function(){tpFontSize=Math.min(tpFontSize+TP_FONT_STEP,TP_FONT_MAX);tpApplyFont();});
+document.getElementById("tpFontDown").addEventListener("click",function(){tpFontSize=Math.max(tpFontSize-TP_FONT_STEP,TP_FONT_MIN);tpApplyFont();});
 document.getElementById("tpSpeedUp").addEventListener("click",function(){tpSpeed=Math.min(tpSpeed+0.1,4);document.getElementById("tpSpeedVal").textContent=tpSpeed.toFixed(1)+"×";tpUpdateEta();});
 document.getElementById("tpSpeedDown").addEventListener("click",function(){tpSpeed=Math.max(tpSpeed-0.1,0.1);document.getElementById("tpSpeedVal").textContent=tpSpeed.toFixed(1)+"×";tpUpdateEta();});
 function tpLoop(){
