@@ -629,9 +629,11 @@ set `font-size` on `#tpText` — so a script saved from the 16px editor (or
 a paste with its own spans) stayed tiny no matter how many times you
 tapped A+. Default is now 44px, each tap is 12px, the top end is 160px,
 and `--tp-font` applies to the script *and* its children. The Font badge
-shows the current size. This does not use `transform: scale` (that would
-fight mirror mode and the v1.18.7 zoom-trap reset) and does not change
-the 16px editor / `maximum-scale=1` studio lock.
+shows the current size. Top padding is `min(22vh, 1.25em)` so a 160px
+first line still sits in the 46% reading window instead of starting
+below it. This does not use `transform: scale` (that would fight mirror
+mode and the v1.18.7 zoom-trap reset) and does not change the 16px
+editor / `maximum-scale=1` studio lock.
 
 **The default scroll speed halved in v1.14.2.** Measured on a 390px phone at
 the then-stock 28px font, `1.0×` used to scroll ~220 wpm — far faster than anyone

@@ -76,7 +76,9 @@ test("prompter CSS uses --tp-font on #tpText and its children", () => {
   assert.match(text[0], /--tp-font:\s*44px/);
   assert.match(text[0], /font-size:\s*var\(--tp-font\)/);
   assert.match(text[0], /text-size-adjust:\s*100%/);
+  assert.match(text[0], /padding:\s*min\(22vh,\s*1\.25em\)\s+0\s+40vh/);
   assert.doesNotMatch(text[0], /font-size:\s*28px/);
+  assert.doesNotMatch(text[0], /padding:\s*40vh\s+0([;}])/);
   assert.match(css, /#tpText\s*,\s*#tpText\s+\*\s*\{[^}]*font-size:\s*var\(--tp-font\)\s*!important/);
   assert.match(html, /id="tpFontVal"/);
   const ed = html.match(/#tpEdBody\{[^}]+\}/);
@@ -131,20 +133,25 @@ function box(el){
   return {w:r.width,h:r.height,top:r.top,visible:r.width>0&&r.height>0};
 }
 var nested=document.getElementById("tpNested");
-var defText=fs(tpTextEl), defNested=fs(nested), defGlyph=box(nested);
+var wrap=document.getElementById("tpWrap");
+function overlap(a,b){
+  var ar=a.getBoundingClientRect(), br=b.getBoundingClientRect();
+  return Math.min(ar.bottom,br.bottom)-Math.max(ar.top,br.top);
+}
+var defText=fs(tpTextEl), defNested=fs(nested), defGlyph=box(nested), defOverlap=overlap(wrap,nested);
 document.getElementById("tpFontUp").click();
 var stepText=fs(tpTextEl);
 tpFontSize=TP_FONT_MAX;
 tpApplyFont();
-var maxText=fs(tpTextEl), maxNested=fs(nested), maxGlyph=box(nested);
+var maxText=fs(tpTextEl), maxNested=fs(nested), maxGlyph=box(nested), maxOverlap=overlap(wrap,nested);
 var badge=document.getElementById("tpFontVal").textContent;
 var play=box(document.getElementById("tpPlay"));
 var back=box(document.getElementById("tpBack"));
 document.title=JSON.stringify({
   vw:document.getElementById("phone").clientWidth,
-  defText:defText, defNested:defNested, defGlyphH:defGlyph.h,
+  defText:defText, defNested:defNested, defGlyphH:defGlyph.h, defOverlap:defOverlap,
   stepText:stepText,
-  maxText:maxText, maxNested:maxNested, maxGlyphH:maxGlyph.h,
+  maxText:maxText, maxNested:maxNested, maxGlyphH:maxGlyph.h, maxOverlap:maxOverlap,
   badge:badge,
   textTransform:tpTextEl.style.transform||getComputedStyle(tpTextEl).transform,
   play:play, back:back
@@ -240,6 +247,8 @@ test("390-wide: default, A+ step, and max prompter size beat nested 16px", { tim
   assert.ok(r.maxText >= 160, "max computed #tpText is " + r.maxText + "px");
   assert.ok(r.maxNested >= 160, "nested 16px span at max is " + r.maxNested + "px");
   assert.ok(r.maxGlyphH >= 140, "max glyph box is " + r.maxGlyphH + "px tall — still tiny on a 390-wide phone");
+  assert.ok(r.defOverlap >= 40, "default first line overlap with the reading window is " + r.defOverlap);
+  assert.ok(r.maxOverlap >= 80, "max first line is clipped out of the 46% wrap (overlap " + r.maxOverlap + ")");
   assert.equal(Number(r.badge), numConst("TP_FONT_MAX"));
   assert.ok(!/scale\(/i.test(String(r.textTransform || "")), "prompter must not use transform:scale for type size");
   assert.ok(r.play && r.play.visible && r.play.h + 0.5 >= 44, "Play must stay a 44px control");
