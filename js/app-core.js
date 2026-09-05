@@ -2045,7 +2045,120 @@ function updateSync(){var els=document.querySelectorAll(".syncpill");var label;
   if(typeof renderInvStale==="function")renderInvStale();}
 setInterval(updateSync,1000);
 var pinThen=null;
-function askPin(then){pinThen=then;document.getElementById("pinErr").textContent="";document.getElementById("pinInput").value="";document.getElementById("pinModal").classList.add("show");setTimeout(function(){document.getElementById("pinInput").focus();},50);}
+/* iOS Safari overlays the software keyboard and scrolls visualViewport so
+   the focused field stays visible. It does not shrink 100dvh. A position:fixed
+   inset:0 overlay (Day PIN, leader PIN, script editor, bin card) is sized to
+   the layout viewport, so that scroll shoves the whole 100dvh shell — title
+   under the status bar, tab bar peeking above the keys. Pin shown overlays
+   to the visual rectangle; leave the in-flow tab bar + 100dvh column alone.
+   Capacitor / Android already resize the layout viewport, so this is a no-op. */
+function kbOverlayEls(){return document.querySelectorAll(".daygate, .modal");}
+function kbIsField(el){
+  if(!el||el===document.body||el===document.documentElement)return false;
+  var t=(el.tagName||"").toLowerCase();
+  if(t==="input"){
+    var ty=(el.type||"text").toLowerCase();
+    if(ty==="button"||ty==="submit"||ty==="reset"||ty==="checkbox"||ty==="radio"||ty==="file"||ty==="hidden"||ty==="range")return false;
+    return true;
+  }
+  if(t==="textarea"||t==="select")return true;
+  return !!el.isContentEditable;
+}
+function kbPinOverlay(el,rect){
+  if(!el||!rect)return;
+  el.style.top=rect.top+"px";
+  el.style.left=rect.left+"px";
+  el.style.width=rect.width+"px";
+  el.style.height=rect.height+"px";
+  el.style.right="auto";
+  el.style.bottom="auto";
+  el.classList.add("kb-pin");
+}
+function kbUnpinOverlay(el){
+  if(!el)return;
+  el.style.top="";
+  el.style.left="";
+  el.style.width="";
+  el.style.height="";
+  el.style.right="";
+  el.style.bottom="";
+  el.classList.remove("kb-pin");
+}
+function kbNeedPin(vv){
+  if(!vv)return false;
+  return vv.offsetTop>1||vv.offsetLeft>1||(window.innerHeight-vv.height)>80;
+}
+function kbVisibleRect(vv){
+  if(!vv)return null;
+  return {top:vv.offsetTop||0,left:vv.offsetLeft||0,width:vv.width,height:vv.height};
+}
+function kbScrollField(field,scroller){
+  if(!field||!scroller||field===scroller)return;
+  var fr=field.getBoundingClientRect();
+  var sr=scroller.getBoundingClientRect();
+  var pad=16;
+  if(fr.bottom>sr.bottom-pad)scroller.scrollTop+=Math.ceil(fr.bottom-(sr.bottom-pad));
+  else if(fr.top<sr.top+pad)scroller.scrollTop-=Math.ceil((sr.top+pad)-fr.top);
+}
+function kbSyncPageField(){
+  var main=document.querySelector("main");
+  if(!main)return;
+  var ae=document.activeElement;
+  var field=kbIsField(ae)&&main.contains(ae)?ae:null;
+  var vv=window.visualViewport;
+  var kb=0;
+  if(vv){
+    kb=Math.max(0,window.innerHeight-vv.height);
+    if(kb<40&&vv.offsetTop>8)kb=vv.offsetTop;
+  }
+  if(field&&kb>40){
+    main.style.paddingBottom=(26+kb)+"px";
+    kbScrollField(field,main);
+  }else{
+    main.style.paddingBottom="";
+  }
+}
+function syncKbOverlay(){
+  var vv=window.visualViewport;
+  var all=kbOverlayEls();
+  var shown=[],i,j,el;
+  for(i=0;i<all.length;i++)if(all[i].classList.contains("show"))shown.push(all[i]);
+  var rect=(vv&&shown.length&&kbNeedPin(vv))?kbVisibleRect(vv):null;
+  for(i=0;i<all.length;i++){
+    el=all[i];
+    if(rect&&el.classList.contains("show"))kbPinOverlay(el,rect);
+    else kbUnpinOverlay(el);
+  }
+  var ae=document.activeElement;
+  if(shown.length&&rect&&kbIsField(ae)){
+    for(j=0;j<shown.length;j++){
+      if(shown[j].contains(ae))kbScrollField(ae,shown[j].querySelector(".dgsheet, .sheet")||shown[j]);
+    }
+  }else if(!shown.length){
+    kbSyncPageField();
+  }
+}
+function kbFocus(el){
+  if(!el||!el.focus)return;
+  try{el.focus({preventScroll:true});}catch(_){try{el.focus();}catch(__){}}
+  syncKbOverlay();
+}
+function kbBindViewport(){
+  if(window.__kbBound)return;
+  window.__kbBound=true;
+  var vv=window.visualViewport;
+  if(vv){
+    vv.addEventListener("resize",syncKbOverlay);
+    vv.addEventListener("scroll",syncKbOverlay);
+  }
+  window.addEventListener("resize",syncKbOverlay);
+  document.addEventListener("focusin",syncKbOverlay);
+  document.addEventListener("focusout",function(){setTimeout(syncKbOverlay,80);});
+  var els=kbOverlayEls();
+  for(var i=0;i<els.length;i++)new MutationObserver(function(){syncKbOverlay();}).observe(els[i],{attributes:true,attributeFilter:["class"]});
+}
+kbBindViewport();
+function askPin(then){pinThen=then;document.getElementById("pinErr").textContent="";document.getElementById("pinInput").value="";document.getElementById("pinModal").classList.add("show");setTimeout(function(){var i=document.getElementById("pinInput");if(i)kbFocus(i);},50);}
 function closePin(){document.getElementById("pinModal").classList.remove("show");}
 function tryPin(){
   var v=document.getElementById("pinInput").value.trim();if(!v)return;
@@ -2082,7 +2195,7 @@ function maybeDayGate(){
     var bar=document.getElementById("annBar");
     if(bar)bar.classList.remove("show");
     var nm=document.getElementById("dayNameInput");if(nm&&!nm.value)nm.value=MY.name||"";
-    setTimeout(function(){var focusId=(nm&&!nm.value)?"dayNameInput":"dayPinInput";var i=document.getElementById(focusId);if(i)i.focus();},60);
+    setTimeout(function(){var focusId=(nm&&!nm.value)?"dayNameInput":"dayPinInput";var i=document.getElementById(focusId);if(i){try{i.focus({preventScroll:true});}catch(_){try{i.focus();}catch(__){}}}},60);
   }else{g.classList.remove("show");}
 }
 function tryDayPin(){
@@ -2188,7 +2301,7 @@ document.getElementById("bnBtn").addEventListener("click",function(){
 });
 document.getElementById("mirBtn").addEventListener("click",function(){var name=document.getElementById("mirMyName").value.trim()||MY.name,type=document.getElementById("mirType").value,who=document.getElementById("mirWho").value.trim(),body=document.getElementById("mirBody").value.trim();if(!body){flash("mirBody");return;}if(!name){flash("mirMyName");return;}rememberName(name);var rec={id:uid(),type:type,name:who,note:body,county:STATE.county||"",by:name,dev:DEV,t:nowLabel(),d:dateKey(new Date()),witnesses:[]};queueWrite("miracleAdd",rec,function(){STATE.miracles=STATE.miracles||[];STATE.miracles.unshift(rec);},function(){renderDynamic();});document.getElementById("mirWho").value="";document.getElementById("mirBody").value="";prefillNames();toast("🙌 Reported — now it needs two witnesses to confirm it");});
 document.getElementById("fBtn").addEventListener("click",function(){var by=document.getElementById("fName").value.trim()||"Volunteer",title=document.getElementById("fTitle").value.trim(),body=document.getElementById("fBody").value.trim(),priority=document.getElementById("fPri").value;if(!title){flash("fTitle");return;}rememberName(by);var rec={id:uid(),priority:priority,title:title,body:body,by:by,t:nowLabel()};queueWrite("addFeedback",rec,function(){STATE.feedback.unshift(rec);},function(){renderDynamic();});document.getElementById("fTitle").value="";document.getElementById("fBody").value="";prefillNames();toast("✅ Sent to leadership");});
-function flash(id){var e=document.getElementById(id);if(e){e.style.borderColor="#B86239";e.focus();setTimeout(function(){e.style.borderColor="";},1200);}}
+function flash(id){var e=document.getElementById(id);if(e){e.style.borderColor="#B86239";kbFocus(e);setTimeout(function(){e.style.borderColor="";},1200);}}
 /* Attendance counter (v1.6.1): every tap lands in a per-phone ABSOLUTE tally
    that survives reloads (localStorage) and is pushed to the server whole —
    "this phone's total is N, split by name" — instead of as fragile +1 deltas.
