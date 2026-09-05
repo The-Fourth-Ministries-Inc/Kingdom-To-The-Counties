@@ -1,8 +1,9 @@
 /* Event-photo upload must not dump ambassadors on an in-app Microsoft
-   "account access" wall. bit.ly/uploadk2c 301s to SharePoint and 403s
-   without a work login. The primary path is Share / save on this phone
-   (OS share sheet or a local download). Team dump still opens SharePoint
-   in the system browser. Quick Capture card photos stay in-app. */
+   "account access" wall. The team dump opens Zach's SharePoint folder
+   directly (Bitly interstitials sent volunteers to scam sites). The
+   primary path is Share / save on this phone (OS share sheet or a local
+   download). Team dump still opens SharePoint in the system browser.
+   Quick Capture card photos stay in-app. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createContext, runInContext } from "node:vm";
@@ -14,6 +15,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const js = readFileSync(join(root, "js/app-core.js"), "utf8");
 const html = readFileSync(join(root, "index.html"), "utf8");
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+
+const SHAREPOINT_DUMP =
+  "https://thefourthministries-my.sharepoint.com/:f:/p/zach_silk/IgDSSmjPRiqrQrZI8lRK0gRIATHn0n8CVgMNXMYB1jwj3SQ";
 
 function extractFunction(src, name) {
   const start = src.search(new RegExp("function\\s+" + name + "\\s*\\("));
@@ -42,8 +46,10 @@ test("SharePoint upload is opened via Capacitor Browser / App / _system", () => 
   assert.match(js, /_system/);
   assert.match(extractFunction(js, "boot"), /bindUploadLinks\(\)/);
   assert.match(html, /onclick="return openUploadMedia\(event\)"/);
-  assert.match(html, /https:\/\/bit\.ly\/uploadk2c/);
+  assert.match(html, new RegExp(SHAREPOINT_DUMP.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(html, />Team dump</);
+  assert.doesNotMatch(html, /bit\.ly\/uploadk2c/);
+  assert.doesNotMatch(js, /bit\.ly\/uploadk2c/);
 });
 
 test("Share / save path does not require a Microsoft account", () => {
@@ -51,7 +57,6 @@ test("Share / save path does not require a Microsoft account", () => {
   assert.match(js, /function shareEventMedia\(/);
   assert.match(js, /function saveMediaToPhone\(/);
   assert.match(js, /navigator\.share/);
-  assert.match(extractFunction(js, "shareEventMedia"), /files/);
   assert.doesNotMatch(extractFunction(js, "shareEventMedia"), /bit\.ly|sharepoint|openSystemUrl|openUploadMedia/);
   assert.doesNotMatch(extractFunction(js, "saveMediaToPhone"), /bit\.ly|sharepoint|openSystemUrl/);
   assert.match(html, /id="shareMediaInput"/);
@@ -85,8 +90,11 @@ test("isSharePointUpload matches the dump link and SharePoint hosts", () => {
   const ctx = createContext({});
   runInContext(extractFunction(js, "isSharePointUpload"), ctx);
   const check = (href) => runInContext("isSharePointUpload(" + JSON.stringify(href) + ")", ctx);
-  assert.equal(check("https://bit.ly/uploadk2c"), true);
+  assert.equal(check(SHAREPOINT_DUMP), true);
   assert.equal(check("https://thefourthministries.sharepoint.com/sites/k2c"), true);
+  assert.equal(check("https://thefourthministries-my.sharepoint.com/:f:/p/zach_silk/folder"), true);
+  assert.equal(check("https://1drv.ms/f/s!example"), true);
+  assert.equal(check("https://bit.ly/uploadk2c"), false);
   assert.equal(check("privacy.html"), false);
   assert.equal(check("https://kingdomtothecounties.com"), false);
 });
@@ -108,22 +116,32 @@ test("openSystemUrl prefers Browser.open, then App.openUrl, then _system", () =>
     extractFunction(js, "openSystemUrl") + "\n" + extractFunction(js, "fallbackOpen"),
     ctx
   );
-  runInContext('openSystemUrl("https://bit.ly/uploadk2c");', ctx);
-  assert.deepEqual(calls, [["browser", "https://bit.ly/uploadk2c"]]);
+  runInContext("openSystemUrl(" + JSON.stringify(SHAREPOINT_DUMP) + ");", ctx);
+  assert.deepEqual(calls, [["browser", SHAREPOINT_DUMP]]);
 
   calls.length = 0;
   ctx.window.Capacitor.Plugins = {
     App: { openUrl: (opts) => { calls.push(["app", opts.url]); return Promise.resolve(); } }
   };
-  runInContext('openSystemUrl("https://bit.ly/uploadk2c");', ctx);
-  assert.deepEqual(calls, [["app", "https://bit.ly/uploadk2c"]]);
+  runInContext("openSystemUrl(" + JSON.stringify(SHAREPOINT_DUMP) + ");", ctx);
+  assert.deepEqual(calls, [["app", SHAREPOINT_DUMP]]);
 
   calls.length = 0;
   ctx.window.Capacitor.Plugins = {};
-  runInContext('openSystemUrl("https://bit.ly/uploadk2c");', ctx);
+  runInContext("openSystemUrl(" + JSON.stringify(SHAREPOINT_DUMP) + ");", ctx);
   assert.equal(calls[0][0], "window");
-  assert.equal(calls[0][1], "https://bit.ly/uploadk2c");
+  assert.equal(calls[0][1], SHAREPOINT_DUMP);
   assert.equal(calls[0][2], "_system");
+});
+
+test("openUploadMedia opens the direct SharePoint folder", () => {
+  const calls = [];
+  const ctx = createContext({
+    openSystemUrl: (url) => { calls.push(url); }
+  });
+  runInContext(extractFunction(js, "openUploadMedia"), ctx);
+  assert.equal(runInContext("openUploadMedia()", ctx), false);
+  assert.deepEqual(calls, [SHAREPOINT_DUMP]);
 });
 
 test("Quick Capture photo does not require a Microsoft account", () => {
