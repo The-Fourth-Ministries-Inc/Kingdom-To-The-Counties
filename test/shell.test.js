@@ -88,11 +88,28 @@ test("version badge, service worker cache, and SW comment stay aligned", () => {
   const html = read("index.html");
   const sw = read("sw.js");
   const version = readAppVersion(html);
-  assert.equal(version, "1.19.4");
+  assert.equal(version, "1.19.5");
   assert.match(sw, new RegExp("app v" + version.replace(/\./g, "\\.")));
   const cache = sw.match(/var CACHE = "(k2c-v\d+)"/);
   assert.ok(cache, "SW cache name missing");
-  assert.equal(cache[1], "k2c-v65");
+  assert.equal(cache[1], "k2c-v66");
+});
+
+test("keyboard overlay pin does not revert the in-flow 100dvh tab bar", () => {
+  const html = read("index.html");
+  const js = read("js/app-core.js");
+  assert.match(html, /\.tabbar\{[^}]*position:relative/);
+  assert.doesNotMatch(html, /\.tabbar\{[^}]*position:fixed/);
+  assert.match(html, /html\{[^}]*height:100dvh/);
+  assert.match(html, /body\{[^}]*display:flex;flex-direction:column/);
+  assert.doesNotMatch(html, /interactive-widget/);
+  assert.match(html, /\.daygate\.kb-pin\{/);
+  assert.match(html, /\.modal\.kb-pin\{/);
+  assert.match(js, /function syncKbOverlay\(/);
+  assert.match(js, /function kbPinOverlay\(/);
+  assert.match(js, /visualViewport/);
+  assert.match(js, /preventScroll:\s*true/);
+  assert.doesNotMatch(js, /el\.style\.transform/);
 });
 
 test("page scroll and in-page sticky offset follow the main scrollport", () => {

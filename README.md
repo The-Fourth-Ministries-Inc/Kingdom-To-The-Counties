@@ -351,6 +351,30 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
+## Day PIN keyboard no longer shoves the shell (v1.19.5)
+
+On iPhone Safari, focusing the Day PIN field opened the numeric keyboard and
+pushed the whole locked `100dvh` shell — header, lock card, and tab bar — up
+so the title sat under the status bar and the tabs peeked above the keys.
+
+iOS does not shrink `dvh` / `svh` / `lvh` for the software keyboard. It
+overlays the keys and scrolls `visualViewport` so the focused field stays
+visible. `position:fixed; inset:0` overlays are sized to the layout viewport,
+so that scroll looks like the entire app lifting. The v1.19.4 in-flow tab bar
++ `100dvh` column is unchanged; this patch does not switch the bar back to
+`position:fixed` and does not use `interactive-widget=resizes-content` (that
+would shrink the shell and lift the tabs).
+
+Shown lock/modals (`#dayGate`, `.modal`) pin to the visual viewport rectangle
+(`offsetTop` / `width` / `height`, no transform) and scroll the focused field
+inside the sheet. Programmatic focus uses `preventScroll`. Capacitor iOS /
+Android WebView and Chrome Android already resize the layout viewport with the
+keyboard, so `inset:0` still fills the remaining window and the pin is a
+no-op there. The same pin covers the leader PIN, script editor, bin notes,
+and other sheets that open a keyboard. In-flow fields in `main` get extra
+bottom padding equal to the keyboard overlap so `main` can scroll the field
+up without moving the tab bar.
+
 ## Safari tab bar flush with the viewport (v1.19.4)
 
 On mobile Safari (iPhone, including iOS 26 liquid-glass chrome) the bottom

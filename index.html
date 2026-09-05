@@ -873,6 +873,8 @@ textarea, select,
      centers when it fits and starts below --sat when it doesn't. */
   .modal{position:fixed;inset:0;z-index:300;background:rgba(43,42,40,.55);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}
   .modal.show{display:flex}
+  .modal.kb-pin{padding:calc(var(--sat) + 8px) calc(var(--sar) + 12px) calc(var(--sab) + 8px) calc(var(--sal) + 12px)}
+  .modal.kb-pin .sheet{margin-top:0;margin-bottom:0}
   .sheet{background:var(--cream);border-radius:18px;padding:22px;width:100%;max-width:340px;box-shadow:0 20px 50px rgba(0,0,0,.3);margin-top:auto;margin-bottom:auto;flex:none}
   .sheet h3{font-family:var(--serif);font-weight:700;font-size:20px;margin:0 0 6px}
   .sheet p{font-size:13px;color:var(--muted);margin:0 0 14px}
@@ -996,6 +998,13 @@ textarea, select,
   .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);overflow:hidden}
   .daygate.show{display:flex}
   .dgsheet{background:var(--cream);border-radius:20px;padding:26px 22px;width:100%;max-width:360px;max-height:100%;max-height:min(100%,calc(100vh - 16px));max-height:min(100%,calc(100dvh - 16px));max-height:min(100%,calc(100svh - 16px));min-height:0;box-shadow:0 24px 60px rgba(0,0,0,.45);text-align:center;margin-top:auto;margin-bottom:auto;flex:0 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box}
+  /* iOS Safari overlays the keyboard and scrolls visualViewport; it does
+     not shrink 100dvh. JS pins .daygate / .modal to that visible rectangle
+     (top/left/width/height — no transform) and adds .kb-pin so the sheet
+     uses the remaining height instead of lifting the 100dvh shell. After
+     .dgsheet so existing first-rule tests still read the idle card. */
+  .daygate.kb-pin{padding:calc(env(safe-area-inset-top, 0px) + 8px) 16px calc(env(safe-area-inset-bottom, 0px) + 8px)}
+  .daygate.kb-pin .dgsheet{margin-top:0;margin-bottom:0;max-height:100%;padding:12px 16px 8px;align-self:flex-start;min-height:0}
   .dgbrand{font-weight:900;letter-spacing:1.5px;font-size:13px;color:var(--wine);margin-bottom:14px}
   .dgbrand small{font-weight:600;font-size:9px;letter-spacing:1px}
   .dgsheet h3{font-family:var(--serif);font-size:21px;margin:0 0 6px}
@@ -1098,7 +1107,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.4</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.5</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
