@@ -2616,7 +2616,7 @@ function capNative(){
 }
 function isSharePointUpload(href){
   href=(href||"").toLowerCase();
-  return href.indexOf("bit.ly/uploadk2c")>=0||href.indexOf("sharepoint.com")>=0||href.indexOf("1drv.ms")>=0;
+  return href.indexOf("sharepoint.com")>=0||href.indexOf("1drv.ms")>=0;
 }
 function openSystemUrl(url){
   var Cap=window.Capacitor,P=Cap&&Cap.Plugins||{};
@@ -2636,7 +2636,7 @@ function fallbackOpen(url){
 }
 function openUploadMedia(ev){
   if(ev&&ev.preventDefault)ev.preventDefault();
-  openSystemUrl("https://bit.ly/uploadk2c");
+  openSystemUrl("https://thefourthministries-my.sharepoint.com/:f:/p/zach_silk/IgDSSmjPRiqrQrZI8lRK0gRIATHn0n8CVgMNXMYB1jwj3SQ");
   return false;
 }
 function pickShareMedia(){

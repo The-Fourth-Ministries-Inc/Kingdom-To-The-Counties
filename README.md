@@ -351,6 +351,19 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
+## Direct SharePoint media dump (v1.19.6)
+
+Bitly free short links (`bit.ly/uploadk2c`) now show interstitial ads.
+Volunteers tapping the ad's **Open** button landed on scam sites that
+asked for billing. Team dump, Media dump, and the playbook SharePoint
+bookmark now open Zach's folder directly:
+
+`https://thefourthministries-my.sharepoint.com/:f:/p/zach_silk/IgDSSmjPRiqrQrZI8lRK0gRIATHn0n8CVgMNXMYB1jwj3SQ`
+
+`openUploadMedia` still treats `sharepoint.com` / `1drv.ms` as upload
+targets and opens them in the system browser. Day PIN and secrets are
+unchanged.
+
 ## Day PIN keyboard no longer shoves the shell (v1.19.5)
 
 On iPhone Safari, focusing the Day PIN field opened the numeric keyboard and
@@ -419,8 +432,8 @@ backend, and does not change store-submit or Play production promotion.
   (`now`); only then does the app exit. v1.19.0 never pushed history
   (`history.length` stayed 2) so OS back left the app.
 - **Photo upload does not require a work Microsoft account (John).**
-  `bit.ly/uploadk2c` 301s to Zach’s SharePoint folder and 403s without a
-  Microsoft sign-in. The Now card primary path is **Share / save** — pick
+  The old Bitly short link 301'd to Zach’s SharePoint folder and 403s without a
+  Microsoft sign-in (v1.19.6 opens that folder directly). The Now card primary path is **Share / save** — pick
   photos or video on the phone and use the OS share sheet (Messages,
   personal Drive, save to the phone). No new backend. The secondary
   **Team dump** still opens SharePoint in the system browser
@@ -780,7 +793,7 @@ automatically on deploy.
   toggle-style `toggleCheck`/`ackCard`/`radioToggle` actions remain server-side
   for phones still running an older client.)
 - **Media upload link on the homepage (v1.16.1).** The Event Day page now has
-  a one-tap shortcut to the SharePoint media dump (`bit.ly/uploadk2c`) right
+  a one-tap shortcut to the SharePoint media dump (direct SharePoint folder as of v1.19.6) right
   next to Quick Capture, so ambassadors don't have to dig into the Playbook to
   find it after shooting photos or video.
 - **Reset never touches Tech I/O (v1.15.2).** The end-of-day reset clears
