@@ -1107,7 +1107,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.6</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.7</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1656,8 +1656,8 @@ textarea, select,
 #page-playbook .pb .mission{background:var(--ink);color:var(--cream);text-align:center;font-family:var(--body);text-transform:uppercase;letter-spacing:.1em;font-size:11px;font-weight:500;padding:11px 16px;}
 #page-playbook .pb nav.toc{padding:18px 14px 4px;}
 #page-playbook .pb .toc-label{font-family:var(--body);text-transform:uppercase;letter-spacing:.16em;font-size:10.5px;color:var(--ink-soft);margin:0 4px 10px;font-weight:600;}
-#page-playbook .pb .chips{display:flex;flex-wrap:wrap;gap:7px;}
-#page-playbook .pb .chips a{display:inline-block;text-decoration:none;font-family:var(--body);text-transform:uppercase;letter-spacing:.04em;font-size:12px;font-weight:600;color:var(--ink);background:var(--paper);border:1px solid var(--line);padding:7px 11px;border-radius:20px;}
+#page-playbook .pb .chips{display:flex;flex-wrap:wrap;gap:7px;position:relative;z-index:1;}
+#page-playbook .pb .chips a{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-family:var(--body);text-transform:uppercase;letter-spacing:.04em;font-size:12px;font-weight:600;color:var(--ink);background:var(--paper);border:1px solid var(--line);padding:7px 11px;min-height:44px;border-radius:20px;}
 #page-playbook .pb .chips a:active{background:var(--ink);color:#fff;}
 #page-playbook .pb section.card{background:var(--paper);margin:14px;border-radius:14px;border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;}
 #page-playbook .pb summary{list-style:none;cursor:pointer;padding:18px;display:flex;align-items:flex-start;gap:12px;}
@@ -2165,7 +2165,7 @@ textarea, select,
   </div>
 
 </div>
-    <script>(function(){var r=document.getElementById("page-playbook");if(!r)return;r.querySelectorAll("nav.toc a").forEach(function(a){a.addEventListener("click",function(){var s=document.getElementById(a.getAttribute("href").slice(1));if(s){var d=s.querySelector("details");if(d)d.open=true;}});});})();</script>
+    <!-- Playbook TOC chips: bindPlaybookToc() in app-core.js preventDefaults hash nav and scrolls in main. -->
   </section>
   <section class="page" id="page-handbook">
     <button class="back" onclick="show('guides')">‹ Resources</button>

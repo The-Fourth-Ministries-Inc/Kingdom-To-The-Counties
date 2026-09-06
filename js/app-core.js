@@ -2577,11 +2577,17 @@ function bindPageHistory(){
   if(bindPageHistory._on)return;
   bindPageHistory._on=true;
   try{if(history.replaceState)history.replaceState({k2cPage:pageId()},"",location.href);}catch(_){}
-  window.addEventListener("popstate",function(e){
-    var id=(e&&e.state&&e.state.k2cPage)||ROOT_PAGE;
-    if(PAGE_STACK.length)popPage();
-    show(id,{fromBack:true});
-  });
+  window.addEventListener("popstate",onPagePopState);
+}
+function onPagePopState(e){
+  /* Only entries we pushed carry k2cPage. A Playbook TOC hash click
+     (href="#field") can fire popstate with null state in WKWebView —
+     treating that as ROOT_PAGE emptied the stack and looked like an
+     iOS Home Screen exit. Stay put unless this is a real page pop. */
+  var id=e&&e.state&&e.state.k2cPage;
+  if(!id)return;
+  if(PAGE_STACK.length)popPage();
+  show(id,{fromBack:true});
 }
 function handleAppBack(){
   /* Prefer the history we pushed so gesture back and Capacitor back
@@ -2697,6 +2703,53 @@ function bindUploadLinks(){
   },true);
   var sm=document.getElementById("shareMediaInput");
   if(sm)sm.addEventListener("change",onShareMediaPicked);
+}
+function playbookJumpId(href){
+  href=(href||"").replace(/^\s+|\s+$/g,"");
+  if(href.charAt(0)==="#")href=href.slice(1);
+  return href;
+}
+function jumpPlaybookSection(id){
+  id=playbookJumpId(id);
+  if(!id)return false;
+  var page=document.getElementById("page-playbook");
+  var s=document.getElementById(id);
+  if(!page||!s||!page.contains(s))return false;
+  var d=s.querySelector("details");
+  if(d)d.open=true;
+  var sc=pageScroller();
+  try{
+    var gap=8;
+    var top=s.getBoundingClientRect().top-sc.getBoundingClientRect().top+sc.scrollTop-gap;
+    if(top<0)top=0;
+    if(sc.scrollTo)sc.scrollTo({top:top,behavior:"smooth"});
+    else sc.scrollTop=top;
+  }catch(_){
+    try{s.scrollIntoView({block:"start",behavior:"smooth"});}catch(__){}
+  }
+  return true;
+}
+function bindPlaybookToc(){
+  if(bindPlaybookToc._on)return;
+  bindPlaybookToc._on=true;
+  var page=document.getElementById("page-playbook");
+  if(!page)return;
+  var links=page.querySelectorAll("nav.toc a");
+  for(var i=0;i<links.length;i++){
+    (function(a){
+      a.addEventListener("click",function(e){
+        /* preventDefault so href="#field" never writes a hash or a
+           history entry. Hash navigation fights pushState({k2cPage})
+           and on Capacitor iOS can pop the stack / exit the WebView. */
+        if(e){
+          if(e.preventDefault)e.preventDefault();
+          if(e.stopPropagation)e.stopPropagation();
+        }
+        jumpPlaybookSection(a.getAttribute("href")||"");
+        return false;
+      });
+    })(links[i]);
+  }
 }
 function pageScroller(){return document.querySelector("main")||document.documentElement;}
 function scrollPageTop(smooth){
@@ -3561,6 +3614,7 @@ function boot(){
   bindPageHistory();
   bindNativeBack();
   bindUploadLinks();
+  bindPlaybookToc();
   renderIOList();renderLeaders();
   if(LEADERPIN){verifyPin("verifyLeaderPin",LEADERPIN).then(function(res){if(res&&res.ok){LEADER=true;if(res.token)LEADERPIN=res.token;setDayOK();applyLeaderUI();renderDynamic();obFlush();}else{LEADERPIN="";sessionStorage.removeItem("k2c_lpin");}}).catch(function(){});}
   apiGet().then(function(s){STATE=applyPending(normalize(s));LIVE=true;adoptTallyEpoch(s);adoptDecEpoch(s);finishBoot();if(TALLY.dirty)scheduleFlush(500);})

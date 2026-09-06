@@ -351,6 +351,27 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
+## Playbook “Jump to a section” stays in the app (v1.19.7)
+
+On the iOS App Store build (v1.19.2), tapping Playbook chips — at least
+**The Field**, **After 5 PM**, **Media**, and **The New Birth** — kicked
+Zach to the iOS Home Screen. Those chips were `<a href="#field">` (and
+the same for `#after`, `#media`, `#newbirth`, plus every other section).
+The inline handler opened the matching `<details>` but never
+`preventDefault`’d, so WebKit wrote a hash history entry on top of
+`pushState({k2cPage})`. WKWebView can fire `popstate` with a null state
+for that; the listener treated missing `k2cPage` as Event Day (`now`)
+and emptied `PAGE_STACK`. The next system back — or a confused history
+stack — called `App.exitApp()` / left the WebView, which feels like the
+Home Screen.
+
+Every chip now `preventDefault`s, opens the section, and scrolls it
+inside `main` (the only page scrollport). Hash is never written.
+`popstate` ignores entries that have no `k2cPage`, so a leaked hash
+click cannot be mistaken for “back to root.” The v1.19.4 `100dvh` /
+in-flow tab bar shell is unchanged. Same path on Android and the live
+site.
+
 ## Direct SharePoint media dump (v1.19.6)
 
 Bitly free short links (`bit.ly/uploadk2c`) now show interstitial ads.

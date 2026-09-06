@@ -50,6 +50,7 @@ test("show() pushes history so OS / live-site back can pop a page", () => {
   assert.match(js, /history\.pushState/);
   assert.match(js, /history\.replaceState/);
   assert.match(js, /popstate/);
+  assert.match(js, /function onPagePopState\(/);
   assert.match(js, /k2cPage/);
   assert.match(extractFunction(js, "handleAppBack"), /history\.back/);
   assert.match(extractFunction(js, "pushPageHistory"), /fromBack/);
@@ -160,6 +161,25 @@ test("rememberPage records a leave and ignores same-page / fromBack", () => {
   runInContext("rememberPage('capture','capture',false);", ctx);
   assert.deepEqual(ctx.PAGE_STACK, ["now"]);
   runInContext("rememberPage('capture','guides',true);", ctx);
+  assert.deepEqual(ctx.PAGE_STACK, ["now"]);
+});
+
+test("hash-only popstate does not treat a Playbook TOC tap as back-to-root", () => {
+  const shown = [];
+  const ctx = createContext({
+    PAGE_STACK: ["now", "guides"],
+    ROOT_PAGE: "now",
+    show: (id, opts) => { shown.push({ id, fromBack: !!(opts && opts.fromBack) }); }
+  });
+  const src = [
+    extractFunction(js, "popPage"),
+    extractFunction(js, "onPagePopState")
+  ].join("\n");
+  runInContext(src + "\nonPagePopState({state:null});\nonPagePopState({});", ctx);
+  assert.deepEqual(shown, [], "null-state popstate must not show() Event Day");
+  assert.deepEqual(ctx.PAGE_STACK, ["now", "guides"], "PAGE_STACK must stay put on a hash popstate");
+  runInContext("onPagePopState({state:{k2cPage:'guides'}});", ctx);
+  assert.deepEqual(shown, [{ id: "guides", fromBack: true }]);
   assert.deepEqual(ctx.PAGE_STACK, ["now"]);
 });
 

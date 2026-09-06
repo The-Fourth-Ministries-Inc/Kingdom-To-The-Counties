@@ -100,7 +100,7 @@ test("v1.19.4 100dvh in-flow tab bar is still the shell contract", () => {
   assert.match(html, /\.tabbar\{[^}]*position:relative/);
   assert.doesNotMatch(html, /\.tabbar\{[^}]*position:fixed/);
   assert.doesNotMatch(html, /interactive-widget/);
-  assert.match(html, /<span class="ver">v1\.19\.6<\/span>/);
+  assert.match(html, /<span class="ver">v1\.19\.7<\/span>/);
 });
 
 test("all keyboard overlays share the visualViewport pin", () => {
