@@ -306,13 +306,14 @@ test("setIOList normalizes the roster instead of storing the client's array verb
 
 test("auto GET does not keep last weekend's Belknap event label", async () => {
   /* Laura's Play shot: core.event still said Belknap Aug 22 after the Monday
-     rollover. Auto mode must send the scheduled county (Coös on Sep 1). */
+     rollover. Auto mode must send whatever SCHEDULE says is current today. */
+  const scheduled = currentEvent();
   await post("setCounty", { auto: true });
   await post("setEvent", { name: "Belknap County", date: "Saturday, August 22nd" });
   const s = await get();
   assert.equal(s.countyAuto, true);
-  assert.equal(s.county, currentEvent().key);
-  assert.match(s.event.name, /Coös/);
+  assert.equal(s.county, scheduled.key);
+  assert.equal(s.event.name, scheduled.name);
   assert.doesNotMatch(s.event.name, /Belknap/);
-  assert.match(s.event.date, /September 5/);
+  assert.equal(s.event.date, scheduled.dateLong);
 });

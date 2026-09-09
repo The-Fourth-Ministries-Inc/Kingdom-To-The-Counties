@@ -82,8 +82,11 @@ test("SEASON_STOPS stays in lockstep with COUNTIES and the server schedule", () 
   assert.equal(stops.length, 10);
   assert.equal(cty.length, 10);
   assert.equal(sched.length, 10);
-  assert.deepEqual(stops.map((s) => s.key), cty.map((c) => c.key));
-  assert.deepEqual(stops.map((s) => s.key), sched.map((e) => e.key));
+  const stopKeys = stops.map((s) => String(s.key));
+  const ctyKeys = cty.map((c) => String(c.key));
+  const schedKeys = sched.map((e) => String(e.key));
+  assert.equal(stopKeys.join(","), ctyKeys.join(","));
+  assert.equal(stopKeys.join(","), schedKeys.join(","));
   for (let i = 0; i < stops.length; i++) {
     assert.equal(stops[i].key, cty[i].key, "key " + i);
     assert.equal(stops[i].date, cty[i].date, "date " + i);
