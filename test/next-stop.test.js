@@ -77,14 +77,27 @@ test("SEASON_STOPS stays in lockstep with COUNTIES and the server schedule", () 
   const ctx = createContext({});
   const stops = runInContext(extractVarArray(js, "SEASON_STOPS") + "\nresult = SEASON_STOPS;", ctx);
   const cty = runInContext(counties.match(/var COUNTIES=\[[\s\S]*?\];/)[0] + "\nresult = COUNTIES;", createContext({}));
-  assert.equal(stops.length, 8);
-  assert.equal(cty.length, 8);
+  const data = readFileSync(join(root, "netlify/functions/data.mjs"), "utf8");
+  const sched = new Function("return " + data.match(/const SCHEDULE = (\[[\s\S]*?\]);/)[1])();
+  assert.equal(stops.length, 10);
+  assert.equal(cty.length, 10);
+  assert.equal(sched.length, 10);
+  const stopKeys = stops.map((s) => String(s.key));
+  const ctyKeys = cty.map((c) => String(c.key));
+  const schedKeys = sched.map((e) => String(e.key));
+  assert.equal(stopKeys.join(","), ctyKeys.join(","));
+  assert.equal(stopKeys.join(","), schedKeys.join(","));
   for (let i = 0; i < stops.length; i++) {
     assert.equal(stops[i].key, cty[i].key, "key " + i);
     assert.equal(stops[i].date, cty[i].date, "date " + i);
+    assert.equal(stops[i].date, sched[i].date, "server date " + i);
     assert.equal(currentEvent(cty[i].date).key, cty[i].key);
   }
   assert.equal(stops.find((s) => s.key === "coos").place, "Gorham Town Common");
+  assert.equal(stops.find((s) => s.key === "merrimack").place, "Hugh Gallen Soccer Field");
+  assert.equal(stops.find((s) => s.key === "hillsborough").place, "Derryfield Park");
+  assert.equal(cty.find((c) => c.key === "merrimack").town, "Concord");
+  assert.equal(cty.find((c) => c.key === "hillsborough").town, "Manchester");
 });
 
 test("on 2026-09-01 the next stop is Coös / Sep 5 / Gorham", () => {
@@ -105,9 +118,13 @@ test("the board still moves Monday after each event", () => {
   assert.equal(runSeason('seasonCurrent("2026-08-24").key'), "coos");
   assert.equal(runSeason('seasonCurrent("2026-09-05").key'), "coos");
   assert.equal(runSeason('seasonCurrent("2026-09-06").key'), "coos");
-  assert.equal(runSeason('seasonCurrent("2026-09-07").key'), "rockingham");
+  assert.equal(runSeason('seasonCurrent("2026-09-07").key'), "merrimack");
+  assert.equal(runSeason('seasonCurrent("2026-09-09").key'), "merrimack");
+  assert.equal(runSeason('seasonCurrent("2026-09-13").key'), "merrimack");
+  assert.equal(runSeason('seasonCurrent("2026-09-14").key'), "hillsborough");
   assert.equal(currentEvent("2026-09-01").key, "coos");
-  assert.equal(currentEvent("2026-09-07").key, "rockingham");
+  assert.equal(currentEvent("2026-09-07").key, "merrimack");
+  assert.equal(currentEvent("2026-09-09").key, "merrimack");
 });
 
 test("event Saturday and Sunday keep clock segments, not the next-stop override", () => {

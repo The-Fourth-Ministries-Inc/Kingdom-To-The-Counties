@@ -325,7 +325,7 @@ the moment it renders on a volunteer's phone.
 ## Miracle Tracker (v1.12.0)
 
 Under **Post → 🙌 Miracle Tracker**: one centralized, season-long record of
-what God is doing across all eight counties — **salvations, rededications,
+what God is doing across all ten counties — **salvations, rededications,
 healings**, and anything else — that anybody behind the Day PIN can feed and
 everybody can see live.
 
@@ -350,6 +350,22 @@ everybody can see live.
   one place. Each report is stamped with the county it happened in.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
+
+## Homepage schedule: Merrimack + Hillsborough (v1.19.8)
+
+The in-app season roster now matches the public homepage at
+kingdomtothecounties.com — **ten Saturday stops**, not the eight the app
+had been shipping (Coös jumped straight to Rockingham). Added:
+
+- **Merrimack County** — Sat Sep 12 · Hugh Gallen Soccer Field, Concord
+- **Hillsborough County** — Sat Sep 26 · Derryfield Park, Manchester
+
+`COUNTIES` (`js/counties.js`), `SEASON_STOPS` (`js/app-core.js`), and
+`SCHEDULE` (`netlify/functions/data.mjs`) stay in lockstep; the next-stop
+and script-retire tests fail the build if they drift. The Day PIN rule is
+unchanged (event Saturday as `MMDD`, current through Sunday, next county
+Monday). After Coös the automatic stop is Merrimack, then Hillsborough,
+then Rockingham.
 
 ## Playbook “Jump to a section” stays in the app (v1.19.7)
 
@@ -493,9 +509,9 @@ page (and from the Mobilization **Graphics** button, which opens this page):
 Card copy (dates, venues, towns) is written from the county roster in
 `js/counties.js` when that county is on the roster, **not** transcribed off
 the artwork, so the page can't drift from the schedule the rest of the app
-runs on. Merrimack and Hillsborough are not on the Recording Studio roster
-yet, so those two captions match the flyer. When you add a graphic for a
-rostered county, copy the venue string from the roster entry.
+runs on. Merrimack and Hillsborough are on that roster as of v1.19.8
+(homepage dates and venues). When you add a graphic for a rostered county,
+copy the venue string from the roster entry.
 
 **A card whose image is missing hides itself.** `gfxMiss()` (inline at the
 bottom of `#page-graphics`) drops the whole card on an image `error`, and a
