@@ -1712,6 +1712,8 @@ var SEASON_STOPS=[
   {key:"cheshire",date:"2026-08-15",name:"Cheshire County",place:"Cheshire Fair",md:"Aug 15"},
   {key:"belknap",date:"2026-08-22",name:"Belknap County",place:"Belknap 4-H Fairgrounds",md:"Aug 22"},
   {key:"coos",date:"2026-09-05",name:"Coös County",place:"Gorham Town Common",md:"Sep 5"},
+  {key:"merrimack",date:"2026-09-12",name:"Merrimack County",place:"Hugh Gallen Soccer Field",md:"Sep 12"},
+  {key:"hillsborough",date:"2026-09-26",name:"Hillsborough County",place:"Derryfield Park",md:"Sep 26"},
   {key:"rockingham",date:"2026-10-10",name:"Rockingham County",place:"Star Speedway",md:"Oct 10"}
 ];
 function seasonTodayISO(now){

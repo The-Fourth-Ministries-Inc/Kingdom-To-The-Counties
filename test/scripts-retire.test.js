@@ -47,8 +47,9 @@ __setStoreFactory(() => store);
 const SEASON = [
   ["sullivan",   "2026-06-13"], ["grafton",    "2026-06-27"],
   ["strafford",  "2026-07-11"], ["carroll",    "2026-07-25"],
-  ["cheshire",   "2026-08-15"], ["belknap",    "2026-08-22"],
-  ["coos",       "2026-09-05"], ["rockingham", "2026-10-10"]
+  ["cheshire",     "2026-08-15"], ["belknap",      "2026-08-22"],
+  ["coos",         "2026-09-05"], ["merrimack",    "2026-09-12"],
+  ["hillsborough", "2026-09-26"], ["rockingham",   "2026-10-10"]
 ];
 
 const post = (action, payload = {}) => handler(new Request("https://x/api", {
@@ -114,7 +115,7 @@ test("anything we cannot place in the season is never retired", () => {
   for(const sc of [
     { id: "promo1", event: "Manchester Youth Rally — Nov 7" },
     { id: "evergreen", event: "" },
-    { id: "hillsborough-A", event: "Hillsborough County — Jul 4" },  // not on the schedule
+    { id: "nashua-A", event: "Nashua Youth Rally — Jul 4" },  // not on the schedule
     {}, null
   ]){
     assert.equal(scriptRetired(sc, "2026-12-25"), false, JSON.stringify(sc));

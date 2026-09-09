@@ -47,6 +47,22 @@ test("back-to-back weekends roll correctly", () => {
   assert.equal(currentEvent("2026-08-24").key, "coos");       // Monday
   assert.equal(currentEvent("2026-08-31").key, "coos");       // Laura's Monday 9:50 PM
   assert.equal(currentEvent("2026-09-01").key, "coos");
+  assert.equal(currentEvent("2026-09-06").key, "coos");       // Coös Sunday
+  assert.equal(currentEvent("2026-09-07").key, "merrimack");  // Monday after Coös
+});
+
+test("Merrimack (homepage Sep 12) holds from the Monday after Coös through its Sunday", () => {
+  for (const d of ["2026-09-07", "2026-09-09", "2026-09-12", "2026-09-13"]) {
+    assert.equal(currentEvent(d).key, "merrimack", "on " + d);
+    assert.equal(autoDayPin(d), pinForDate("2026-09-12"), "pin on " + d);
+  }
+  assert.equal(currentEvent("2026-09-14").key, "hillsborough");
+});
+
+test("Hillsborough (homepage Sep 26) holds through its Sunday, then Rockingham", () => {
+  assert.equal(currentEvent("2026-09-26").key, "hillsborough");
+  assert.equal(currentEvent("2026-09-27").key, "hillsborough");
+  assert.equal(currentEvent("2026-09-28").key, "rockingham");
 });
 
 test("Coös / Coos / coos is one county", () => {
@@ -67,8 +83,10 @@ test("every event in the season resolves to itself on its own day", () => {
     ["2026-07-25", "carroll",    "0725"],
     ["2026-08-15", "cheshire",   "0815"],
     ["2026-08-22", "belknap",    "0822"],
-    ["2026-09-05", "coos",       "0905"],
-    ["2026-10-10", "rockingham", "1010"]
+    ["2026-09-05", "coos",         "0905"],
+    ["2026-09-12", "merrimack",    "0912"],
+    ["2026-09-26", "hillsborough", "0926"],
+    ["2026-10-10", "rockingham",   "1010"]
   ];
   for(const [date, key, pin] of expected){
     assert.equal(currentEvent(date).key, key, "county on " + date);
@@ -77,7 +95,7 @@ test("every event in the season resolves to itself on its own day", () => {
 });
 
 test("every scheduled date really is a Saturday", () => {
-  const expected = ["2026-06-13","2026-06-27","2026-07-11","2026-07-25","2026-08-15","2026-08-22","2026-09-05","2026-10-10"];
+  const expected = ["2026-06-13","2026-06-27","2026-07-11","2026-07-25","2026-08-15","2026-08-22","2026-09-05","2026-09-12","2026-09-26","2026-10-10"];
   for(const d of expected){
     assert.equal(new Date(d + "T12:00:00Z").getUTCDay(), 6, d + " should be a Saturday");
   }

@@ -780,22 +780,24 @@ const LEADER_ACTIONS = new Set([
  An empty county (nothing selected yet) keeps the original unscoped keys, so
  existing deployments behave exactly as before until a leader picks a county. */
 /* ---------------- season schedule ----------------
- The eight Saturday events. This drives BOTH the active county and the Day PIN
- so neither has to be set by hand:
+ The ten Saturday events (homepage: kingdomtothecounties.com). This drives
+ BOTH the active county and the Day PIN so neither has to be set by hand:
    • The Day PIN is simply the event's Saturday as MMDD (Jul 25 → "0725").
    • An event stays current through its Sunday — the rain date — and the next
      one takes over on the Monday following.
  Keep in step with COUNTIES in js/counties.js (same keys); the dates live here
  because the server is the one that has to be right about them. */
 const SCHEDULE = [
- { key:"sullivan",   date:"2026-06-13", name:"Sullivan County",   dateLong:"Saturday, June 13th",    place:"Monadnock Park" },
- { key:"grafton",    date:"2026-06-27", name:"Grafton County",    dateLong:"Saturday, June 27th",    place:"Loon Mountain Resort" },
- { key:"strafford",  date:"2026-07-11", name:"Strafford County",  dateLong:"Saturday, July 11th",    place:"Rochester Fairgrounds" },
- { key:"carroll",    date:"2026-07-25", name:"Carroll County",    dateLong:"Saturday, July 25th",    place:"King Pine Ski Area" },
- { key:"cheshire",   date:"2026-08-15", name:"Cheshire County",   dateLong:"Saturday, August 15th",  place:"Cheshire Fair" },
- { key:"belknap",    date:"2026-08-22", name:"Belknap County",    dateLong:"Saturday, August 22nd",  place:"Belknap 4-H Fairgrounds" },
- { key:"coos",       date:"2026-09-05", name:"Coös County",       dateLong:"Saturday, September 5th",place:"Gorham Town Common" },
- { key:"rockingham", date:"2026-10-10", name:"Rockingham County", dateLong:"Saturday, October 10th", place:"Star Speedway" }
+ { key:"sullivan",    date:"2026-06-13", name:"Sullivan County",    dateLong:"Saturday, June 13th",     place:"Monadnock Park" },
+ { key:"grafton",     date:"2026-06-27", name:"Grafton County",     dateLong:"Saturday, June 27th",     place:"Loon Mountain Resort" },
+ { key:"strafford",   date:"2026-07-11", name:"Strafford County",   dateLong:"Saturday, July 11th",     place:"Rochester Fairgrounds" },
+ { key:"carroll",    date:"2026-07-25", name:"Carroll County",     dateLong:"Saturday, July 25th",     place:"King Pine Ski Area" },
+ { key:"cheshire",    date:"2026-08-15", name:"Cheshire County",    dateLong:"Saturday, August 15th",   place:"Cheshire Fair" },
+ { key:"belknap",     date:"2026-08-22", name:"Belknap County",     dateLong:"Saturday, August 22nd",   place:"Belknap 4-H Fairgrounds" },
+ { key:"coos",        date:"2026-09-05", name:"Coös County",        dateLong:"Saturday, September 5th", place:"Gorham Town Common" },
+ { key:"merrimack",   date:"2026-09-12", name:"Merrimack County",   dateLong:"Saturday, September 12th",place:"Hugh Gallen Soccer Field" },
+ { key:"hillsborough",date:"2026-09-26", name:"Hillsborough County",dateLong:"Saturday, September 26th",place:"Derryfield Park" },
+ { key:"rockingham",  date:"2026-10-10", name:"Rockingham County",  dateLong:"Saturday, October 10th",  place:"Star Speedway" }
 ];
 /* Coös vs Coos vs coos — ö must not hide the county. */
 export const countyDeburr = s => (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
