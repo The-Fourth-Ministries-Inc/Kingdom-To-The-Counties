@@ -871,8 +871,8 @@ textarea, select,
      sheet (script editor, bin card) puts the title under the Dynamic Island
      and the Save row past the home indicator. flex-start + auto margins
      centers when it fits and starts below --sat when it doesn't. */
-  .modal{position:fixed;inset:0;z-index:300;background:rgba(43,42,40,.55);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}
-  .modal.show{display:flex}
+  .modal{position:fixed;inset:0;z-index:300;background:rgba(43,42,40,.55);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);overflow:auto;-webkit-overflow-scrolling:touch;pointer-events:none}
+  .modal.show{display:flex;pointer-events:auto}
   .modal.kb-pin{padding:calc(var(--sat) + 8px) calc(var(--sar) + 12px) calc(var(--sab) + 8px) calc(var(--sal) + 12px)}
   .modal.kb-pin .sheet{margin-top:0;margin-bottom:0}
   .sheet{background:var(--cream);border-radius:18px;padding:22px;width:100%;max-width:340px;box-shadow:0 20px 50px rgba(0,0,0,.3);margin-top:auto;margin-bottom:auto;flex:none}
@@ -995,8 +995,8 @@ textarea, select,
      so Unlock + Privacy stay on first paint (100svh alone is the Chrome
      window, not a framed 390-tall phone). No skip/X — the wall stays.
      flex-start + auto margins still center the card when it fits. */
-  .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);overflow:hidden}
-  .daygate.show{display:flex}
+  .daygate{position:fixed;inset:0;z-index:300;background:rgba(28,27,25,.94);display:none;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);overflow:hidden;pointer-events:none}
+  .daygate.show{display:flex;pointer-events:auto}
   .dgsheet{background:var(--cream);border-radius:20px;padding:26px 22px;width:100%;max-width:360px;max-height:100%;max-height:min(100%,calc(100vh - 16px));max-height:min(100%,calc(100dvh - 16px));max-height:min(100%,calc(100svh - 16px));min-height:0;box-shadow:0 24px 60px rgba(0,0,0,.45);text-align:center;margin-top:auto;margin-bottom:auto;flex:0 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box}
   /* iOS Safari overlays the keyboard and scrolls visualViewport; it does
      not shrink 100dvh. JS pins .daygate / .modal to that visible rectangle
@@ -1107,7 +1107,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.8</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.9</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">

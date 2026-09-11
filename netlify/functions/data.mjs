@@ -806,12 +806,26 @@ const COUNTY_KEYS = new Set(SCHEDULE.map(e => e.key));
    8pm local on the Sunday, mid-teardown. */
 const EVENT_TZ = "America/New_York";
 function todayLocalISO(now){
- try {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: EVENT_TZ, year:"numeric", month:"2-digit", day:"2-digit" })
-   .format(now || new Date());
- } catch(_) {
+  /* formatToParts — never format("en-CA"). That locale has returned
+     YYYY/MM/DD in Chrome; string-comparing it to YYYY-MM-DD dates
+     skips every stop and lands on the last one (Rockingham). */
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: EVENT_TZ, year:"numeric", month:"2-digit", day:"2-digit" })
+      .formatToParts(now || new Date());
+    let y = "", m = "", d = "";
+    for (const p of parts) {
+      if (p.type === "year") y = p.value;
+      else if (p.type === "month") m = p.value;
+      else if (p.type === "day") d = p.value;
+    }
+    if (y && m && d) return `${y}-${m}-${d}`;
+  } catch (_) {}
   return (now || new Date()).toISOString().slice(0, 10);
- }
+}
+function normISODate(s){
+  const m = String(s || "").match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/);
+  if (!m) return String(s || "");
+  return m[1] + "-" + m[2].padStart(2, "0") + "-" + m[3].padStart(2, "0");
 }
 const addDaysISO = (iso, n) => {
  const d = new Date(iso + "T12:00:00Z");
@@ -822,7 +836,7 @@ const addDaysISO = (iso, n) => {
    the next one takes over on Monday. Before the season, the first event; after
    it, the last (the board simply stays put). */
 export function currentEvent(todayISO){
- const today = todayISO || todayLocalISO();
+ const today = normISODate(todayISO || todayLocalISO());
  for(const e of SCHEDULE){
   if(addDaysISO(e.date, 1) >= today) return e;   // still on/through its Sunday
  }
@@ -855,7 +869,7 @@ const deburr = s => (s || "").toString().toLowerCase().normalize("NFD").replace(
 export function countyRetired(key, todayISO){
  const e = SCHEDULE.find(x => x.key === key);
  if(!e) return false;                       // not a scheduled county — leave it alone
- return (todayISO || todayLocalISO()) > addDaysISO(e.date, 1);
+ return normISODate(todayISO || todayLocalISO()) > addDaysISO(e.date, 1);
 }
 /* Which county a script belongs to. Starter ids are "<key>-A"; a script written
    in the editor carries the county's `event` string ("Coös County — Sep 5 · …",

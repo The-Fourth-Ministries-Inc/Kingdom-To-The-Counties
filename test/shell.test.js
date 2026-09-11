@@ -88,11 +88,11 @@ test("version badge, service worker cache, and SW comment stay aligned", () => {
   const html = read("index.html");
   const sw = read("sw.js");
   const version = readAppVersion(html);
-  assert.equal(version, "1.19.8");
+  assert.equal(version, "1.19.9");
   assert.match(sw, new RegExp("app v" + version.replace(/\./g, "\\.")));
   const cache = sw.match(/var CACHE = "(k2c-v\d+)"/);
   assert.ok(cache, "SW cache name missing");
-  assert.equal(cache[1], "k2c-v69");
+  assert.equal(cache[1], "k2c-v70");
 });
 
 test("keyboard overlay pin does not revert the in-flow 100dvh tab bar", () => {
@@ -116,7 +116,9 @@ test("page scroll and in-page sticky offset follow the main scrollport", () => {
   const js = read("js/app-core.js");
   assert.match(js, /function pageScroller\(/);
   assert.match(js, /function scrollPageTop\(/);
-  assert.match(js, /scrollPageTop\(true\)/);
+  assert.match(js, /scrollPageTop\(\)/);
+  assert.doesNotMatch(js, /scrollPageTop\(true\)/);
+  assert.doesNotMatch(js.slice(js.indexOf("function scrollPageTop("), js.indexOf("function show(") + 800), /behavior:\s*["']smooth["']/);
   assert.match(js, /sc\.contains\(tw\)/);
   assert.doesNotMatch(js, /window\.scrollTo\(\{top:0,behavior:"smooth"\}\)/);
 });
