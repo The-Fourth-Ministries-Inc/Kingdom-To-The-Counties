@@ -27,6 +27,7 @@ test("church list is paged — first paint is CH_PAGE rows, not the full roster"
   assert.match(js, /function chLoadMore\(/);
   assert.match(js, /rows\.slice\(0,\s*chShown\)|slice=rows\.slice\(0,chShown\)/);
   assert.doesNotMatch(js, /rows\.map\(chRowHtml\)/);
+  assert.doesNotMatch(js, /addEventListener\("scroll"/);
 
   const churches = [];
   for (let i = 0; i < 80; i++) {

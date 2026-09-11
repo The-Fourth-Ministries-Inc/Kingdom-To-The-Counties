@@ -351,7 +351,7 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
-## Pre-Crusade no longer OOMs Chrome (v1.19.9)
+## Pre-Crusade no longer OOMs Chrome (v1.19.10)
 
 Opening **Pre-Crusade** (and then any other tab) froze Chrome on phone and
 Mac. Production `GET ?part=churches` is ~240 KB — **417 churches** and
@@ -362,13 +362,15 @@ was OOM-killed (`dmesg`: Killed process chrome).
 
 The list now paints **40 rows** at a time with **Load more**, and
 never more than **80 rows** in the DOM (search or a county filter
-reaches the rest). Conversation lookups are indexed once per paint.
-The `k2c_churches` cache is parsed lazily, not at script load, and
-`chRenderList` / `show("mobilize")` swallow paint errors so a bad
-row cannot discard the tab. The roster is fetched only when
-Pre-Crusade or a church card opens — not on first paint of Event Day.
-Specialists is a static hub; Mike’s freeze there was the same Chrome
-process already dying.
+reaches the rest). There is **no infinite-scroll autoload** on
+`main` — that re-entered `chRenderList` and could rebuild the roster
+on one tick. Stats paint first; the list and change log wait a tick.
+Conversation lookups are indexed once per paint. The `k2c_churches`
+cache is parsed lazily, not at script load, and paint errors are
+caught so a bad row cannot discard the tab. The roster is fetched
+only when Pre-Crusade or a church card opens — not on first paint of
+Event Day. Specialists is a static hub; Mike’s freeze there was the
+same Chrome process already dying.
 
 NEXT/LIVE after the live blob was set back to auto already shows
 **Merrimack County — Sep 12 · Hugh Gallen Soccer Field**. The clock

@@ -147,18 +147,33 @@ function renderMobilize(){
   if(sel&&!sel.options.length)sel.innerHTML='<option value="">All counties</option>'+NHC.map(function(x){return '<option>'+x+'</option>';}).join("")+'<option>Out of state</option>';
   var asel=document.getElementById("chaCounty");
   if(asel&&!asel.options.length)asel.innerHTML='<option value="">County…</option>'+NHC.map(function(x){return '<option>'+x+'</option>';}).join("")+'<option>Out of state</option>';
-  chRenderList();
-  renderChTpl();
-  // global change log
-  var gl=document.getElementById("chGlobalLog");
-  if(gl){
-    var entries=CH.log.slice(-45).reverse();
-    gl.innerHTML=entries.length?entries.map(function(e){
-      var c=chById(e.ch);
-      var nm=c?c.name:(e.ch?"(removed)":"✉️ Master templates");
-      return '<div class="chlogrow"><span class="ic2">'+(CH_ICON[e.type]||"📝")+'</span><div><b>'+esc(nm)+'</b> — '+esc(e.by)+(e.note?': '+esc(e.note):' · '+e.type)+'<div class="m">'+esc(chWhen(e))+'</div></div></div>';
-    }).join(""):'<p class="hint">Nothing logged yet — every add, edit, call, text, email &amp; share will show up here.</p>';
+  /* List + change log on the next tick so the tab chrome and stats
+     can paint first. One 417-row innerHTML is what discarded Chrome. */
+  if(!renderMobilize._q){
+    renderMobilize._q=true;
+    setTimeout(function(){
+      renderMobilize._q=false;
+      try{chRenderList();}catch(_){}
+      try{renderChTpl();}catch(_){}
+      try{chPaintLog();}catch(_){}
+    },0);
   }
+}
+function chPaintLog(){
+  var gl=document.getElementById("chGlobalLog");
+  if(!gl)return;
+  var entries=CH.log.slice(-45).reverse();
+  if(!entries.length){
+    gl.innerHTML='<p class="hint">Nothing logged yet — every add, edit, call, text, email &amp; share will show up here.</p>';
+    return;
+  }
+  var html="",i,e,c,nm;
+  for(i=0;i<entries.length;i++){
+    e=entries[i];c=chById(e.ch);
+    nm=c?c.name:(e.ch?"(removed)":"✉️ Master templates");
+    html+='<div class="chlogrow"><span class="ic2">'+(CH_ICON[e.type]||"📝")+'</span><div><b>'+esc(nm)+'</b> — '+esc(e.by)+(e.note?': '+esc(e.note):' · '+e.type)+'<div class="m">'+esc(chWhen(e))+'</div></div></div>';
+  }
+  gl.innerHTML=html;
 }
 function chMatchedRows(){
   var k=chView+"|"+chCounty+"|"+chQ+"|"+CH.list.length+"|"+(CH.log?CH.log.length:0);
@@ -176,27 +191,18 @@ function chLoadMore(){
   chShown=Math.min(chShown+CH_PAGE,CH_CAP,rows.length);
   chRenderList();
 }
-function chBindMore(){
-  if(chBindMore._on)return;
-  chBindMore._on=true;
-  var sc=document.querySelector("main");
-  if(!sc)return;
-  sc.addEventListener("scroll",function(){
-    if(!chOnMob()||chShown>=chMatchedRows().length)return;
-    if(sc.scrollHeight-sc.scrollTop-sc.clientHeight>120)return;
-    chLoadMore();
-  });
-}
 function chRenderList(){
   var m=document.getElementById("chList");if(!m)return;
+  if(chRenderList._on)return;
+  chRenderList._on=true;
   try{
-  chBindMore();
   var rows=chMatchedRows();
   if(!rows.length){
     m.innerHTML='<div class="card" style="text-align:center"><p style="margin:0 0 8px;font-size:13.5px">'+(CH.list.length
       ?(chQ?'Nothing matches “<b>'+esc(chQ)+'</b>”.':'Nothing matches these filters.')+' Not on the list yet?'
       :'Loading the church list…')+'</p>'
       +(CH.list.length?'<button class="btn wine" style="width:auto;padding:10px 18px" onclick="chAddOpen()">➕ Add it to the master list</button>':'')+'</div>';
+    chRenderList._on=false;
     return;
   }
   if(chShown<CH_PAGE)chShown=CH_PAGE;
@@ -214,6 +220,7 @@ function chRenderList(){
   }catch(_){
     m.innerHTML='<p class="hint">Couldn’t draw the church list on this phone. Pull to refresh or try again.</p>';
   }
+  chRenderList._on=false;
 }
 function chAddOpen(){
   var d=document.getElementById("chAddWrap");if(!d)return;
