@@ -2807,18 +2807,38 @@ function show(id,opts){
   if(id==="shareapp")renderShareQR();
   if(id==="capture"&&typeof renderCapture==="function")renderCapture();
   if(id==="mobilize"&&typeof renderMobilize==="function"){
-    /* Yield one tick so the tab chrome paints before we parse the
-       cached roster. A throw here must not kill navigation. */
-    setTimeout(function(){
+    /* Two animation frames so Chrome paints Mobilization before we
+       touch the 240KB roster. setTimeout(0) still runs before paint
+       and was leaving Event Day on screen while the tab locked. */
+    var list=document.getElementById("chList");
+    if(list&&!list.getAttribute("data-open")){
+      list.setAttribute("data-open","1");
+      list.innerHTML='<p class="hint">Opening the church list…</p>';
+    }
+    var afterPaint=function(fn){
+      if(typeof requestAnimationFrame==="function"){
+        requestAnimationFrame(function(){requestAnimationFrame(fn);});
+      }else setTimeout(fn,32);
+    };
+    afterPaint(function(){
       try{renderMobilize();}catch(_){}
-      try{if(typeof chFetch==="function")chFetch();}catch(_){}
-    },0);
+      setTimeout(function(){
+        try{if(typeof chFetch==="function")chFetch();}catch(_){}
+      },400);
+    });
   }
   if(id==="church"&&typeof renderChurchPage==="function"){
-    setTimeout(function(){
+    var afterPaint2=function(fn){
+      if(typeof requestAnimationFrame==="function"){
+        requestAnimationFrame(function(){requestAnimationFrame(fn);});
+      }else setTimeout(fn,32);
+    };
+    afterPaint2(function(){
       try{if(typeof chLoadCache==="function")chLoadCache();renderChurchPage();}catch(_){}
-      try{if(typeof chFetch==="function")chFetch();}catch(_){}
-    },0);
+      setTimeout(function(){
+        try{if(typeof chFetch==="function")chFetch();}catch(_){}
+      },400);
+    });
   }
 }
 /* v1.6.1 — Share-this-app QR (drawn locally from the current URL, works offline) */

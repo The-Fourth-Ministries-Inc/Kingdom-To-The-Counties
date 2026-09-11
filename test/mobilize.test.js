@@ -19,6 +19,7 @@ test("mobilize.js does not prefetch or paint the church list at parse time", () 
   assert.match(js, /function chLoadCache\(/);
   assert.doesNotMatch(js, /var _chc=JSON\.parse\(localStorage\.getItem\("k2c_churches"/);
   assert.match(core, /if\(id==="mobilize"[\s\S]*chFetch\(\)/);
+  assert.match(core, /requestAnimationFrame/);
 });
 
 test("church list is paged — first paint is CH_PAGE rows, not the full roster", () => {
