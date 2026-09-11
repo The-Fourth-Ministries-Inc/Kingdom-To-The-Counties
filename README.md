@@ -360,10 +360,15 @@ every row in one `innerHTML`, and `mobilize.js` did that **on boot**
 (`chFetch()` + paint-if-cached) before anyone opened the tab. Box Chrome
 was OOM-killed (`dmesg`: Killed process chrome).
 
-The list now paints **40 rows** at a time with **Load more** (and a
-near-bottom scroll bump). Conversation lookups are indexed once per
-paint, not scanned per church. The roster is fetched only when
+The list now paints **40 rows** at a time with **Load more**, and
+never more than **80 rows** in the DOM (search or a county filter
+reaches the rest). Conversation lookups are indexed once per paint.
+The `k2c_churches` cache is parsed lazily, not at script load, and
+`chRenderList` / `show("mobilize")` swallow paint errors so a bad
+row cannot discard the tab. The roster is fetched only when
 Pre-Crusade or a church card opens — not on first paint of Event Day.
+Specialists is a static hub; Mike’s freeze there was the same Chrome
+process already dying.
 
 NEXT/LIVE after the live blob was set back to auto already shows
 **Merrimack County — Sep 12 · Hugh Gallen Soccer Field**. The clock

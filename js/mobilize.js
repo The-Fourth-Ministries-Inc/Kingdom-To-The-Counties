@@ -8,17 +8,29 @@
    history AND the global change log — that's the collaboration layer. */
 var NHC=["Belknap","Carroll","Cheshire","Coös","Grafton","Hillsborough","Merrimack","Rockingham","Strafford","Sullivan"];
 var CH={rev:-1,list:[],log:[]};
-function chFix(o){if(o){if(!Array.isArray(o.list))o.list=[];if(!Array.isArray(o.log))o.log=[];if(!o.tpl||typeof o.tpl!=="object")o.tpl={};o.list.forEach(function(c){if(!Array.isArray(c.connections))c.connections=[];});}chEngageById=null;return o;}
-try{var _chc=JSON.parse(localStorage.getItem("k2c_churches")||"null");if(_chc&&Array.isArray(_chc.list))CH=chFix(_chc);}catch(_){}
+function chFix(o){if(o){if(!Array.isArray(o.list))o.list=[];if(!Array.isArray(o.log))o.log=[];if(!o.tpl||typeof o.tpl!=="object")o.tpl={};o.list.forEach(function(c){if(!Array.isArray(c.connections))c.connections=[];});}chEngageById=null;chMatchCache=null;return o;}
 var chEtag="",chFetching=false,chView="all",chQ="",chCounty="",chCurId=null,chEditOpen=false,chFlagOpen=false;
 /* Paint at most this many church rows at a time. Mapping all ~400 into
-   innerHTML on one tick OOMs Chrome (field report: Pre-Crusade tap). */
-var CH_PAGE=40,chShown=40,chEngageById=null,chMatchCache=null,chMatchKey="",chMoreLock=0;
+   innerHTML on one tick OOMs Chrome (field report: Pre-Crusade tap).
+   CH_CAP is a hard DOM ceiling — Load more / near-bottom scroll must
+   never rebuild the 417-row HTML that killed the tab. Search or a
+   county filter is how you reach the rest. */
+var CH_PAGE=40,CH_CAP=80,chShown=40,chEngageById=null,chMatchCache=null,chMatchKey="",chMoreLock=0;
 var CH_ICON={call:"📞",text:"💬",email:"✉️",convo:"🗣️",visit:"🤝",script:"📣",share:"📲",note:"📝",connect:"🙋",flag:"🚩",unflag:"✅",edit:"✏️",add:"➕",interest:"⭐","delete":"🗑"};
 /* "Engaged" (we've actually talked with them) is MANUAL ONLY — a 🗣️
    conversation record an ambassador types in. Tapping Call/Text/Email logs
    history but never flips a church to engaged on its own. */
 var CH_ENGAGE={convo:1};
+function chLoadCache(){
+  if(chLoadCache._on)return;
+  chLoadCache._on=true;
+  try{
+    var raw=localStorage.getItem("k2c_churches");
+    if(!raw)return;
+    var o=JSON.parse(raw);
+    if(o&&Array.isArray(o.list))CH=chFix(o);
+  }catch(_){}
+}
 function chSave(){try{localStorage.setItem("k2c_churches",JSON.stringify(CH));}catch(_){}}
 function chId(id){return (id||"").toString().replace(/[^a-zA-Z0-9_-]/g,"").slice(0,40);}
 function chStamp(){return{t:nowLabel(),d:dateKey(new Date())};}
@@ -38,6 +50,7 @@ function chDigits(p){var d=(p||"").replace(/\D/g,"");if(d.length===11&&d.charAt(
 function chOnMob(){var p=document.querySelector(".page.active");p=p?p.id:"";return p==="page-mobilize"||p==="page-church";}
 function chMaybeSync(){if(chOnMob()&&STATE.churchesRev!=null&&STATE.churchesRev!==CH.rev)chFetch(true);}
 function chFetch(force){
+  try{chLoadCache();}catch(_){}
   if(chFetching)return;
   if(!force&&CH.list.length&&STATE.churchesRev!=null&&STATE.churchesRev===CH.rev)return;
   chFetching=true;
@@ -49,14 +62,19 @@ function chFetch(force){
     return r.json();
   }).then(function(d){
     chFetching=false;
-    if(d&&Array.isArray(d.list)){CH=chFix(d);chSave();if(chOnMob())chRenderAll();}
+    if(d&&Array.isArray(d.list)){
+      try{CH=chFix(d);chSave();}catch(_){}
+      if(chOnMob())chRenderAll();
+    }
   }).catch(function(){chFetching=false;});
 }
 function chRenderAll(){
   if(userEditing())return; // don't clobber a half-typed form; next sync re-renders
-  renderMobilize();
+  try{renderMobilize();}catch(_){}
   var pg=document.getElementById("page-church");
-  if(pg&&pg.classList.contains("active"))renderChurchPage();
+  if(pg&&pg.classList.contains("active")){
+    try{renderChurchPage();}catch(_){}
+  }
 }
 /* Optimistic write: apply to the cached copy instantly, push to the server,
    then re-download the server-normalized truth (which also bumps rev). */
@@ -96,6 +114,7 @@ function chRowHtml(c){
   return '<button class="chrow'+(c.kind==="ministry"?" min":"")+'" onclick="chOpen(\''+chId(c.id)+'\')"><span class="ic">'+(c.kind==="ministry"?"🕊️":"⛪")+'</span><span class="tx"><b>'+esc(c.name)+'</b><span class="sub2">'+esc(sub)+'</span><span class="chips2">'+chips+'</span></span><span class="arr">›</span></button>';
 }
 function renderMobilize(){
+  try{chLoadCache();}catch(_){}
   var stats=document.getElementById("mobStats");if(!stats)return;
   var total=CH.list.length,conn=0,eng=0,flag=0,need=0,hot=null;
   CH.list.forEach(function(c){
@@ -152,9 +171,9 @@ function chLoadMore(){
   var now=Date.now();
   if(now-chMoreLock<250)return;
   var rows=chMatchedRows();
-  if(chShown>=rows.length)return;
+  if(chShown>=rows.length||chShown>=CH_CAP)return;
   chMoreLock=now;
-  chShown+=CH_PAGE;
+  chShown=Math.min(chShown+CH_PAGE,CH_CAP,rows.length);
   chRenderList();
 }
 function chBindMore(){
@@ -170,6 +189,7 @@ function chBindMore(){
 }
 function chRenderList(){
   var m=document.getElementById("chList");if(!m)return;
+  try{
   chBindMore();
   var rows=chMatchedRows();
   if(!rows.length){
@@ -180,10 +200,20 @@ function chRenderList(){
     return;
   }
   if(chShown<CH_PAGE)chShown=CH_PAGE;
+  if(chShown>CH_CAP)chShown=CH_CAP;
   var slice=rows.slice(0,chShown),html="",i,left=rows.length-slice.length;
   for(i=0;i<slice.length;i++)html+=chRowHtml(slice[i]);
-  if(left>0)html+='<button type="button" class="btn wine" id="chMoreBtn" onclick="chLoadMore()" style="width:100%;margin-top:10px;min-height:44px">Load more — '+left+' left</button>';
+  if(left>0){
+    if(slice.length>=CH_CAP){
+      html+='<p class="hint" style="text-align:center;margin:12px 8px 4px">Showing '+slice.length+' of '+rows.length+'. Search or filter by county to find the rest — painting the whole roster crashes some phones.</p>';
+    }else{
+      html+='<button type="button" class="btn wine" id="chMoreBtn" onclick="chLoadMore()" style="width:100%;margin-top:10px;min-height:44px">Load more — '+left+' left</button>';
+    }
+  }
   m.innerHTML=html;
+  }catch(_){
+    m.innerHTML='<p class="hint">Couldn’t draw the church list on this phone. Pull to refresh or try again.</p>';
+  }
 }
 function chAddOpen(){
   var d=document.getElementById("chAddWrap");if(!d)return;
