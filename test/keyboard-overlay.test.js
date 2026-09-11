@@ -82,6 +82,15 @@ function fakeEl(init) {
   return el;
 }
 
+test("hidden Day PIN / modal layers cannot steal taps after unlock", () => {
+  assert.match(rule(".daygate"), /pointer-events\s*:\s*none/);
+  assert.match(rule(".daygate.show"), /pointer-events\s*:\s*auto/);
+  assert.match(rule(".modal"), /pointer-events\s*:\s*none/);
+  assert.match(rule(".modal.show"), /pointer-events\s*:\s*auto/);
+  assert.match(extractFunction(js, "maybeDayGate"), /kbUnpinOverlay/);
+  assert.doesNotMatch(extractFunction(js, "scrollPageTop"), /behavior:\s*["']smooth["']/);
+});
+
 test("Day PIN gate still fills the layout viewport until the keyboard pin applies", () => {
   const gate = rule(".daygate");
   assert.match(gate, /position\s*:\s*fixed/);

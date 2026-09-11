@@ -351,6 +351,27 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
+## NEXT stop + Chrome tab freeze (v1.19.9)
+
+Two field bugs on Fri Sep 11 2026 (Chrome on phone and Mac):
+
+- **Wrong NEXT.** After Coös the strip said Star Speedway / Oct 10 instead of
+  **Merrimack County — Sep 12 · Hugh Gallen Soccer Field**. The 10-stop
+  roster was already in place (v1.19.8); the clock helper used
+  `Intl.DateTimeFormat("en-CA").format()`, and Chrome has returned
+  `YYYY/MM/DD` from that locale. String-comparing that against `YYYY-MM-DD`
+  stop dates made every stop look past (`'/' > '-'`), so the loop fell
+  through to the last county. `seasonTodayISO` / server `todayLocalISO` now
+  build the date from `formatToParts`, and both sides normalize a slashed
+  today before comparing. `seasonCurrent` prefers `COUNTIES` once that
+  file has loaded so a stale `SEASON_STOPS` copy cannot skip a weekend.
+- **UI freeze on the first tab/section tap.** Event Day could scroll, but
+  leaving it called `scrollTo({behavior:"smooth"})` on the `100dvh` /
+  `overflow:hidden` flex column — Chrome (desktop and Android) can lock
+  that compositor. `show()` now resets `main.scrollTop` instantly. Hidden
+  Day PIN / modal layers also get `pointer-events:none` so a leftover
+  keyboard pin cannot swallow taps after unlock.
+
 ## Homepage schedule: Merrimack + Hillsborough (v1.19.8)
 
 The in-app season roster now matches the public homepage at

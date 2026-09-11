@@ -1717,15 +1717,30 @@ var SEASON_STOPS=[
   {key:"rockingham",date:"2026-10-10",name:"Rockingham County",place:"Star Speedway",md:"Oct 10"}
 ];
 function seasonTodayISO(now){
+  /* formatToParts, not format("en-CA"). Chrome (Mac + Android) has
+     returned YYYY/MM/DD from en-CA; string-comparing that against
+     YYYY-MM-DD stop dates makes every stop look "past" ('/' > '-')
+     and the NEXT line falls through to Rockingham / Star Speedway. */
   try{
-    return new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(now||new Date());
-  }catch(_){
-    var d=now||new Date();
-    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-  }
+    var parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(now||new Date());
+    var y="",mo="",da="",i;
+    for(i=0;i<parts.length;i++){
+      if(parts[i].type==="year")y=parts[i].value;
+      else if(parts[i].type==="month")mo=parts[i].value;
+      else if(parts[i].type==="day")da=parts[i].value;
+    }
+    if(y&&mo&&da)return y+"-"+mo+"-"+da;
+  }catch(_){}
+  var d=now||new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function seasonNormDate(s){
+  var m=(s||"").toString().match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/);
+  if(!m)return (s||"").toString();
+  return m[1]+"-"+("0"+m[2]).slice(-2)+"-"+("0"+m[3]).slice(-2);
 }
 function seasonAddDays(iso,n){
-  var d=new Date(iso+"T12:00:00Z");
+  var d=new Date(seasonNormDate(iso)+"T12:00:00Z");
   d.setUTCDate(d.getUTCDate()+n);
   return d.toISOString().slice(0,10);
 }
@@ -1744,8 +1759,14 @@ function countyKeyOf(s){
   }
   return "";
 }
+function seasonStopList(){
+  /* COUNTIES is the volunteer-facing roster. Prefer it once counties.js
+     has loaded so a stale SEASON_STOPS copy cannot skip a weekend. */
+  if(typeof COUNTIES!=="undefined"&&COUNTIES&&COUNTIES.length)return COUNTIES;
+  return SEASON_STOPS;
+}
 function seasonCurrent(todayISO){
-  var today=todayISO||seasonTodayISO(),list=SEASON_STOPS,i,hit=list[list.length-1];
+  var today=seasonNormDate(todayISO||seasonTodayISO()),list=seasonStopList(),i,hit=list[list.length-1];
   for(i=0;i<list.length;i++){
     if(seasonAddDays(list[i].date,1)>=today){hit=list[i];break;}
   }
@@ -1762,7 +1783,7 @@ function eventTagLine(todayISO){
   return stop?seasonStopLine(stop):"";
 }
 function seasonEventDay(stop,todayISO){
-  var today=todayISO||seasonTodayISO();
+  var today=seasonNormDate(todayISO||seasonTodayISO());
   if(!stop||!stop.date)return false;
   return today===stop.date||today===seasonAddDays(stop.date,1);
 }
@@ -2198,7 +2219,10 @@ function maybeDayGate(){
     if(bar)bar.classList.remove("show");
     var nm=document.getElementById("dayNameInput");if(nm&&!nm.value)nm.value=MY.name||"";
     setTimeout(function(){var focusId=(nm&&!nm.value)?"dayNameInput":"dayPinInput";var i=document.getElementById(focusId);if(i){try{i.focus({preventScroll:true});}catch(_){try{i.focus();}catch(__){}}}},60);
-  }else{g.classList.remove("show");}
+  }else{
+    g.classList.remove("show");
+    if(typeof kbUnpinOverlay==="function")kbUnpinOverlay(g);
+  }
 }
 function tryDayPin(){
   var v=document.getElementById("dayPinInput").value.trim();if(!v)return;
@@ -2754,12 +2778,12 @@ function bindPlaybookToc(){
   }
 }
 function pageScroller(){return document.querySelector("main")||document.documentElement;}
-function scrollPageTop(smooth){
+function scrollPageTop(){
+  /* Instant reset only. A smooth scrollTo on this 100dvh / overflow:hidden
+     flex column has frozen Chrome (phone + Mac) the first time a volunteer
+     left Event Day — boot never called this, show() did. */
   var sc=pageScroller();
-  try{
-    if(sc.scrollTo)sc.scrollTo({top:0,behavior:smooth?"smooth":"auto"});
-    else sc.scrollTop=0;
-  }catch(_){try{sc.scrollTop=0;}catch(__){}}
+  try{sc.scrollTop=0;}catch(_){}
 }
 function show(id,opts){
   opts=opts||{};
@@ -2773,7 +2797,7 @@ function show(id,opts){
      than a phone column and there is no reason to letterbox them on a desktop. */
   var mainEl=document.querySelector("main");if(mainEl)mainEl.classList.toggle("wide",id==="techio");
   var tab=PARENT[id]||id;var tabs=document.querySelectorAll(".tab");for(var j=0;j<tabs.length;j++)tabs[j].classList.toggle("active",tabs[j].getAttribute("data-tab")===tab);
-  scrollPageTop(true);
+  scrollPageTop();
   if(id==="now")renderSpine();
   if(id==="dashboard"){applyLeaderUI();renderDashboard();}
   if(id==="announcements"||id==="issue"){seenAnn=visCount(STATE.announcements);seenIssue=visCount(STATE.feedback);updateBadges();}

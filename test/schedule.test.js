@@ -5,7 +5,8 @@
    quietly wrong for one weekend a season, so it is pinned down here. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { currentEvent, autoDayPin, pinForDate, scheduledEvent, countyDeburr } from "../netlify/functions/data.mjs";
+import { readFileSync } from "node:fs";
+import { currentEvent, autoDayPin, pinForDate, scheduledEvent, countyDeburr, countyRetired } from "../netlify/functions/data.mjs";
 
 test("the PIN is the event Saturday as MMDD", () => {
   assert.equal(pinForDate("2026-07-25"), "0725");
@@ -49,6 +50,22 @@ test("back-to-back weekends roll correctly", () => {
   assert.equal(currentEvent("2026-09-01").key, "coos");
   assert.equal(currentEvent("2026-09-06").key, "coos");       // Coös Sunday
   assert.equal(currentEvent("2026-09-07").key, "merrimack");  // Monday after Coös
+});
+
+test("server today helper does not use en-CA format()", () => {
+  const src = readFileSync(new URL("../netlify/functions/data.mjs", import.meta.url), "utf8");
+  assert.match(src, /formatToParts/);
+  assert.doesNotMatch(src, /DateTimeFormat\(\s*["']en-CA["']/);
+});
+
+test("a slash-formatted today does not skip to Rockingham", () => {
+  assert.equal(currentEvent("2026/09/11").key, "merrimack");
+  assert.equal(currentEvent("2026/09/12").key, "merrimack");
+  assert.equal(autoDayPin("2026/09/11"), pinForDate("2026-09-12"));
+  assert.equal(currentEvent("2026-09-11").place, "Hugh Gallen Soccer Field");
+  assert.notEqual(currentEvent("2026/09/11").key, "rockingham");
+  assert.equal(countyRetired("coos", "2026/09/11"), true);
+  assert.equal(countyRetired("merrimack", "2026/09/11"), false);
 });
 
 test("Merrimack (homepage Sep 12) holds from the Monday after Coös through its Sunday", () => {

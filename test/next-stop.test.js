@@ -50,9 +50,11 @@ function seasonSrc() {
   return [
     extractVarArray(js, "SEASON_STOPS"),
     extractFunction(js, "seasonTodayISO"),
+    extractFunction(js, "seasonNormDate"),
     extractFunction(js, "seasonAddDays"),
     extractFunction(js, "seasonDeburr"),
     extractFunction(js, "countyKeyOf"),
+    extractFunction(js, "seasonStopList"),
     extractFunction(js, "seasonCurrent"),
     extractFunction(js, "seasonEventDay"),
     extractFunction(js, "seasonStopLine"),
@@ -110,6 +112,42 @@ test("on 2026-09-01 the next stop is Coös / Sep 5 / Gorham", () => {
   assert.doesNotMatch(line, /^coos$/i);
   assert.doesNotMatch(line, /Next\.\./);
   assert.equal(runSeason('seasonEventDay(seasonCurrent("2026-09-01"),"2026-09-01")'), false);
+});
+
+test("slash-formatted today still picks Merrimack, not Star Speedway", () => {
+  /* Chrome has returned YYYY/MM/DD from Intl en-CA. That string compares
+     greater than every YYYY-MM-DD stop date ('/' > '-'), so the loop used
+     to fall through to the last stop — Rockingham / Star Speedway. */
+  assert.equal(runSeason('seasonNormDate("2026/09/11")'), "2026-09-11");
+  assert.equal(runSeason('seasonCurrent("2026/09/11").key'), "merrimack");
+  assert.equal(runSeason('seasonCurrent("2026-09-11").key'), "merrimack");
+  assert.match(runSeason('seasonStopLine(seasonCurrent("2026/09/11"))'), /Merrimack County/);
+  assert.match(runSeason('seasonStopLine(seasonCurrent("2026/09/11"))'), /Hugh Gallen/);
+  assert.doesNotMatch(runSeason('seasonStopLine(seasonCurrent("2026/09/11"))'), /Star Speedway/);
+  assert.equal(runSeason('seasonCurrent("2026/09/12").key'), "merrimack");
+  assert.equal(runSeason('seasonCurrent("2026/09/14").key'), "hillsborough");
+});
+
+test("Friday Sep 11 2026 evening America/New_York is Merrimack", () => {
+  const stop = runSeason('seasonCurrent(seasonTodayISO(new Date("2026-09-11T21:45:00-04:00")))');
+  assert.equal(stop.key, "merrimack");
+  const line = runSeason('seasonStopLine(seasonCurrent(seasonTodayISO(new Date("2026-09-11T21:45:00-04:00"))))');
+  assert.match(line, /Merrimack County/);
+  assert.match(line, /Sep 12|September 12/);
+  assert.match(line, /Hugh Gallen/);
+  assert.doesNotMatch(line, /Star Speedway|Rockingham/);
+  const iso = runSeason('seasonTodayISO(new Date("2026-09-11T21:45:00-04:00"))');
+  assert.equal(iso, "2026-09-11");
+  assert.doesNotMatch(iso, /\//);
+});
+
+test("seasonTodayISO builds YYYY-MM-DD from formatToParts, not en-CA format()", () => {
+  const src = extractFunction(js, "seasonTodayISO");
+  assert.match(src, /formatToParts/);
+  assert.doesNotMatch(src, /DateTimeFormat\(\s*["']en-CA["']/);
+  assert.match(src, /DateTimeFormat\(\s*["']en-US["']/);
+  assert.match(extractFunction(js, "seasonCurrent"), /seasonNormDate/);
+  assert.match(extractFunction(js, "seasonCurrent"), /seasonStopList/);
 });
 
 test("the board still moves Monday after each event", () => {
