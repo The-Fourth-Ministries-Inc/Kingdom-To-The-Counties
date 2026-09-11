@@ -351,26 +351,24 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
-## NEXT stop + Chrome tab freeze (v1.19.9)
+## Pre-Crusade no longer OOMs Chrome (v1.19.9)
 
-Two field bugs on Fri Sep 11 2026 (Chrome on phone and Mac):
+Opening **Pre-Crusade** (and then any other tab) froze Chrome on phone and
+Mac. Production `GET ?part=churches` is ~240 KB — **417 churches** and
+hundreds of log rows. `chRenderList` / `renderMobilize` built HTML for
+every row in one `innerHTML`, and `mobilize.js` did that **on boot**
+(`chFetch()` + paint-if-cached) before anyone opened the tab. Box Chrome
+was OOM-killed (`dmesg`: Killed process chrome).
 
-- **Wrong NEXT.** After Coös the strip said Star Speedway / Oct 10 instead of
-  **Merrimack County — Sep 12 · Hugh Gallen Soccer Field**. The 10-stop
-  roster was already in place (v1.19.8); the clock helper used
-  `Intl.DateTimeFormat("en-CA").format()`, and Chrome has returned
-  `YYYY/MM/DD` from that locale. String-comparing that against `YYYY-MM-DD`
-  stop dates made every stop look past (`'/' > '-'`), so the loop fell
-  through to the last county. `seasonTodayISO` / server `todayLocalISO` now
-  build the date from `formatToParts`, and both sides normalize a slashed
-  today before comparing. `seasonCurrent` prefers `COUNTIES` once that
-  file has loaded so a stale `SEASON_STOPS` copy cannot skip a weekend.
-- **UI freeze on the first tab/section tap.** Event Day could scroll, but
-  leaving it called `scrollTo({behavior:"smooth"})` on the `100dvh` /
-  `overflow:hidden` flex column — Chrome (desktop and Android) can lock
-  that compositor. `show()` now resets `main.scrollTop` instantly. Hidden
-  Day PIN / modal layers also get `pointer-events:none` so a leftover
-  keyboard pin cannot swallow taps after unlock.
+The list now paints **40 rows** at a time with **Load more** (and a
+near-bottom scroll bump). Conversation lookups are indexed once per
+paint, not scanned per church. The roster is fetched only when
+Pre-Crusade or a church card opens — not on first paint of Event Day.
+
+NEXT/LIVE after the live blob was set back to auto already shows
+**Merrimack County — Sep 12 · Hugh Gallen Soccer Field**. The clock
+helpers still build today from `formatToParts` so a slashed locale
+cannot skip to Star Speedway.
 
 ## Homepage schedule: Merrimack + Hillsborough (v1.19.8)
 
