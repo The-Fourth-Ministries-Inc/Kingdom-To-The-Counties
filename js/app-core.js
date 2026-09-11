@@ -490,6 +490,12 @@ function ioMoveRow(pid,rid,toId){
   renderIOList();
 }
 
+/* Labelled <td> so a stacked laptop-edit card can show the column name
+   next to each field. Empty label = no caption (delete / checkbox chrome). */
+function ioCell(cls,label,html){
+  return '<td'+(cls?(' class="'+cls+'"'):"")+(label?(' data-label="'+esc(label)+'"'):"")+'>'+html+'</td>';
+}
+
 /* One row of the input table. `ed` swaps the read-only cells for fields.
    Console filter tabs drop the other board's channel column; edit mode keeps
    both so a leader can still set either number. */
@@ -511,33 +517,33 @@ function ioInputRow(e,cf,ed,people){
         return '<option value="'+esc(q.id)+'"'+(q.id===p.id?" selected":"")+'>'+esc(q.name)+'</option>';
       }).join("")+'</select>';
     return '<tr class="ed">'+
-      '<td class="c stick"><button class="iodel" onclick="ioDelRow('+pi+','+ri+')" title="Remove input">✕</button></td>'+
-      '<td class="num k stick2">'+f("avb","w3","AVB")+avbWarn+'</td>'+
-      '<td class="num">'+f("snake","w3","—")+portWarn+'</td>'+
-      '<td class="num">'+f("split","w3","—")+'</td>'+
-      '<td>'+pick+f("src","","Source label")+'</td>'+
-      '<td>'+f("role","","Role / instrument")+'</td>'+
-      '<td>'+f("gear","","Mic / hardware")+'</td>'+
-      '<td class="c"><input type="checkbox"'+(r.p48?" checked":"")+' onchange="ioSetFlag('+pi+','+ri+',\'p48\',this.checked)"></td>'+
-      '<td>'+f("note","","Notes")+'</td>'+
-      (showFoh?'<td class="num">'+f("foh","w3","—")+'</td>':"")+
-      (showSc?'<td class="num">'+f("sc","w3","—")+'</td>':"")+'</tr>';
+      ioCell("c stick iodelcell","","<button class=\"iodel\" onclick=\"ioDelRow("+pi+","+ri+")\" title=\"Remove input\">✕</button>")+
+      ioCell("num k stick2","AVB",f("avb","w3","AVB")+avbWarn)+
+      ioCell("num","Snake",f("snake","w3","—")+portWarn)+
+      ioCell("num","Ark split",f("split","w3","—"))+
+      ioCell("","Source",pick+f("src","","Source label"))+
+      ioCell("","Role / instrument",f("role","","Role / instrument"))+
+      ioCell("","Mic / hardware",f("gear","","Mic / hardware"))+
+      ioCell("c","48V",'<input type="checkbox"'+(r.p48?" checked":"")+' onchange="ioSetFlag('+pi+','+ri+',\'p48\',this.checked)">')+
+      ioCell("","Notes",f("note","","Notes"))+
+      (showFoh?ioCell("num","FOH ch",f("foh","w3","—")):"")+
+      (showSc?ioCell("num","32SC ch",f("sc","w3","—")):"")+'</tr>';
   }
 
   var tap=p.off?"":' onclick="ioToggle(\''+esc(p.id)+'\',\''+esc(r.id)+'\')"';
   var stamp=(r.done&&r.by)?'<span class="iostamp">✓ '+esc(r.by)+(r.t?(" · "+esc(r.t)):"")+'</span>':"";
   return '<tr class="'+(r.done?"done":"")+(p.off?" off":" tap")+'"'+tap+'>'+
-    '<td class="c stick"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg></span></td>'+
-    '<td class="num k stick2">'+(r.avb?("AVB "+esc(String(r.avb))):"—")+avbWarn+'</td>'+
-    '<td class="num">'+esc(r.snake||"—")+portWarn+'</td>'+
-    '<td class="num">'+esc(r.split||"—")+'</td>'+
-    '<td><b>'+esc(r.src||p.name)+'</b>'+stamp+'</td>'+
-    '<td>'+esc(r.role||"—")+'</td>'+
-    '<td class="sm">'+esc(r.gear||"—")+alt(r.altGear)+'</td>'+
-    '<td class="c">'+(r.p48?'<span class="p48">48V</span>':"")+'</td>'+
-    '<td class="sm note">'+esc(r.note||"")+alt(r.altNote)+'</td>'+
-    (showFoh?'<td class="num">'+esc(r.foh||"—")+(r.stereo?'<span class="alt">stereo pair</span>':"")+'</td>':"")+
-    (showSc?'<td class="num">'+esc(r.sc||"—")+'</td>':"")+'</tr>';
+    ioCell("c stick","","<span class=\"box\"><svg viewBox=\"0 0 24 24\"><path d=\"M5 12l5 5L20 6\"/></svg></span>")+
+    ioCell("num k stick2","AVB",(r.avb?("AVB "+esc(String(r.avb))):"—")+avbWarn)+
+    ioCell("num","Snake",esc(r.snake||"—")+portWarn)+
+    ioCell("num","Ark split",esc(r.split||"—"))+
+    ioCell("","Source","<b>"+esc(r.src||p.name)+"</b>"+stamp)+
+    ioCell("","Role / instrument",esc(r.role||"—"))+
+    ioCell("sm","Mic / hardware",esc(r.gear||"—")+alt(r.altGear))+
+    ioCell("c","48V",r.p48?'<span class="p48">48V</span>':"")+
+    ioCell("sm note","Notes",esc(r.note||"")+alt(r.altNote))+
+    (showFoh?ioCell("num","FOH ch",esc(r.foh||"—")+(r.stereo?'<span class="alt">stereo pair</span>':"")):"")+
+    (showSc?ioCell("num","32SC ch",esc(r.sc||"—")):"")+'</tr>';
 }
 
 function renderIOInputs(list,ed){
@@ -565,7 +571,7 @@ function renderIOInputs(list,ed){
     : '<p class="iofoot">'+rows.length+' inputs'+(ioConsole==="all"?"":" on this console")+' · sorted by AVB stream, the number every console agrees on. Tap a row to check it off as patched.</p>';
 
   return (ed?ioEditBar():ioConsoleBar())+ioConflictNote(cf)+
-    '<div class="iotable"><table class="iotbl wide"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>'+
+    '<div class="iotable'+(ed?" editing":"")+'"><table class="iotbl wide'+(ed?" editing":"")+'"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>'+
     (ed?'<button class="ioadd" onclick="ioAddRow()">＋ Add an input</button><button class="ioaddperf" onclick="ioAddPerf()">＋ Add a musician</button>':"")+
     foot;
 }
@@ -618,43 +624,45 @@ function renderIOOutputs(list,ed){
       ? '<span class="packed"><input value="'+esc(p.pack||"")+'" placeholder="Pack" oninput="ioSet('+pi+',-1,\'pack\',this.value)">'+
         '<input type="color" value="'+(/^#[0-9a-fA-F]{6}$/.test(p.color||"")?p.color:"#c7c2b8")+'" oninput="ioSet('+pi+',-1,\'color\',this.value)"></span>'
       : ioChip(p.pack,p.color,"sm");
-    var main='<tr class="'+(stereo?"st":"mo")+'">'+
-      '<td class="num k stick">'+(ed?'<input class="w5" value="'+esc(p.aux||"")+'" placeholder="Aux" oninput="ioSet('+pi+',-1,\'aux\',this.value);ioSet('+pi+',-1,\'qmix\',this.value)">':'Aux '+esc(p.aux||p.qmix||"—"))+'</td>'+
-      '<td class="num">'+(ed?'<input class="w5" value="'+esc(p.out||"")+'" placeholder="Out" oninput="ioSet('+pi+',-1,\'out\',this.value)">':esc(p.out||"—"))+'</td>'+
-      '<td class="sm">'+(ed?'<input value="'+esc(p.tx||"")+'" placeholder="Transmitter" oninput="ioSet('+pi+',-1,\'tx\',this.value)">':esc(ioTxLabel(p)))+'</td>'+
-      '<td>'+chip+'</td>'+
-      '<td><b'+(ioIsOpen(p)?' class="open"':"")+'>'+esc(p.name)+'</b>'+(p.dest?'<span class="alt">'+esc(p.dest)+'</span>':"")+pick+'</td>'+
-      '<td class="c"><span class="iomodetag '+(stereo?"st":"mo")+'">'+esc(ioModeLabel(p))+'</span>'+act+'</td></tr>';
+    var main='<tr class="'+(stereo?"st":"mo")+(ed?" ed":"")+'">'+
+      ioCell("num k stick","Mix",ed?'<input class="w5" value="'+esc(p.aux||"")+'" placeholder="Aux" oninput="ioSet('+pi+',-1,\'aux\',this.value);ioSet('+pi+',-1,\'qmix\',this.value)">':'Aux '+esc(p.aux||p.qmix||"—"))+
+      ioCell("num","Ark out",ed?'<input class="w5" value="'+esc(p.out||"")+'" placeholder="Out" oninput="ioSet('+pi+',-1,\'out\',this.value)">':esc(p.out||"—"))+
+      ioCell("sm","Transmitter",ed?'<input value="'+esc(p.tx||"")+'" placeholder="Transmitter" oninput="ioSet('+pi+',-1,\'tx\',this.value)">':esc(ioTxLabel(p)))+
+      ioCell("","Pack",chip)+
+      ioCell("","Assignee",'<b'+(ioIsOpen(p)?' class="open"':"")+'>'+esc(p.name)+'</b>'+(p.dest?'<span class="alt">'+esc(p.dest)+'</span>':"")+pick)+
+      ioCell("c","Mode",'<span class="iomodetag '+(stereo?"st":"mo")+'">'+esc(ioModeLabel(p))+'</span>'+act)+'</tr>';
     var extra=(p.share||[]).map(function(s){
-      return '<tr class="share"><td class="stick"></td><td></td><td class="sm">↳ same mix</td>'+
-        '<td><span class="chip sm none">'+esc(s.pack||"pack")+'</span></td>'+
-        '<td>'+esc(s.name||"—")+(s.dest?'<span class="alt">'+esc(s.dest)+'</span>':"")+'</td><td></td></tr>';
+      return '<tr class="share">'+ioCell("stick","","")+ioCell("","","")+ioCell("sm","","↳ same mix")+
+        ioCell("","Pack",'<span class="chip sm none">'+esc(s.pack||"pack")+'</span>')+
+        ioCell("","Assignee",esc(s.name||"—")+(s.dest?'<span class="alt">'+esc(s.dest)+'</span>':""))+ioCell("c","","")+'</tr>';
     }).join("");
     return main+extra;
   }).join("");
 
   var noMix=free.map(function(p){
-    return '<tr class="nomix"><td colspan="4" class="sm stick">no mix assigned</td><td><b>'+esc(p.name)+'</b>'+(p.inst?'<span class="alt">'+esc(p.inst)+'</span>':"")+'</td><td></td></tr>';
+    return '<tr class="nomix">'+ioCell("sm stick","Mix","no mix assigned")+ioCell("","","")+ioCell("","","")+ioCell("","","")+
+      ioCell("","Assignee","<b>"+esc(p.name)+"</b>"+(p.inst?'<span class="alt">'+esc(p.inst)+'</span>':""))+ioCell("c","","")+'</tr>';
   }).join("");
 
   var buses=(ed?(ioBusBuf=ioBusBuf||ioClone(ioBusCurrent())):ioBusCurrent()).map(function(b,bi){
     function f(field,ph){return '<input value="'+esc(b[field]||"")+'" placeholder="'+esc(ph)+'" oninput="ioBusSet('+bi+',\''+field+'\',this.value)">';}
-    if(ed)return '<tr><td class="num k stick">'+f("bus","Bus")+'</td><td>'+f("sig","Signal")+'</td>'+
-      '<td>'+f("dest","Patch destination")+'</td><td>'+f("hw","Hardware")+'</td><td>'+f("purpose","Purpose")+'</td></tr>';
-    return '<tr class="'+(b.off?"off":"")+'"><td class="num k stick">'+esc(b.bus)+'</td><td>'+esc(b.sig||"—")+'</td>'+
-      '<td class="sm">'+esc(b.dest||"—")+'</td><td class="sm">'+esc(b.hw||"—")+'</td><td class="sm">'+esc(b.purpose||"")+'</td></tr>';
+    if(ed)return '<tr class="ed">'+ioCell("num k stick","Bus",f("bus","Bus"))+ioCell("","Signal",f("sig","Signal"))+
+      ioCell("","Patch destination",f("dest","Patch destination"))+ioCell("","Hardware",f("hw","Hardware"))+ioCell("","Purpose",f("purpose","Purpose"))+'</tr>';
+    return '<tr class="'+(b.off?"off":"")+'">'+ioCell("num k stick","Bus",esc(b.bus))+ioCell("","Signal",esc(b.sig||"—"))+
+      ioCell("sm","Patch destination",esc(b.dest||"—"))+ioCell("sm","Hardware",esc(b.hw||"—"))+ioCell("sm","Purpose",esc(b.purpose||""))+'</tr>';
   }).join("");
 
+  var editCls=ed?" editing":"";
   return (ed?ioEditBar():"")+
     '<div class="iosec"><h3>🎧 Ark 32R Outputs (Stereo IEM Mixes)</h3>'+
       '<p class="iohint">'+used+' of 16 outputs in use · '+mixes.length+' mixes'+
       (ed?" — pack labels and colours are editable here; the colour is the one on the physical belt pack."
          :" — collapse a stereo mix to two mono legs when there are more musicians than pairs.")+'</p>'+
-      '<div class="iotable"><table class="iotbl out"><thead><tr><th class="stick">Mix</th><th>Ark out</th><th>Transmitter</th><th>Pack</th><th>Assignee</th><th class="c">Mode</th></tr></thead>'+
+      '<div class="iotable'+editCls+'"><table class="iotbl out'+editCls+'"><thead><tr><th class="stick">Mix</th><th>Ark out</th><th>Transmitter</th><th>Pack</th><th>Assignee</th><th class="c">Mode</th></tr></thead>'+
       '<tbody>'+mixRows+noMix+'</tbody></table></div></div>'+
     '<div class="iosec"><h3>🔊 NSB 32.16 Stage Box Outputs (PA &amp; Hardwired IEMs)</h3>'+
       '<p class="iohint">FOH output buses — the house system, not personal mixes.</p>'+
-      '<div class="iotable"><table class="iotbl out"><thead><tr><th class="stick">Bus</th><th>Signal</th><th>Patch destination</th><th>Hardware</th><th>Purpose</th></tr></thead>'+
+      '<div class="iotable'+editCls+'"><table class="iotbl out'+editCls+'"><thead><tr><th class="stick">Bus</th><th>Signal</th><th>Patch destination</th><th>Hardware</th><th>Purpose</th></tr></thead>'+
       '<tbody>'+buses+'</tbody></table></div></div>';
 }
 
