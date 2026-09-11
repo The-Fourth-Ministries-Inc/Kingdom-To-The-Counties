@@ -351,6 +351,19 @@ everybody can see live.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
 
+## Tech I/O Inputs / Outputs on a laptop (v1.19.9)
+
+Specialists → Tech I/O already marks `main.wide`, but the desk layout
+(drop the 560px phone letterbox, show the routing sheet) lived inside
+`@media (min-width:900px)`. A normal laptop window under that breakpoint
+still looked like a phone column, and editing Inputs / Outputs meant
+dragging a 12-column sheet sideways.
+
+v1.19.9 lifts the letterbox whenever Tech I/O is open. The full
+spreadsheet (every column at once) still waits until the window is wide
+enough to hold it (~1100px). Narrower laptop edit stacks each row as a
+labelled field card so Save / Cancel and every box stay on-screen.
+
 ## Homepage schedule: Merrimack + Hillsborough (v1.19.8)
 
 The in-app season roster now matches the public homepage at
@@ -525,7 +538,7 @@ All ten graphics are live as of v1.15.1. The banners are 1920×1080 and the
 mission card 1080×1350, matching what the socials want; keep new artwork at
 those sizes and under ~300KB so the precache stays reasonable on field signal.
 
-## Tech I/O List (v1.18.0)
+## Tech I/O List (v1.19.9)
 
 Under **Specialists → 🎛️ Tech I/O List**. Three views of one dataset, switched
 with the segmented control at the top:
@@ -556,11 +569,12 @@ routing, which is why it stays on the open view.)
 ### It works at a laptop, not just a phone
 
 The rest of the app is a 560px phone column. Tech I/O is the one page people
-actually work at a desk, so from 900px up it takes the screen (`main.wide`, up
-to 1480px): the tables stop scrolling sideways and show every column at once,
-and the musician cards flow into a 2–3 column grid instead of stretching to
-absurd line lengths. Below 900px nothing changes — the tables scroll sideways
-with the AVB and tick columns pinned, exactly as before.
+actually work at a desk, so `main.wide` (toggled on that page, up to 1480px)
+drops the letterbox at any width. From ~1100px up the tables stop scrolling
+sideways and show every column at once, and the musician cards flow into a
+2–3 column grid instead of stretching to absurd line lengths. Below that,
+read views still scroll sideways with AVB pinned; **Edit table** stacks each
+row as a labelled card so a laptop window does not need a sideways drag.
 
 ### The columns follow the signal
 

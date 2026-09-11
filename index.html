@@ -774,29 +774,47 @@ textarea, select,
   .iotbl .packed input:not([type=color]){min-width:74px}
   .iotbl .packed input[type=color]{width:30px;height:30px;flex:none;padding:2px;border-radius:7px}
   .ioro{font-size:11.5px;font-weight:700;color:var(--muted)}
-  /* ---- Desktop (>=900px) ----
-     The phone layout letterboxes everything into a 560px column. Tech I/O is
-     the one page people work at a laptop, so it gets the screen: the tables
-     stop scrolling sideways and the musician cards flow into columns instead
-     of stretching to absurd line lengths. */
-  @media (min-width:900px){
-    main.wide{max-width:1480px}
-    main.wide .iotbl{font-size:13px}
+  /* ---- Tech I/O on a laptop (main.wide) ----
+     show('techio') already marks main.wide. The 560px phone letterbox used
+     to lift only inside @media (min-width:900px), so a normal laptop window
+     at 700–899px — or a slightly-short 13" browser — still looked like a
+     phone column and the Inputs / Outputs sheet needed a sideways drag.
+     Drop the letterbox whenever the page is open. The full spreadsheet
+     (unstuck columns, roomy fields) waits until the window can hold it.
+     Narrower laptop edit uses one labelled card per row instead. */
+  main.wide{max-width:1480px}
+  main.wide .iotbl{font-size:13px}
+  main.wide .iotbl td.sm{max-width:none}
+  main.wide .iotbl td.note{max-width:280px}
+  main.wide .iocards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:12px;align-items:start}
+  main.wide .iocards .ioperf{margin-bottom:0}
+  main.wide .ioviews{max-width:560px}
+  main.wide .ionote,main.wide .namebar,main.wide .iobar,main.wide .ioclash,main.wide .iofilter{max-width:900px}
+  @media (min-width:1100px){
     main.wide .iotbl td{height:46px}
-    main.wide .iotbl td.sm{max-width:none}
-    main.wide .iotbl td.note{max-width:280px}
     main.wide .iotbl td input:not([type=color]):not([type=checkbox]){min-width:90px}
     main.wide .iotbl td select.iopick{max-width:none}
     /* Enough room for the whole table: nothing needs to be pinned any more,
        and a sticky cell over a non-scrolling table just casts a stray edge. */
     main.wide .iotbl .stick,main.wide .iotbl .stick2{position:static;box-shadow:none;width:auto;min-width:0}
-    main.wide .iocards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;align-items:start}
-    main.wide .iocards .ioperf{margin-bottom:0}
-    main.wide .ioviews{max-width:560px}
-    main.wide .ionote,main.wide .namebar,main.wide .iobar,main.wide .ioclash,main.wide .iofilter{max-width:900px}
   }
   @media (min-width:1280px){
     main.wide .iocards{grid-template-columns:repeat(auto-fill,minmax(360px,1fr))}
+  }
+  /* Edit on a window that cannot hold twelve columns: stack each row as a
+     wrapping field card so Save / Cancel and every input stay on-screen. */
+  @media (max-width:1099px){
+    main.wide .iotable.editing{overflow:visible;border:none;background:transparent;box-shadow:none}
+    main.wide .iotbl.editing thead{display:none}
+    main.wide .iotbl.editing,main.wide .iotbl.editing tbody{display:block;width:100%}
+    main.wide .iotbl.editing tr{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:flex-end;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:10px 12px;margin:0 0 10px;height:auto}
+    main.wide .iotbl.editing td,main.wide .iotbl.editing th{display:flex;flex-direction:column;gap:3px;justify-content:flex-end;height:auto;min-height:44px;min-width:0;flex:1 1 140px;max-width:none;padding:0;border:none;position:static;box-shadow:none;width:auto}
+    main.wide .iotbl.editing td[data-label]::before{content:attr(data-label);font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+    main.wide .iotbl.editing td:not([data-label])::before,main.wide .iotbl.editing td[data-label=""]::before{content:none}
+    main.wide .iotbl.editing td input:not([type=color]):not([type=checkbox]),main.wide .iotbl.editing td select.iopick{min-width:0;width:100%;max-width:none;flex:none}
+    main.wide .iotbl.editing td.c,main.wide .iotbl.editing .iodelcell{flex:0 0 auto;align-items:center}
+    main.wide .iotbl.editing .packed{flex-wrap:wrap}
+    main.wide .iotbl.editing .stick,main.wide .iotbl.editing .stick2{left:auto}
   }
   .iofield{display:flex;flex-direction:column;gap:2px;min-width:0}
   .iofield.grow{flex:1;min-width:120px}
@@ -1107,7 +1125,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.8</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.9</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
