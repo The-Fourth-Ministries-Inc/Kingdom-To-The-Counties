@@ -74,7 +74,7 @@ CRM push is a later build). Privacy & resilience:
   — permanently deletes every capture record and media blob once leadership
   confirms it has all been entered into Planning Center Online.
 
-## Pre-Crusade Mobilization (v1.8.0)
+## Pre-Crusade Mobilization (v1.19.10)
 
 Its own bottom tab: the **season-long church CRM** — a master list of NH (and
 interested out-of-state) churches and ministries, built for collaborative
@@ -109,11 +109,13 @@ ask) from the research doc.
   only** (enforced server-side).
 - **Fast on mobile:** the roster is *not* in the 5-second polling payload — it
   lives in its own blob with a `rev` counter and its own ETag endpoint
-  (`GET ?part=churches`), is re-downloaded only when the rev changes, and the
-  last good copy is cached in localStorage so the tab opens instantly even
-  offline. Starter churches self-seed on first read and deleted ones are
-  tombstoned (same pattern as starter scripts). The CRM **survives the
-  end-of-day reset** — it's season-long relationship data.
+  (`GET ?part=churches`). **v1.19.10** fetches that blob only when Pre-Crusade
+  (or a church card) is opened — never on homepage boot — and the list paints
+  50 rows at a time with **Load more**, so a 400-church roster cannot OOM the
+  tab. The last good copy is still cached in localStorage for offline. Starter
+  churches self-seed on first read and deleted ones are tombstoned (same
+  pattern as starter scripts). The CRM **survives the end-of-day reset** — it's
+  season-long relationship data.
 
 ## Trailer Load List (v1.14.0)
 
@@ -350,6 +352,13 @@ everybody can see live.
   one place. Each report is stamped with the county it happened in.
 - **Removing a report is leader-PIN only** (server-enforced), so a stray
   thumb can't erase a testimony.
+
+## Church list no longer loads on every homepage visit (v1.19.10)
+
+Opening Event Day used to prefetch the full Pre-Crusade church blob
+(~240KB, 400+ churches) and render every row into the DOM. Chrome killed
+the tab (OOM). The homepage no longer touches that list. Opening the
+Pre-Crusade tab fetches it, and the roster paginates (50 + Load more).
 
 ## Tech I/O Inputs / Outputs on a laptop (v1.19.9)
 
