@@ -2791,7 +2791,7 @@ function show(id,opts){
   if(id==="shareapp")renderShareQR();
   if(id==="capture"&&typeof renderCapture==="function")renderCapture();
   if(id==="mobilize"&&typeof renderMobilize==="function"){renderMobilize();chFetch();}
-  if(id==="church"&&typeof renderChurchPage==="function")renderChurchPage();
+  if(id==="church"&&typeof renderChurchPage==="function"){renderChurchPage();if(typeof chFetch==="function")chFetch();}
 }
 /* v1.6.1 — Share-this-app QR (drawn locally from the current URL, works offline) */
 function appShareUrl(){return location.origin+location.pathname.replace(/index\.html$/,"");}

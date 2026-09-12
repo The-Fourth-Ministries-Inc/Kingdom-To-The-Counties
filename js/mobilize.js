@@ -1,16 +1,19 @@
-/* ================= Pre-Crusade Mobilization (v1.8.0) =================
+/* ================= Pre-Crusade Mobilization (v1.19.10) =================
    Season-long church CRM. The roster lives in its own blob and is fetched
    separately (GET ?part=churches, own ETag) so the 5-second poll stays light;
    the main payload only carries churchesRev, and phones re-download the list
-   ONLY when that rev changes. The last good copy is cached in localStorage so
-   the tab opens instantly, even offline. Every outreach action an ambassador
-   takes (call / text / email / script / note) is logged to that church's
-   history AND the global change log — that's the collaboration layer. */
+   ONLY when that rev changes AND Pre-Crusade (or a church card) is open.
+   Homepage boot never fetches or renders the roster — painting 400+ rows
+   OOMs Chrome. The last good copy is cached in localStorage so the tab can
+   paint its first page offline. Every outreach action an ambassador takes
+   (call / text / email / script / note) is logged to that church's history
+   AND the global change log — that's the collaboration layer. */
 var NHC=["Belknap","Carroll","Cheshire","Coös","Grafton","Hillsborough","Merrimack","Rockingham","Strafford","Sullivan"];
 var CH={rev:-1,list:[],log:[]};
 function chFix(o){if(o){if(!Array.isArray(o.list))o.list=[];if(!Array.isArray(o.log))o.log=[];if(!o.tpl||typeof o.tpl!=="object")o.tpl={};o.list.forEach(function(c){if(!Array.isArray(c.connections))c.connections=[];});}return o;}
 try{var _chc=JSON.parse(localStorage.getItem("k2c_churches")||"null");if(_chc&&Array.isArray(_chc.list))CH=chFix(_chc);}catch(_){}
 var chEtag="",chFetching=false,chView="all",chQ="",chCounty="",chCurId=null,chEditOpen=false,chFlagOpen=false;
+var CH_PAGE=50,chShown=50;
 var CH_ICON={call:"📞",text:"💬",email:"✉️",convo:"🗣️",visit:"🤝",script:"📣",share:"📲",note:"📝",connect:"🙋",flag:"🚩",unflag:"✅",edit:"✏️",add:"➕",interest:"⭐","delete":"🗑"};
 /* "Engaged" (we've actually talked with them) is MANUAL ONLY — a 🗣️
    conversation record an ambassador types in. Tapping Call/Text/Email logs
@@ -58,9 +61,11 @@ function chAction(action,payload,localApply){
 }
 function chMe(cb){if(myTag())cb();else askName(function(){cb();});}
 /* ---- list page ---- */
-function chSetQ(v){chQ=(v||"").toLowerCase();chRenderList();}
-function chSetCounty(v){chCounty=v;chRenderList();}
-function chSetView(v){chView=v;var b=document.querySelectorAll("#chViews button");for(var i=0;i<b.length;i++)b[i].classList.toggle("on",b[i].getAttribute("data-v")===v);chRenderList();}
+function chResetPage(){chShown=CH_PAGE;}
+function chSetQ(v){chQ=(v||"").toLowerCase();chResetPage();chRenderList();}
+function chSetCounty(v){chCounty=v;chResetPage();chRenderList();}
+function chSetView(v){chView=v;var b=document.querySelectorAll("#chViews button");for(var i=0;i<b.length;i++)b[i].classList.toggle("on",b[i].getAttribute("data-v")===v);chResetPage();chRenderList();}
+function chLoadMore(){chShown+=CH_PAGE;chRenderList();}
 function chMatches(c){
   if(chCounty&&c.county!==chCounty)return false;
   if(chQ){var hay=(c.name+" "+c.town+" "+c.county+" "+c.leader+" "+c.contact+" "+c.notes).toLowerCase();if(hay.indexOf(chQ)<0)return false;}
@@ -133,11 +138,18 @@ function renderMobilize(){
 function chRenderList(){
   var m=document.getElementById("chList");if(!m)return;
   var rows=CH.list.filter(chMatches).sort(function(a,b){return (!!a.flag-!!b.flag)||a.name.localeCompare(b.name);});
-  m.innerHTML=rows.length?rows.map(chRowHtml).join("")
-    :'<div class="card" style="text-align:center"><p style="margin:0 0 8px;font-size:13.5px">'+(CH.list.length
+  if(!rows.length){
+    m.innerHTML='<div class="card" style="text-align:center"><p style="margin:0 0 8px;font-size:13.5px">'+(CH.list.length
       ?(chQ?'Nothing matches “<b>'+esc(chQ)+'</b>”.':'Nothing matches these filters.')+' Not on the list yet?'
       :'Loading the church list…')+'</p>'
-    +(CH.list.length?'<button class="btn wine" style="width:auto;padding:10px 18px" onclick="chAddOpen()">➕ Add it to the master list</button>':'')+'</div>';
+      +(CH.list.length?'<button class="btn wine" style="width:auto;padding:10px 18px" onclick="chAddOpen()">➕ Add it to the master list</button>':'')+'</div>';
+    return;
+  }
+  var shown=rows.slice(0,chShown);
+  var left=rows.length-shown.length;
+  var html=shown.map(chRowHtml).join("");
+  if(left>0)html+='<button class="btn ghost" style="margin-top:4px;min-height:44px" onclick="chLoadMore()">Load more · '+left+' more</button>';
+  m.innerHTML=html;
 }
 function chAddOpen(){
   var d=document.getElementById("chAddWrap");if(!d)return;
@@ -562,7 +574,8 @@ function renderChurchPage(){
   }
   m.innerHTML=h;
 }
-/* ---- boot ---- */
+/* ---- boot ----
+   Do not fetch or render the church roster here. 417 rows + a 240KB
+   churches blob on every homepage load OOMs Chrome. show("mobilize") /
+   show("church") fetch and render the first page only. */
 renderNameBars();
-if(CH.list.length)renderMobilize();
-chFetch(); // prefetch so the tab opens instantly
