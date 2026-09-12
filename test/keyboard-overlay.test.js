@@ -245,6 +245,65 @@ test("syncKbOverlay is a no-op when the layout viewport already matches (Android
   assert.equal(gate.classList.contains("kb-pin"), false);
 });
 
+test("opening and closing overlays settles class observers with and without a keyboard", () => {
+  for (const keyboard of [false, true]) {
+    const queue = [];
+    const subscriptions = new Map();
+    function observedEl(classes) {
+      const el = fakeEl({ classes });
+      for (const method of ["add", "remove"]) {
+        const mutate = el.classList[method];
+        el.classList[method] = (token) => {
+          mutate(token);
+          // DOMTokenList writes an existing class attribute even if its
+          // tokens are unchanged; the old Set-only fake missed this loop.
+          const callback = subscriptions.get(el);
+          if (callback) queue.push(callback);
+        };
+      }
+      return el;
+    }
+    const gate = observedEl([]);
+    const modal = observedEl([]);
+    const ctx = createContext({
+      window: {
+        innerHeight: 844,
+        visualViewport: {
+          offsetTop: keyboard ? 180 : 0, offsetLeft: 0,
+          width: 390, height: keyboard ? 400 : 844,
+          addEventListener() {}
+        },
+        addEventListener() {}
+      },
+      document: {
+        querySelectorAll: () => [gate, modal], querySelector: () => null,
+        activeElement: null, addEventListener() {}
+      },
+      MutationObserver: class {
+        constructor(callback) { this.callback = callback; }
+        observe(el) { subscriptions.set(el, this.callback); }
+      }
+    });
+    const functions = ["kbOverlayEls", "kbIsField", "kbPinOverlay", "kbUnpinOverlay",
+      "kbNeedPin", "kbVisibleRect", "kbScrollField", "kbSyncPageField",
+      "syncKbOverlay", "kbBindViewport"].map(name => extractFunction(js, name)).join("\n");
+    runInContext(functions + "\nkbBindViewport();", ctx);
+    function settle() {
+      let count = 0;
+      while (queue.length && count < 20) { queue.shift()(); count++; }
+      assert.equal(queue.length, 0, "class observer keeps retriggering and starves navigation");
+    }
+    gate.classList.add("show"); settle();
+    assert.equal(gate.classList.contains("kb-pin"), keyboard);
+    gate.classList.remove("show"); settle();
+    assert.equal(gate.classList.contains("kb-pin"), false);
+    modal.classList.add("show"); settle();
+    assert.equal(modal.classList.contains("kb-pin"), keyboard);
+    modal.classList.remove("show"); settle();
+    assert.equal(modal.classList.contains("kb-pin"), false);
+  }
+});
+
 function extract(re, label) {
   const m = html.match(re);
   assert.ok(m, label + " missing from index.html");
