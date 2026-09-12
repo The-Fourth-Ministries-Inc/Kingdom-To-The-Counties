@@ -2082,7 +2082,9 @@ function kbPinOverlay(el,rect){
   el.style.height=rect.height+"px";
   el.style.right="auto";
   el.style.bottom="auto";
-  el.classList.add("kb-pin");
+  /* Class writes notify kbBindViewport's observer even when the token is
+     unchanged. Only write on a transition so the observer can settle. */
+  if(!el.classList.contains("kb-pin"))el.classList.add("kb-pin");
 }
 function kbUnpinOverlay(el){
   if(!el)return;
@@ -2092,7 +2094,7 @@ function kbUnpinOverlay(el){
   el.style.height="";
   el.style.right="";
   el.style.bottom="";
-  el.classList.remove("kb-pin");
+  if(el.classList.contains("kb-pin"))el.classList.remove("kb-pin");
 }
 function kbNeedPin(vv){
   if(!vv)return false;
