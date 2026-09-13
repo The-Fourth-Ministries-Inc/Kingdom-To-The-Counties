@@ -32,6 +32,12 @@ test("safeUrl only lets http(s) through", () => {
   assert.equal(safeUrl(""), "");
 });
 
+test("default announcements are empty, while real announcements are preserved", () => {
+  assert.deepEqual(normCore({}).announcements, []);
+  assert.deepEqual(normCore({announcements: null}).announcements, []);
+  assert.equal(normCore({announcements: [{id: 'real', text: 'Team briefing'}]}).announcements.length, 1);
+});
+
 test("normCore keeps the shape the client depends on", () => {
   const c = normCore({});
   for(const k of ["checklist","extras","notes","announcements","feedback","praises","event","funding"]){

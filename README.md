@@ -410,18 +410,19 @@ click cannot be mistaken for “back to root.” The v1.19.4 `100dvh` /
 in-flow tab bar shell is unchanged. Same path on Android and the live
 site.
 
-## Direct SharePoint media dump (v1.19.6)
+## Event-photo upload (v1.19.12)
 
-Bitly free short links (`bit.ly/uploadk2c`) now show interstitial ads.
-Volunteers tapping the ad's **Open** button landed on scam sites that
-asked for billing. Team dump, Media dump, and the playbook SharePoint
-bookmark now open Zach's folder directly:
+The Now page has one **Upload** action using `https://bit.ly/uploadk2c`.
+Its destination was verified on September 13, 2026 as a guest file-request
+page with **Select files**, not a Microsoft login. Bitly may show an ad
+preview; use **Continue to destination**, not advertising buttons.
+The underlying request is:
 
 `https://thefourthministries-my.sharepoint.com/:f:/p/zach_silk/IgDSSmjPRiqrQrZI8lRK0gRIATHn0n8CVgMNXMYB1jwj3SQ`
 
-`openUploadMedia` still treats `sharepoint.com` / `1drv.ms` as upload
-targets and opens them in the system browser. Day PIN and secrets are
-unchanged.
+`openUploadMedia` opens the short link externally. Other SharePoint and
+OneDrive links retain their external-browser behavior. Day PIN and
+secrets are unchanged.
 
 ## Day PIN keyboard no longer shoves the shell (v1.19.5)
 
@@ -491,13 +492,10 @@ backend, and does not change store-submit or Play production promotion.
   (`now`); only then does the app exit. v1.19.0 never pushed history
   (`history.length` stayed 2) so OS back left the app.
 - **Photo upload does not require a work Microsoft account (John).**
-  The old Bitly short link 301'd to Zach’s SharePoint folder and 403s without a
-  Microsoft sign-in (v1.19.6 opens that folder directly). The Now card primary path is **Share / save** — pick
-  photos or video on the phone and use the OS share sheet (Messages,
-  personal Drive, save to the phone). No new backend. The secondary
-  **Team dump** still opens SharePoint in the system browser
-  (`@capacitor/browser` / `App.openUrl` / `_system`) for people who have
-  a work login. Quick Capture card photos stay in-app.
+  The Now card now has one **Upload** button to the guest file request.
+  It opens externally (`@capacitor/browser` / `App.openUrl` / `_system`).
+  The former Share / save and Team dump cards are removed. Quick Capture
+  card photos stay in-app.
 - **LIVE / next-stop is the Now-tab line, not studio/graphics headings
   (Laura).** The bug is the Event Day card: leftover **Belknap County ·
   Saturday, August 22nd** on `#eventTag` and a blank **NEXT —** on

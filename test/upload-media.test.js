@@ -1,8 +1,4 @@
-/* Event-photo upload must not dump ambassadors on an in-app Microsoft
-   "account access" wall. The team dump opens Zach's SharePoint folder
-   directly (Bitly interstitials sent volunteers to scam sites). The
-   primary path is Share / save on this phone (OS share sheet or a local
-   download). Team dump still opens SharePoint in the system browser.
+/* One event-photo upload action opens the guest file request externally.
    Quick Capture card photos stay in-app. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -34,7 +30,7 @@ function extractFunction(src, name) {
   throw new Error("unclosed function " + name);
 }
 
-test("SharePoint upload is opened via Capacitor Browser / App / _system", () => {
+test("guest upload is opened via Capacitor Browser / App / _system", () => {
   const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
   assert.ok(deps["@capacitor/browser"]);
   assert.ok(deps["@capacitor/app"]);
@@ -46,27 +42,25 @@ test("SharePoint upload is opened via Capacitor Browser / App / _system", () => 
   assert.match(js, /_system/);
   assert.match(extractFunction(js, "boot"), /bindUploadLinks\(\)/);
   assert.match(html, /onclick="return openUploadMedia\(event\)"/);
-  assert.match(html, new RegExp(SHAREPOINT_DUMP.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(html, />Team dump</);
-  assert.doesNotMatch(html, /bit\.ly\/uploadk2c/);
-  assert.doesNotMatch(js, /bit\.ly\/uploadk2c/);
+  assert.match(html, /href="https:\/\/bit\.ly\/uploadk2c"/);
+  assert.doesNotMatch(html, />Team dump</);
 });
 
-test("Share / save path does not require a Microsoft account", () => {
+test("Now page offers exactly one photo upload action", () => {
   assert.match(js, /function pickShareMedia\(/);
   assert.match(js, /function shareEventMedia\(/);
   assert.match(js, /function saveMediaToPhone\(/);
   assert.match(js, /navigator\.share/);
   assert.doesNotMatch(extractFunction(js, "shareEventMedia"), /bit\.ly|sharepoint|openSystemUrl|openUploadMedia/);
   assert.doesNotMatch(extractFunction(js, "saveMediaToPhone"), /bit\.ly|sharepoint|openSystemUrl/);
-  assert.match(html, /id="shareMediaInput"/);
-  assert.match(html, /onclick="pickShareMedia\(\)"/);
-  assert.match(html, /Share \/ save/);
+  assert.doesNotMatch(html, /id="shareMediaInput"/);
+  assert.doesNotMatch(html, /onclick="pickShareMedia\(\)"/);
   assert.match(html, /no Microsoft login/);
-  const shareCard = html.match(/<div class="checkinprompt"><span>📸[\s\S]*?<\/div>/);
-  assert.ok(shareCard, "Share / save card missing");
-  assert.doesNotMatch(shareCard[0], /bit\.ly\/uploadk2c/);
-  assert.doesNotMatch(shareCard[0], /openUploadMedia/);
+  const shareCard = html.match(/<div class="checkinprompt" id="eventUploadPrompt">[\s\S]*?<\/div>/);
+  assert.ok(shareCard, "Upload card missing");
+  assert.equal((shareCard[0].match(/<a /g)||[]).length,1);
+  assert.match(shareCard[0], /bit\.ly\/uploadk2c/);
+  assert.match(shareCard[0], /openUploadMedia/);
 });
 
 test("shareEventMedia uses the OS share sheet and never opens SharePoint", () => {
@@ -134,14 +128,14 @@ test("openSystemUrl prefers Browser.open, then App.openUrl, then _system", () =>
   assert.equal(calls[0][2], "_system");
 });
 
-test("openUploadMedia opens the direct SharePoint folder", () => {
+test("openUploadMedia opens the configured guest upload short link", () => {
   const calls = [];
   const ctx = createContext({
     openSystemUrl: (url) => { calls.push(url); }
   });
   runInContext(extractFunction(js, "openUploadMedia"), ctx);
   assert.equal(runInContext("openUploadMedia()", ctx), false);
-  assert.deepEqual(calls, [SHAREPOINT_DUMP]);
+  assert.deepEqual(calls, ["https://bit.ly/uploadk2c"]);
 });
 
 test("Quick Capture photo does not require a Microsoft account", () => {
