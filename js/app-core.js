@@ -1726,7 +1726,10 @@ var SEASON_STOPS=[
 ];
 function seasonTodayISO(now){
   try{
-    return new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(now||new Date());
+    var parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(now||new Date());
+    var fields={};
+    parts.forEach(function(p){fields[p.type]=p.value;});
+    return fields.year+"-"+fields.month+"-"+fields.day;
   }catch(_){
     var d=now||new Date();
     return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
@@ -2654,7 +2657,7 @@ function fallbackOpen(url){
 }
 function openUploadMedia(ev){
   if(ev&&ev.preventDefault)ev.preventDefault();
-  openSystemUrl("https://thefourthministries-my.sharepoint.com/:f:/p/zach_silk/IgDSSmjPRiqrQrZI8lRK0gRIATHn0n8CVgMNXMYB1jwj3SQ");
+  openSystemUrl("https://bit.ly/uploadk2c");
   return false;
 }
 function pickShareMedia(){

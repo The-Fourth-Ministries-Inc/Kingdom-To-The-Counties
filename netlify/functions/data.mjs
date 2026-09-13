@@ -807,8 +807,10 @@ const COUNTY_KEYS = new Set(SCHEDULE.map(e => e.key));
 const EVENT_TZ = "America/New_York";
 function todayLocalISO(now){
  try {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: EVENT_TZ, year:"numeric", month:"2-digit", day:"2-digit" })
-   .format(now || new Date());
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: EVENT_TZ, year:"numeric", month:"2-digit", day:"2-digit" })
+   .formatToParts(now || new Date());
+  const fields = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  return fields.year + "-" + fields.month + "-" + fields.day;
  } catch(_) {
   return (now || new Date()).toISOString().slice(0, 10);
  }

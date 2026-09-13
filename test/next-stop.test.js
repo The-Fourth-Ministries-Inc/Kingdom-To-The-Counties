@@ -73,6 +73,21 @@ function runSeason(expr, extra) {
   return runInContext(seasonSrc() + "\nresult = " + expr + ";", ctx);
 }
 
+test("date formatting cannot skip Manchester when locale output is not ISO", () => {
+  const variedIntl = { DateTimeFormat: function(locale, options) {
+    const real = new Intl.DateTimeFormat('en-US', options);
+    return { format: () => '9/14/2026', formatToParts: d => real.formatToParts(d) };
+  } };
+  const iso = runSeason("seasonTodayISO(new Date('2026-09-14T16:00:00Z'))", { Intl: variedIntl });
+  assert.equal(iso, '2026-09-14');
+  const server = readFileSync(join(root, 'netlify/functions/data.mjs'), 'utf8');
+  const serverContext = createContext({ Intl: variedIntl, Date, EVENT_TZ: 'America/New_York' });
+  assert.equal(runInContext(extractFunction(server, 'todayLocalISO') + ";todayLocalISO(new Date('2026-09-14T16:00:00Z'))", serverContext), iso);
+  assert.equal(runSeason('seasonCurrent('+JSON.stringify(iso)+').key'), 'hillsborough');
+  assert.equal(runSeason("seasonTodayISO(new Date('2026-09-14T03:59:00Z'))"), '2026-09-13');
+  assert.equal(runSeason("seasonTodayISO(new Date('2026-09-14T04:00:00Z'))"), '2026-09-14');
+});
+
 test("SEASON_STOPS stays in lockstep with COUNTIES and the server schedule", () => {
   const ctx = createContext({});
   const stops = runInContext(extractVarArray(js, "SEASON_STOPS") + "\nresult = SEASON_STOPS;", ctx);
