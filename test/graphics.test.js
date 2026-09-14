@@ -12,10 +12,10 @@ const sw = readFileSync(join(root, "sw.js"), "utf8");
 
 const FILES = [
   {
-    path: "assets/share-fund-28pct.jpg",
+    path: "assets/share-fund-37pct.jpg",
     download: "K2C-Build-His-Kingdom.jpg",
     title: "BUILD HIS KINGDOM",
-    caption: "99 Days to Get the One until October 31, 2026",
+    caption: "99 Days to Get to the One until October 31, 2026",
   },
   {
     path: "assets/flyer-merrimack-county.jpg",
@@ -52,10 +52,16 @@ test("share graphics are real JPEGs, listed on the Graphics page, and precached"
     assert.match(sw, new RegExp('"' + f.path.replace(/\./g, "\\.") + '"'));
   });
 
-  const fundIdx = page.indexOf("assets/share-fund-28pct.jpg");
+  const fundIdx = page.indexOf("assets/share-fund-37pct.jpg");
   const merIdx = page.indexOf("assets/flyer-merrimack-county.jpg");
   const hilIdx = page.indexOf("assets/flyer-hillsborough-county.jpg");
   const rockIdx = page.indexOf("assets/flyer-rockingham-county.jpg");
   assert.ok(fundIdx > 0 && fundIdx < merIdx, "fund graphic should be easy to find near the top");
   assert.ok(merIdx < hilIdx && hilIdx < rockIdx, "upcoming county flyers sit in season order");
+  assert.match(page, /37%/);
+  assert.match(page, /\$20,206 raised/);
+  assert.match(page, /Goal \$55,000/);
+  assert.doesNotMatch(page, /share-fund-28pct/);
+  assert.doesNotMatch(page, /\$15,500/);
+  assert.doesNotMatch(page, /We're Funded! 28%/);
 });
