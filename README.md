@@ -506,7 +506,7 @@ backend, and does not change store-submit or Play production promotion.
   `setEvent` label is ignored; Coös / Coos / coos all match. On the event
   Saturday and Sunday rain date the clock segments stay in charge.
 
-## Graphics for Sharing (v1.19.0)
+## Graphics for Sharing (v1.19.13)
 
 Under **Ambassador Resources → 🖼️ Graphics for Sharing**: a download-and-post
 strip of everything a volunteer can put on their own feed. Two formats per
@@ -519,8 +519,9 @@ near the top. Upcoming-county flyers sit with the other county graphics.
 **v1.19.0** adds three share files ambassadors can download from the same
 page (and from the Mobilization **Graphics** button, which opens this page):
 
-- **BUILD HIS KINGDOM** — 99 Days to Get the One until October 31, 2026.
-  We’re Funded! 28%. $15,500 raised. Goal $55,000.
+- **BUILD HIS KINGDOM** — 99 Days to Get to the One until October 31, 2026.
+  37%. $20,206 raised. Goal $55,000. **v1.19.13** replaces the 28% / $15,500
+  card with Laura McCollum’s updated share graphic.
 - **Merrimack County · Flyer** — Sat 9/12/26 · 2–5pm · Hugh Gallen Soccer
   Field, Concord NH. Free, all ages.
 - **Hillsborough County · Flyer** — Sat 9/26/26 · 2–5pm · Derryfield Park,
