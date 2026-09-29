@@ -360,6 +360,20 @@ Opening Event Day used to prefetch the full Pre-Crusade church blob
 the tab (OOM). The homepage no longer touches that list. Opening the
 Pre-Crusade tab fetches it, and the roster paginates (50 + Load more).
 
+## macOS / desktop workspace and event-day schedule (v1.20.0)
+
+At 900px and wider, the whole app now uses a desktop workspace: the five main
+tabs move into a persistent left sidebar, content can use up to 1180px, Event
+Day shows the live card and the full order of events side by side, and the
+Specialists / Resources launchers use two columns. The phone and tablet shell
+is unchanged below the breakpoint, including its bottom tab bar and safe-area
+handling.
+
+The event-day timeline also moves the program run-through into the **9:30 AM
+all-team huddle**, removes the separate noon run-through, extends setup / fit
+and finish through 12:15 PM, and adds **Local Minister Prayers from 1:50–2:00
+PM**. The live Now timeline and the Playbook carry the same order.
+
 ## Tech I/O Inputs / Outputs on a laptop (v1.19.9)
 
 Specialists → Tech I/O already marks `main.wide`, but the desk layout

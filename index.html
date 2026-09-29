@@ -919,6 +919,27 @@ textarea, select,
   .tab .tl{max-width:100%;white-space:normal;text-align:center;line-height:1.15;font-size:12px}
   .tab.active{color:var(--rust)}
   .tab .nbadge{position:absolute;top:8px;left:50%;transform:translateX(4px);background:var(--wine);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+  /* macOS / desktop: use the window as a workspace instead of stretching a
+     phone shell down the middle. Navigation becomes a readable sidebar and
+     Event Day puts the live state beside the full schedule. Phone/tablet
+     layout remains unchanged below 900px. */
+  @media (min-width:900px){
+    body{display:grid;grid-template-columns:220px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+    .topwrap{grid-column:1/-1;grid-row:1}
+    .topbar,.nowstrip,.annbar{padding-left:28px;padding-right:28px}
+    main{grid-column:2;grid-row:2;max-width:1180px;margin:0 auto;padding:28px 36px 42px}
+    .tabbar{grid-column:1;grid-row:2;width:220px;height:auto;min-height:0;padding:18px 12px;border-top:0;border-right:1px solid var(--line);box-shadow:4px 0 18px rgba(43,42,40,.05);flex-direction:column;justify-content:flex-start;gap:6px;align-items:stretch}
+    .tab{flex:none;min-height:54px;padding:0 14px;border-radius:12px;flex-direction:row;justify-content:flex-start;gap:12px;font-size:14px}
+    .tab:hover{background:#efe7da;color:var(--ink)}
+    .tab.active{background:var(--ink);color:var(--cream)}
+    .tab svg{width:24px;height:24px;flex:none}
+    .tab .tl{text-align:left;font-size:14px;font-weight:700}
+    .tab .nbadge{position:static;transform:none;margin-left:auto}
+    #page-now.active{display:grid;grid-template-columns:minmax(320px,1fr) minmax(390px,.95fr);column-gap:34px;align-items:start}
+    #page-now #scheduleAnchor{grid-column:2;grid-row:1/span 12;margin-top:0!important;padding-top:0!important;border-top:0!important}
+    #page-crew .hub,#page-guides .hub{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+    #page-crew .hubcard,#page-guides .hubcard{height:100%}
+  }
   @keyframes pulse{0%{opacity:1}50%{opacity:.25}100%{opacity:1}}
   @keyframes ring{0%{box-shadow:0 0 0 0 rgba(184,98,57,.5)}70%{box-shadow:0 0 0 9px rgba(184,98,57,0)}100%{box-shadow:0 0 0 0 rgba(184,98,57,0)}}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -1125,7 +1146,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.19.13</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.20.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1861,12 +1882,12 @@ textarea, select,
         <div class="row head"><span>Time</span><span>What's happening</span></div>
         <div class="row"><div class="t">8:00<small>30 min</small></div><div class="d"><strong>Leadership only — Phase 7 · Open Up (8:00–8:30)</strong>Radios out, generators on, speakers &amp; ARK reconnected, FOH + host mic live and unmuted for the huddle, Guest Services / Command Post set. Leadership briefing &amp; prayer.</div></div>
         <div class="row"><div class="t">9:00<small>30 min</small></div><div class="d"><strong>All volunteers — general call</strong>Arrival, orientation, staff tags, fellowship. Connect with your team or pray quietly. Get your heart ready before the huddle.</div></div>
-        <div class="row"><div class="t">9:30<small>30 min</small></div><div class="d"><strong>All-team huddle</strong>Exhortation &amp; prayer. Personal and corporate confession and repentance. Come clean. Confess. Repent. Receive grace. Then go. Also: Safety Brief / EAP (Kyle).</div></div>
-        <div class="row"><div class="t">10:00<small>2 hrs</small></div><div class="d"><strong>General setup — Phase 8a · Worship Set Up (10:00–12:00)</strong>Leads brief &amp; deploy. <strong>Ambassadors:</strong> group meeting with Jeff &amp; Rich — strategy, roles, assist depts. Logistics/GS: tents set up inside, coolers &amp; ice, signage, parking flow, vests, crane zone, lunch. Tech/Worship: personal gear, gain staging, IEM &amp; FOH mixes, transitions. Marketing: morning content.</div></div>
+        <div class="row"><div class="t">9:30<small>30 min</small></div><div class="d"><strong>All-team huddle + program run-through</strong>Program run-through on the primary microphone, exhortation &amp; prayer. Personal and corporate confession and repentance. Come clean. Confess. Repent. Receive grace. Then go. Also: Safety Brief / EAP (Kyle).</div></div>
+        <div class="row"><div class="t">10:00<small>2 hr 15</small></div><div class="d"><strong>General setup + Phase 9 · Fit &amp; Finish (10:00–12:15)</strong>Leads brief &amp; deploy. <strong>Ambassadors:</strong> group meeting with Jeff &amp; Rich — strategy, roles, assist depts. Logistics/GS: tents set up inside, coolers &amp; ice, signage, parking flow, vests, crane zone, lunch. Tech/Worship: personal gear, gain staging, IEM &amp; FOH mixes, transitions. Marketing: morning content. Finish with the stage cleared, cables managed, fresh batteries in every mic &amp; pack (black Fujitsu only), recording armed, and prayer over the venue.</div></div>
         <div class="row"><div class="t">11:00<small>1 hr</small></div><div class="d"><strong>Phase 8b · Crane Rigging (11:00–12:00)</strong>Crane guided to its spot; prebuilt rig hoisted, JESUS banners &amp; pipe square attached, guy lines on. The rig is raised to final height <strong>only on Zach / Marketing's order</strong>, then wind-tied &amp; flown by 12:00 PM latest. Non-crane volunteers stay outside the safety area.</div></div>
-        <div class="row"><div class="t">12:00<small>15 min</small></div><div class="d"><strong>Phase 9 · Fit &amp; Finish + program run-through (ALL)</strong>Stage cleared, cables managed, fresh batteries in every mic &amp; pack (black Fujitsu only), recording armed, prayer over the venue — while the run-through happens on the primary microphone. Logistics setting up the lunch line.</div></div>
         <div class="row"><div class="t">12:15<small>45 min</small></div><div class="d"><strong>Lunch &amp; rest (ALL)</strong>Pizza, water, soda. $5 donation suggested, not required. Pack a lunch if pizza won't work for you. Avoid leaving the venue — prevents parking issues &amp; missed announcements.</div></div>
         <div class="row"><div class="t">1:00<small>—</small></div><div class="d"><strong>Doors open to public</strong>Setup complete, parking team in position.</div></div>
+        <div class="row"><div class="t">1:50<small>10 min</small></div><div class="d"><strong>Local minister prayers</strong>Local ministers pray until the program begins at 2:00 PM.</div></div>
 
         <h4>⏰ Event Program · 2 PM – 5 PM SHARP</h4>
         <div class="row head"><span>Time</span><span>Segment</span></div>
