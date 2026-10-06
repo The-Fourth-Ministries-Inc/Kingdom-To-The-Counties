@@ -204,6 +204,24 @@ test("musician cards show the stage patch, not the AVB stream", () => {
   assert.doesNotMatch(html, /class="loc">[^<]*AVB/, "no AVB on any card");
 });
 
+test("musician cards collapse to their header and patch count", () => {
+  const rig = fresh(), D = T.ioDerive(rig);
+  T.ioSetCheck(rig, "kick", true, "MN", "x");
+  let html = T.ioRenderCards(rig, D);
+  assert.match(html, /<button type="button" class="ph" aria-expanded="true"/);
+  assert.match(html, /Kick Mic/);
+  const kyle = T.ioCardKeys.indexOf("p:kyle");
+  assert.ok(kyle >= 0, "Kyle's card has a toggle key");
+  T.renderIOList = () => {};            // no DOM here; toggling only re-renders
+  T.ioCardToggle(kyle);
+  html = T.ioRenderCards(rig, D);
+  assert.doesNotMatch(html, /Kick Mic/, "collapsed card hides its inputs");
+  assert.match(html, /<span class="pn">Kyle</, "but keeps the header");
+  assert.match(html, /class="iocnt">1 \/ 10</, "and shows the patch count");
+  T.ioCardsAll(false);
+  assert.match(T.ioRenderCards(rig, D), /Kick Mic/, "Expand all brings it back");
+});
+
 test("CSV export lists the inputs by AVB and the IEM sheet", () => {
   const rows = T.ioCsvRows(fresh());
   eq(rows[0].slice(0, 3), ["AVB", "Snake", "Patch"]);
