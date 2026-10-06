@@ -702,9 +702,89 @@ function normIOBus(b){
   hw: str(b.hw, 60), purpose: str(b.purpose, 80), off: !!b.off
  };
 }
+/* ---- Tech I/O lineup (v1.21.0) ----
+   Positions (stage roles, each with a person and its inputs), packs, the
+   eight IEM transmitters and the FOH buses — see js/techio.js for the model.
+   Stored on the same county-scoped io blob as the legacy list, under "rig",
+   so older app copies that still read/write "list" never touch it. */
+const IO_VIA = new Set(["split","nsb","direct","mix"]);
+const IO_KIND = new Set(["musician","house","playback"]);
+const clampInt = (v, lo, hi, dflt) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : dflt; };
+function normRigInput(r){
+ r = r || {};
+ return {
+  id: idStr(r.id) || uid(),
+  role: str(r.role, 60), gear: str(r.gear, 60), note: str(r.note, 80),
+  altNote: str(r.altNote, 80), altGear: str(r.altGear, 60),
+  avb: str(r.avb, 8), foh: str(r.foh, 16), sc: str(r.sc, 16), split: str(r.split, 8), port: str(r.port, 60),
+  via: IO_VIA.has(str(r.via, 8)) ? str(r.via, 8) : "split",
+  snake: !!r.snake,
+  mixOf: (Array.isArray(r.mixOf) ? r.mixOf : []).map(x => idStr(x)).filter(Boolean).slice(0, 16),
+  p48: !!r.p48, stereo: !!r.stereo, on: r.on !== false,
+  done: !!r.done, by: str(r.by, 40), t: str(r.t, 12)
+ };
+}
+function normRigPos(p){
+ p = p || {};
+ return {
+  id: idStr(p.id) || uid(), name: str(p.name, 60), person: str(p.person, 60),
+  active: p.active !== false, iem: !!p.iem,
+  kind: IO_KIND.has(str(p.kind, 10)) ? str(p.kind, 10) : "musician",
+  inputs: (Array.isArray(p.inputs) ? p.inputs : []).map(normRigInput).slice(0, 24)
+ };
+}
+function normRigPack(k){
+ k = k || {};
+ return { id: idStr(k.id) || uid(), label: str(k.label, 30), person: str(k.person, 60), tx: clampInt(k.tx, 0, 16, 0), leg: /^[LR]$/.test(str(k.leg, 1)) ? str(k.leg, 1) : "" };
+}
+function normRigTx(t, i){
+ t = t || {};
+ const c = str(t.color, 7);
+ return { n: clampInt(t.n, 1, 16, i + 1), mode: t.mode === "mono" ? "mono" : "stereo", color: /^#[0-9a-f]{6}$/i.test(c) ? c : "#c7c2b8" };
+}
+export function normRig(r){
+ if(!r || typeof r !== "object" || !Array.isArray(r.positions)) return null;
+ const positions = r.positions.map(normRigPos).slice(0, 60);
+ /* Ids are the checkmark keys and are rendered into onclick handlers: make
+    them unique as well as id-safe. */
+ const seen = new Set();
+ for(const p of positions){
+  if(seen.has(p.id)) p.id = uid();
+  seen.add(p.id);
+  for(const x of p.inputs){ if(seen.has(x.id)) x.id = uid(); seen.add(x.id); }
+ }
+ const txs = (Array.isArray(r.txs) ? r.txs : []).map(normRigTx).slice(0, 16);
+ const from = (r.from && typeof r.from === "object") ? { kind: str(r.from.kind, 10), county: idStr(r.from.county, 24), name: str(r.from.name, 60) } : null;
+ return {
+  v: 1,
+  rev: clampInt(r.rev, 0, 1e9, 0),
+  savedAt: str(r.savedAt, 30), savedBy: str(r.savedBy, 40),
+  from,
+  snakeSize: clampInt(r.snakeSize, 1, 64, 16),
+  nsbStart: clampInt(r.nsbStart, 1, 32, 1),
+  nsbAvb: clampInt(r.nsbAvb, 0, 200, 40),
+  positions,
+  snakeOrder: (Array.isArray(r.snakeOrder) ? r.snakeOrder : []).map(x => idStr(x)).filter(Boolean).slice(0, 64),
+  packs: (Array.isArray(r.packs) ? r.packs : []).map(normRigPack).slice(0, 32),
+  txs: txs.length ? txs : Array.from({ length: 8 }, (_, i) => normRigTx({ n: i + 1 }, i)),
+  buses: (Array.isArray(r.buses) ? r.buses : []).map(b => ({ ...normIOBus(b), src: idStr(b && b.src) })).slice(0, 40),
+  people: (Array.isArray(r.people) ? r.people : []).map(n => str(n, 60).trim()).filter(Boolean).slice(0, 80)
+ };
+}
+const rigInputs = rig => rig ? rig.positions.flatMap(p => p.inputs.map(x => ({ p, x }))) : [];
+function rigClearChecks(rig){ for(const { x } of rigInputs(rig)){ x.done = false; x.by = ""; x.t = ""; } return rig; }
+function rigCounts(rig){
+ let done = 0, total = 0;
+ for(const { p, x } of rigInputs(rig)){ if(!p.active || x.on === false) continue; total++; if(x.done) done++; }
+ return { done, total };
+}
+
 export const normIO = v => ({
  list: (v && Array.isArray(v.list)) ? v.list.map(normIOPerf).slice(0, 80) : [],
- buses: (v && Array.isArray(v.buses)) ? v.buses.map(normIOBus).slice(0, 40) : []
+ buses: (v && Array.isArray(v.buses)) ? v.buses.map(normIOBus).slice(0, 40) : [],
+ /* Must survive every write to this blob — ioSetRow and setIOList from an
+    older client normalize through here too. */
+ rig: normRig(v && v.rig)
 });
 
 /* ---- PIN brute-force protection ----
@@ -766,7 +846,11 @@ const LEADER_ACTIONS = new Set([
  "churchEdit","churchDelete","churchFlagClear","churchTemplate","miracleDelete","binNoteAck","annDelete",
  /* The trailer roster is the leaders' record — volunteers report against it
     (binNoteAdd) but never write it. */
- "binEdit","binAdd","binDelete","binItemAdd","binPackClear"
+ "binEdit","binAdd","binDelete","binItemAdd","binPackClear",
+ /* Tech I/O lineup. rigCheck (a patch tick) and rigSeed (starting a new
+    event's roster from the previous one) stay open behind the Day PIN, like
+    ioSetRow. */
+ "rigSave","rigClearChecks","rigTemplateSave","rigRestore"
 ]);
 
 /* ---------------- per-county scoping (v1.11.0) ----------------
@@ -1223,9 +1307,10 @@ async function assemble(s, K, active, lvl){
     Manual pin keeps the leader's event label (they are looking at that board). */
  event: evOut,
  /* Normalized on the way out too, so a roster written by an older deploy —
-    before setIOList normalized on write — is neutralized on read. */
- ioList: normIO(parts.io).list,
- ioBuses: normIO(parts.io).buses,
+    before setIOList normalized on write — is neutralized on read.
+    Once an event has a lineup (rig) the legacy list is left out of the poll
+    to keep it light; only app copies older than v1.21.0 ever read it. */
+ ...ioPayload(parts.io),
  dayPinSet: !!dayPin, // the PIN itself is never sent to clients
  county: K.cty,          // which county's board this is
  countyAuto: !active.manual,
@@ -1254,6 +1339,11 @@ async function assemble(s, K, active, lvl){
  };
 }
 
+function ioPayload(raw){
+ const io = normIO(raw);
+ return io.rig ? { ioList: [], ioBuses: [], rig: io.rig } : { ioList: io.list, ioBuses: io.buses, rig: null };
+}
+
 /* djb2-xor hash → weak ETag for cheap "did anything change?" polling. */
 function hash(strv){
  let h = 5381;
@@ -1264,6 +1354,42 @@ function hash(strv){
 const json = (obj, status=200) => new Response(JSON.stringify(obj), {
  status, headers: { "Content-Type":"application/json", "Cache-Control":"no-store" }
 });
+
+/* ---- Tech I/O: where a new event's lineup comes from ----
+   An event with no lineup of its own starts from the most recent earlier
+   event that has one, then the leaders' saved Template, then the client's
+   built-in roster — always with the checkmarks cleared. Done on the first
+   rigSeed / rigCheck for the event, never on a plain read. */
+const RIG_TEMPLATE = "io-template";
+async function rigFromPrevious(s, K){
+ const i = SCHEDULE.findIndex(e => e.key === K.cty);
+ for(let j = i - 1; j >= 0; j--){
+  const ev = SCHEDULE[j];
+  const io = normIO(await s.get(mkKeys(ev.key).io, { type:"json" }));
+  if(io.rig) return { rig: io.rig, from: { kind:"last", county: ev.key, name: ev.name } };
+ }
+ return null;
+}
+async function rigFromTemplate(s){
+ const t = await s.get(RIG_TEMPLATE, { type:"json" });
+ const r = normRig(t && t.rig);
+ return r ? { rig: r, from: { kind:"template", county:"", name:"" } } : null;
+}
+async function rigEnsure(s, K, seed){
+ const have = normIO(await s.get(K.io, { type:"json" }));
+ if(have.rig) return;
+ let src = await rigFromPrevious(s, K);
+ if(!src) src = await rigFromTemplate(s);
+ if(!src){ const r = normRig(seed); if(r) src = { rig: r, from: { kind:"builtin", county:"", name:"" } }; }
+ if(!src) return;
+ await compareAndSwap(s, K.io, normIO, io => {
+  if(io.rig) return undefined; // another phone got there first
+  const r = rigClearChecks(normRig(src.rig));
+  r.rev = 0; r.savedAt = new Date().toISOString(); r.savedBy = ""; r.from = src.from;
+  io.rig = r;
+  return io;
+ }, () => ({ list: [], buses: [] }));
+}
 
 /* ---- access control (v1.10.0) ----
    Until now the Day PIN was enforced only in the browser: the API itself was
@@ -1713,6 +1839,78 @@ export default async (req, context) => {
     silent overwrite of the team's own I/O map — and it did exactly that once.
     Replacing the roster is a leader decision (setIOList), never a side effect
     of ticking an input off. */
+ /* ---- Tech I/O lineup (v1.21.0) ---- */
+ case "rigSeed":
+ await rigEnsure(s, K, payload.seed);
+ break;
+ case "rigCheck": {
+ await rigEnsure(s, K, payload.seed);
+ await compareAndSwap(s, K.io, normIO, io => {
+  if(!io.rig) return undefined;
+  const iid = idStr(payload.iid);
+  const hit = rigInputs(io.rig).find(e => e.x.id === iid);
+  if(!hit) return undefined;
+  const done = !!payload.done;
+  if(!!hit.x.done === done) return undefined; // already there — keep the first author's stamp
+  hit.x.done = done; hit.x.by = done ? str(payload.by, 40) : ""; hit.x.t = done ? str(payload.t, 12) : "";
+  return io;
+ }, () => ({ list: [], buses: [] }));
+ break;
+ }
+ case "rigSave": {
+ const next = normRig(payload.rig);
+ if(!next) return json({ error:"bad lineup" }, 400);
+ await compareAndSwap(s, K.io, normIO, io => {
+  /* The editor's copy of the checkmarks is stale by definition — keep the
+     server's tick state for every input that still exists. */
+  const cur = new Map(rigInputs(io.rig).map(e => [e.x.id, e.x]));
+  for(const { x } of rigInputs(next)){
+   const c = cur.get(x.id);
+   x.done = !!(c && c.done); x.by = (c && c.done) ? c.by : ""; x.t = (c && c.done) ? c.t : "";
+  }
+  next.rev = ((io.rig && io.rig.rev) || 0) + 1;
+  next.savedAt = new Date().toISOString(); next.savedBy = str(payload.by, 40);
+  next.from = (io.rig && io.rig.from) || next.from || null;
+  io.rig = next;
+  return io;
+ }, () => ({ list: [], buses: [] }));
+ break;
+ }
+ case "rigClearChecks":
+ await compareAndSwap(s, K.io, normIO, io => {
+  if(!io.rig || !rigInputs(io.rig).some(e => e.x.done)) return undefined;
+  rigClearChecks(io.rig);
+  return io;
+ }, () => ({ list: [], buses: [] }));
+ break;
+ case "rigTemplateSave": {
+ const io = normIO(await s.get(K.io, { type:"json" }));
+ if(!io.rig) return json({ error:"no lineup saved for this event" }, 404);
+ const old = await s.get(RIG_TEMPLATE, { type:"json" });
+ if(old) await snapshot(s, "io-template", { template: old });
+ const t = rigClearChecks(normRig(io.rig));
+ t.from = null;
+ await s.setJSON(RIG_TEMPLATE, { at: new Date().toISOString(), by: str(payload.by, 40), county: K.cty, rig: t });
+ break;
+ }
+ case "rigRestore": {
+ const from = (payload.from === "last" || payload.from === "template") ? payload.from : "builtin";
+ let src = null;
+ if(from === "last") src = await rigFromPrevious(s, K);
+ else if(from === "template") src = await rigFromTemplate(s);
+ else { const r = normRig(payload.seed); src = r ? { rig: r, from: { kind:"builtin", county:"", name:"" } } : null; }
+ if(!src) return json({ error:"nothing to restore from", from }, 404);
+ await snapshot(s, "io-restore", { county: K.cty, io: await s.get(K.io, { type:"json" }) });
+ await compareAndSwap(s, K.io, normIO, io => {
+  const r = rigClearChecks(normRig(src.rig));
+  r.rev = ((io.rig && io.rig.rev) || 0) + 1;
+  r.savedAt = new Date().toISOString(); r.savedBy = str(payload.by, 40);
+  r.from = src.from;
+  io.rig = r;
+  return io;
+ }, () => ({ list: [], buses: [] }));
+ break;
+ }
  case "ioSetRow": {
  await compareAndSwap(s, K.io, normIO, io => {
  if(!io.list.length && Array.isArray(payload.seed) && payload.seed.length) io.list = normIO({ list: payload.seed }).list;
@@ -1800,7 +1998,8 @@ export default async (req, context) => {
  const checkins2 = normCheckins(curCheckins);
  const io2 = normIO(curIO);
  let ioDone = 0, ioTotal = 0;
- for(const p of io2.list){ if(p.off) continue; for(const r of (p.rows || [])){ ioTotal++; if(r.done) ioDone++; } }
+ if(io2.rig){ const c = rigCounts(io2.rig); ioDone = c.done; ioTotal = c.total; }
+ else for(const p of io2.list){ if(p.off) continue; for(const r of (p.rows || [])){ ioTotal++; if(r.done) ioDone++; } }
  const entry = {
   at: new Date().toISOString(),
   county: K.cty,

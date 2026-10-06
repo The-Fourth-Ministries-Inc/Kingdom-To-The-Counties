@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const html = readFileSync(join(root, "index.html"), "utf8");
 const js = readFileSync(join(root, "js/app-core.js"), "utf8");
+const io = readFileSync(join(root, "js/techio.js"), "utf8");
 
 function styleBlock() {
   const m = html.match(/<style>([\s\S]*?)<\/style>/);
@@ -38,14 +39,17 @@ test("Inputs/Outputs edit stacks as labelled cards below 1100px", () => {
   assert.match(css, /main\.wide \.iotbl\.editing tr\{display:flex;flex-wrap:wrap/);
   assert.match(css, /td\[data-label\]::before\{content:attr\(data-label\)/);
   assert.match(css, /@media \(min-width:1100px\)\{/);
-  assert.match(js, /function ioCell\(/);
-  assert.match(js, /data-label="/);
-  assert.match(js, /iotable'\+\(ed\?" editing":""\)/);
-  assert.match(js, /iotbl wide'\+\(ed\?" editing":""\)/);
-  assert.match(js, /iotbl out'\+editCls/);
-  assert.match(js, /ioCell\("num k stick2","AVB"/);
-  assert.match(js, /ioCell\("num k stick","Mix"/);
-  assert.match(js, /iodelcell/);
+  /* v1.21.0: Tech I/O moved to js/techio.js. The FOH bus table still edits
+     in place (stacked cards under 1100px); an input now edits in a wrapping
+     form opened under its row, so the input table itself never has to. */
+  assert.match(io, /function ioCell\(/);
+  assert.match(io, /data-label="/);
+  assert.match(io, /iotable'\+editCls/);
+  assert.match(io, /iotbl out'\+editCls/);
+  assert.match(io, /ioCell\("num k stick2","AVB"/);
+  assert.match(io, /ioCell\("num k stick","Mix"/);
+  assert.match(io, /class="ioform"/);
+  assert.match(css, /\.ioform\{display:flex;flex-wrap:wrap/);
 });
 
 function chromeBin() {

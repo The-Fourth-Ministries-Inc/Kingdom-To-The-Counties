@@ -16,7 +16,6 @@ import {
   sheetToRows,
   pickEventSheet,
   consolidateSheet,
-  patchAppCore,
 } from "./io-consolidate.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -33,7 +32,7 @@ Options:
   --workbook, -w   Path to .xlsx workbook (required)
   --sheet, -s      Sheet name (default: best matching event INP-OUT Map tab)
   --output, -o     Write JSON to this path
-  --write-index    Patch IO_DEFAULT and IO_BUSES in js/app-core.js
+  --write-index    (retired in v1.21.0 — the lineup is edited in the app)
   --verbose, -v    Print section discovery details
   --help, -h       Show this help
 `);
@@ -126,11 +125,13 @@ function main() {
     console.error(`Wrote ${ioList.length} cards and ${buses.length} buses to ${outPath}`);
   }
 
+  /* v1.21.0: the Tech I/O roster is a positions/packs/transmitters lineup
+     (IO_RIG in js/techio.js) edited in the app, and each event starts from the
+     previous one. The sheet's card-per-musician output no longer maps onto it,
+     so this script only reads a workbook for reference (stdout / --output). */
   if (opts.writeIndex) {
-    const corePath = path.join(ROOT, "js", "app-core.js");
-    const src = fs.readFileSync(corePath, "utf8");
-    fs.writeFileSync(corePath, patchAppCore(src, ioList, buses), "utf8");
-    console.error(`Updated IO_DEFAULT and IO_BUSES in ${corePath}`);
+    console.error("--write-index is retired: edit the lineup in the app (Tech I/O → ✏️ Edit), or IO_RIG in js/techio.js for the built-in roster.");
+    process.exit(1);
   }
 
   if (!opts.output && !opts.writeIndex) {

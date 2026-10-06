@@ -828,6 +828,61 @@ textarea, select,
   .iodel{flex:none;border:none;background:#f3e1e3;color:#6E2F3A;font-weight:800;font-size:13px;width:26px;height:26px;border-radius:7px;cursor:pointer}
   .ioadd{display:block;width:100%;border:1px dashed var(--line);background:transparent;color:var(--rust);font-weight:700;font-size:12px;padding:8px;border-radius:9px;cursor:pointer}
   .ioaddperf{display:block;width:100%;border:1px dashed var(--rust);background:transparent;color:var(--rust);font-weight:800;font-size:13px;padding:11px;border-radius:11px;cursor:pointer;margin-bottom:12px}
+  /* ---- Tech I/O Lineup (v1.21.0) ---- */
+  .ioprint{display:none}
+  .iobtn{min-height:44px}
+  .iobtn .lk{font-size:10px;margin-left:4px;opacity:.75}
+  .iorestore{display:flex;flex-wrap:wrap;align-items:center;gap:7px;background:#faf6f7;border:1px solid #dcc9ce;border-radius:12px;padding:10px 12px;margin:-4px 0 12px}
+  .iorestore>b{flex-basis:100%;font-size:12.5px}
+  .iorestore>span{flex-basis:100%;font-size:11px;color:var(--muted)}
+  .ioclash li.w{color:#6e5311}
+  .iosub{padding:6px 12px 2px;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);background:#faf8f3;border-bottom:1px solid var(--line)}
+  .ioperf .ph .chip+.chip{margin-left:-4px}
+  .ioperf .iotx.bad{color:var(--bad)}
+  .iospare{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 12px}
+  .iospare .iotx{font-size:10.5px;font-weight:700;color:var(--muted)}
+  .chip.sm{display:inline-flex;align-items:center;justify-content:center;height:22px;padding:0 8px;font-size:10px;font-weight:800;letter-spacing:.3px;border-radius:7px;white-space:nowrap}
+  .chip.sm.none{background:#e6e2d8;color:var(--muted)}
+  .ioedit{width:36px;height:36px;border:1px solid var(--line);background:var(--card);border-radius:9px;font-size:15px;color:var(--wine);cursor:pointer}
+  .iotbl tr.open td{background:#f7edd0}
+  .iotbl tr.ioformrow td{height:auto;padding:0;background:var(--cream)}
+  .ioform{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-end;padding:12px}
+  /* The form row spans a table that scrolls sideways on a phone: keep the
+     form itself the width of the screen and pinned to its left edge. */
+  .iotbl tr.ioformrow .ioform{position:sticky;left:0;box-sizing:border-box;max-width:calc(100vw - 34px)}
+  .ioform .iofield{flex:0 1 120px}
+  .ioform .iofield.grow{flex:1 1 200px}
+  .ioform .iofield.w{flex:0 0 92px}
+  .ioform .iofield input,.ioform .iofield select{min-height:40px;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-family:inherit;width:100%;max-width:none;margin:0}
+  .ioform .iofield input:disabled{background:#f1efe9;color:var(--muted)}
+  .ioflags{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+  .ioflags .io48,.iomixof .io48{min-height:40px}
+  .iomixof{display:flex;flex-wrap:wrap;gap:4px 12px}
+  .ioformacts{display:flex;gap:8px;margin-left:auto}
+  .ioaddbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .ioaddbar select.iopick{margin:0;max-width:none;min-height:44px;flex:1 1 220px}
+  .ioswatch{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:6px;vertical-align:-1px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+  .iolu{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+  .iolurow{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow)}
+  .iolurow.off{opacity:.6}
+  .iolurow .iofield{flex:0 1 150px}
+  .iolurow .iofield.grow{flex:1 1 170px}
+  .iolurow .iofield.w{flex:0 0 96px}
+  .iolurow .iofield input:not([type=checkbox]):not([type=color]),.iolurow .iofield select{min-height:44px;font-size:13.5px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-family:inherit;width:100%;max-width:none;margin:0}
+  .iolurow .iofield input[type=color]{width:44px;height:44px;padding:2px;border-radius:9px;border:1px solid var(--line)}
+  .iolurow>.chip{align-self:center}
+  .iolurow .iodel{width:44px;height:44px;margin-left:auto}
+  .iomv{display:flex;flex-direction:column;gap:2px;align-self:center}
+  .iomv button{width:36px;height:24px;border:1px solid var(--line);background:var(--cream);border-radius:6px;font-size:10px;color:var(--muted);cursor:pointer}
+  .iocount{font-size:11px;font-weight:700;color:var(--muted);align-self:center}
+  .iotxname{flex:1 1 200px;min-width:0;align-self:center;font-size:12.5px;line-height:1.35}
+  .iotxname b{display:block;font-size:13.5px}
+  .iotxname span{display:block;color:var(--muted);font-size:11.5px}
+  .iolurow .iomode{margin:0;min-height:44px;align-self:center}
+  .iolurow.snk{align-items:center;padding:6px 12px}
+  .iosnk{flex:none;width:34px;height:34px;border-radius:9px;background:var(--ink);color:var(--cream);font-family:var(--serif);font-weight:700;display:flex;align-items:center;justify-content:center}
+  .iolurow.snk.off .iosnk{background:#c7c2b8}
+  .ioquick{display:flex;gap:6px;align-self:flex-end}
   .ioedbar{display:flex;gap:8px;margin-bottom:12px}
   .ioedbar button{flex:1;border:none;border-radius:11px;padding:11px;font-weight:800;font-size:13.5px;cursor:pointer}
   .ioedbar .save{background:var(--rust);color:#fff}.ioedbar .cancel{background:var(--card);color:var(--ink);border:1px solid var(--line)}
@@ -1083,6 +1138,17 @@ textarea, select,
     body[data-print="handbook"] #page-handbook{display:block !important}
     /* v1.9.0 — printable church one-pager */
     body[data-print="church"] #page-church{display:block !important}
+    /* Tech I/O prints only the generated input list + IEM sheet. */
+    body[data-print="techio"] #page-techio{display:block !important}
+    body[data-print="techio"] #page-techio>*:not(#ioMount),body[data-print="techio"] #ioMount>*:not(.ioprint){display:none !important}
+    body[data-print="techio"] .ioprint{display:block !important;font-size:9.5pt;color:#000}
+    body[data-print="techio"] .ioprint h2{font-family:var(--serif);font-size:14pt;margin:0 0 6px}
+    body[data-print="techio"] .ioprint h2+table{margin-bottom:14px}
+    body[data-print="techio"] .ioprint table{width:100%;border-collapse:collapse}
+    body[data-print="techio"] .ioprint th,body[data-print="techio"] .ioprint td{border:1px solid #888;padding:3px 5px;text-align:left;vertical-align:top}
+    body[data-print="techio"] .ioprint th{background:#eee;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body[data-print="techio"] .ioprint td.ck{width:16px}
+    body[data-print="techio"] .ioprint tr{break-inside:avoid}
     body[data-print="church"] #page-church .chacts,
     body[data-print="church"] #page-church button,
     body[data-print="church"] #page-church input,
@@ -1140,7 +1206,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.20.1</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.21.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1177,7 +1243,7 @@ textarea, select,
       <button class="hubcard slate" onclick="show('count')"><span class="ic">👥</span><span class="tx"><b>Attendance Counter</b><span>Count non-volunteer attendees · syncs live</span></span><span class="pill" id="crewCountPill">0</span></button>
       <button class="hubcard" onclick="show('setup')"><span class="ic">✅</span><span class="tx"><b>Setup Checklist</b><span>Fri build + Sat production</span></span><span class="arr">›</span></button>
       <button class="hubcard" onclick="show('radios')"><span class="ic">📻</span><span class="tx"><b>Radio Checkout</b><span>10 radios · name in &amp; out</span></span><span class="pill" id="crewRadioPill">0</span></button>
-      <button class="hubcard slate" onclick="show('techio')"><span class="ic">🎛️</span><span class="tx"><b>Tech I/O List</b><span>32-channel patch · tracks, click, guide</span></span><span class="arr">›</span></button>
+      <button class="hubcard slate" onclick="show('techio')"><span class="ic">🎛️</span><span class="tx"><b>Tech I/O List</b><span>Patch, packs &amp; IEM mixes</span></span><span class="arr">›</span></button>
       <button class="hubcard" onclick="show('inventory')"><span class="ic">📦</span><span class="tx"><b>Trailer Load List</b><span>2 trailers · search by bin # or item · tick bins onto the truck</span></span><span class="pill" id="crewInvPill">0</span></button>
       <button class="hubcard dark" onclick="show('dashboard')"><span class="ic">📊</span><span class="tx"><b style="color:var(--ink)">Leader Dashboard 🔒</b><span>Live progress · leaders only</span></span><span class="arr">›</span></button>
     </div>
@@ -1366,7 +1432,7 @@ textarea, select,
   <section class="page" id="page-techio">
     <button class="back" onclick="show('crew')">‹ Specialists</button>
     <p class="eyebrow">Tech · FOH · Worship</p><h1 class="title">Tech I/O List</h1>
-    <div class="ionote">🎛️ <b>Input / Mic / IEM Pack assignments</b> — Michael Nelson (Tech/FOH).<br>Set your name, then tap each input to check it off as it's patched &amp; line-checked — your name &amp; time are logged on the card.<br>🔒 The <b>Inputs</b> and <b>Outputs</b> tables are the master routing — what's in them builds every musician's card — so they're leader-PIN only.</div>
+    <div class="ionote">🎛️ <b>Input / Mic / IEM Pack assignments</b> — Michael Nelson (Tech/FOH).<br>Set your name, then tap each input to check it off as it's patched &amp; line-checked — your name &amp; time are logged.<br>Everyone can view every tab, print and export. 🔒 Changing the lineup or routing (<b>✏️ Edit</b>) needs the leader PIN.</div>
     <div class="namebar" id="namebar-io"></div>
     <div id="ioMount"></div>
   </section>
@@ -2530,6 +2596,7 @@ textarea, select,
   <button class="tab" data-tab="guides"><svg viewBox="0 0 24 24"><path d="M12 6c-2-2-5-2-7-1v13c2-1 5-1 7 1 2-2 5-2 7-1V5c-2-1-5-1-7 1z"/><path d="M12 6v13"/></svg><span class="tl">Resources</span></button>
 </nav>
 <script src="mobile-runtime.js"></script>
+<script src="js/techio.js"></script>
 <script src="js/app-core.js"></script>
 <script src="js/counties.js"></script>
 <script src="js/mobilize.js"></script>
