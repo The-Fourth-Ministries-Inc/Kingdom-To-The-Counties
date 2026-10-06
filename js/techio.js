@@ -233,10 +233,11 @@ function ioPatchOf(D,r){
   }
   return r.port||"";
 }
-/* The one-line patch reference on a musician card. */
+/* The one-line patch reference on a musician card: where to plug in on stage.
+   AVB is network routing that lives in the Inputs table, so it stays off
+   the card (v1.21.1). */
 function ioLocStr(D,r){
-  var bits=[],a=ioAvbOf(D,r),s=ioSnakeOf(D,r);
-  if(a)bits.push("AVB "+a);
+  var bits=[],s=ioSnakeOf(D,r);
   if(s)bits.push("Snake "+s);
   if(r.via==="split"&&r.split)bits.push("Ark "+r.split);
   if(r.via==="nsb"&&D.nsb[r.id])bits.push("NSB "+D.nsb[r.id]);
@@ -548,6 +549,18 @@ function ioRenderCards(rig,D){
       }).join("");
     }).join("");
   }
+  /* The header is the collapse toggle. A collapsed card keeps who / pack /
+     mix in view and adds the patch count, so a tech can fold away the
+     people who are done and see what is left. */
+  ioCardKeys=[];
+  function card(key,head,ps){
+    var done=0,total=0;
+    ps.forEach(function(p){p.inputs.forEach(function(r){if(ioInOn(p,r)){total++;if(r.done)done++;}});});
+    var shut=!!ioShut[key],i=ioCardKeys.push(key)-1;
+    var cnt=total?'<span class="iocnt'+(done===total?' ok':'')+'">'+(done===total?"✓ ":"")+done+' / '+total+'</span>':'';
+    return '<div class="ioperf'+(shut?' shut':'')+'"><button type="button" class="ph" aria-expanded="'+(!shut)+'" onclick="ioCardToggle('+i+')">'+
+      head+cnt+'<span class="iochev" aria-hidden="true">▾</span></button>'+(shut?'':rowsFor(ps))+'</div>';
+  }
   ioPeopleNow(rig).forEach(function(name){
     var ps=rig.positions.filter(function(p){return p.active&&ioSameName(p.person,name);});
     ps.forEach(function(p){used[p.id]=1;});
@@ -556,13 +569,13 @@ function ioRenderCards(rig,D){
     var mix=ks.length?ioPackMix(rig,ks[0]):null;
     var txLine=ks.length?'<span class="iotx">'+esc(ioPackLabel(rig,ks[0]))+'</span>':(needs?'<span class="iotx bad">Needs an IEM pack</span>':'');
     var qx=(mix&&mix.aux.length)?'<span class="qx">Aux '+esc(ioAuxLabel(mix.aux))+'</span>':'';
-    cards.push('<div class="ioperf"><div class="ph">'+chips+'<span class="pn">'+esc(name)+
-      '<small>'+esc(ps.map(function(p){return p.name;}).join(" · "))+'</small>'+txLine+'</span>'+qx+'</div>'+rowsFor(ps)+'</div>');
+    cards.push(card("p:"+name.trim().toLowerCase(),chips+'<span class="pn">'+esc(name)+
+      '<small>'+esc(ps.map(function(p){return p.name;}).join(" · "))+'</small>'+txLine+'</span>'+qx,ps));
   });
   /* Positions with nobody named (playback, an unstaffed station). */
   rig.positions.forEach(function(p){
     if(!p.active||used[p.id]||String(p.person||"").trim())return;
-    cards.push('<div class="ioperf"><div class="ph"><span class="pn">'+esc(p.name)+'</span></div>'+rowsFor([p])+'</div>');
+    cards.push(card("x:"+p.id,'<span class="pn">'+esc(p.name)+'</span>',[p]));
   });
   var off=rig.positions.filter(function(p){return !p.active;});
   var spare=rig.packs.filter(function(k){return !String(k.person||"").trim();});
@@ -570,7 +583,22 @@ function ioRenderCards(rig,D){
   if(spare.length)foot+='<div class="ioperf off"><div class="ph"><span class="pn">Spare packs<small>Not handed out</small></span></div><div class="iospare">'+
     spare.map(function(k){return ioChip(k.label,ioTxColor(rig,k.tx),"sm")+'<span class="iotx">'+esc(ioPackLabel(rig,k))+'</span>';}).join("")+'</div></div>';
   if(off.length)foot+='<div class="ioperf off"><div class="ph"><span class="pn">Not used this event<small>'+esc(off.map(function(p){return p.name;}).join(" · "))+'</small></span></div></div>';
-  return '<div class="iocards">'+cards.join("")+foot+'</div>';
+  var bar='<div class="iofilter"><span>Cards</span><button onclick="ioCardsAll(true)">Collapse all</button><button onclick="ioCardsAll(false)">Expand all</button></div>';
+  return bar+'<div class="iocards">'+cards.join("")+foot+'</div>';
+}
+/* Which cards this phone has folded away. A per-viewer convenience, so it
+   lives in this browser only and the page works without it. */
+var ioShut={},ioCardKeys=[];
+try{ioShut=JSON.parse(localStorage.getItem("k2c_io_shut")||"{}")||{};}catch(_){ioShut={};}
+function ioShutSave(){try{localStorage.setItem("k2c_io_shut",JSON.stringify(ioShut));}catch(_){}}
+function ioCardToggle(i){
+  var k=ioCardKeys[i];if(!k)return;
+  if(ioShut[k])delete ioShut[k];else ioShut[k]=1;
+  ioShutSave();renderIOList();
+}
+function ioCardsAll(shut){
+  ioCardKeys.forEach(function(k){if(shut)ioShut[k]=1;else delete ioShut[k];});
+  ioShutSave();renderIOList();
 }
 
 /* ---- Inputs: the routing sheet, sorted by AVB ---- */

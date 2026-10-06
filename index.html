@@ -838,6 +838,16 @@ textarea, select,
   .ioclash li.w{color:#6e5311}
   .iosub{padding:6px 12px 2px;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);background:#faf8f3;border-bottom:1px solid var(--line)}
   .ioperf .ph .chip+.chip{margin-left:-4px}
+  /* Collapsible musician cards (v1.22.0): the header is the toggle. */
+  .ioperf button.ph{width:100%;min-height:52px;border:none;border-bottom:1px solid var(--line);font:inherit;color:inherit;text-align:left;cursor:pointer}
+  .ioperf.shut button.ph{border-bottom:none}
+  .iocnt{flex:none;font-size:11px;font-weight:800;color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:7px;padding:4px 7px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .iocnt.ok{color:var(--good);border-color:#cfe3d1;background:#eef6ef}
+  .iochev{flex:none;width:20px;text-align:center;font-size:13px;color:var(--muted);transition:transform .15s}
+  .ioperf.shut .iochev{transform:rotate(-90deg)}
+  /* Phone: the transmitter line already says "Aux n", so drop the badge to
+     give the name room next to the patch count. */
+  @media (max-width:520px){.ioperf .ph .qx{display:none}}
   .ioperf .iotx.bad{color:var(--bad)}
   .iospare{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 12px}
   .iospare .iotx{font-size:10.5px;font-weight:700;color:var(--muted)}
@@ -1206,7 +1216,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.21.0</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.22.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">

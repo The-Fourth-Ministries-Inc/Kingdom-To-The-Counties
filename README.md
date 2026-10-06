@@ -5,7 +5,7 @@ live view: checklist, announcements, check-ins, headcount, praises, and feedback
 all stay in sync across phones within a few seconds.
 
 
-## Tech I/O Lineup (v1.21.0)
+## Tech I/O Lineup (v1.22.0)
 
 Under **Specialists → 🎛️ Tech I/O List**. The code lives in `js/techio.js`
 (loaded before `app-core.js`).
@@ -23,6 +23,11 @@ Position ──person──▶ Person ◀──person── Pack ──▶ Trans
   inputs. Add, rename, reorder and delete them in the Lineup tab. Switching a
   position off keeps its inputs for next time but drops them from the patch
   list, the progress count and the snake numbering.
+- **Musician cards** show where each input plugs in on stage (Snake, Ark
+  split, NSB, or the source for playback). AVB numbers stay in the Inputs
+  table, where the network routing lives. Tap a card's header to collapse it
+  (it keeps the pack, mix and an "x / y patched" count), or use **Collapse all
+  / Expand all**. Each phone remembers its own choice.
 - **People** are just names. One person can hold several positions (Zach: Lead
   Vox · Mic A, Acoustic 1, Talkback 1) and still gets **one card, one pack, one
   mix**, because the mix belongs to the pack, not the position.
