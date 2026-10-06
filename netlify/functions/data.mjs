@@ -850,7 +850,9 @@ const LEADER_ACTIONS = new Set([
  /* Tech I/O lineup. rigCheck (a patch tick) and rigSeed (starting a new
     event's roster from the previous one) stay open behind the Day PIN, like
     ioSetRow. */
- "rigSave","rigClearChecks","rigTemplateSave","rigRestore"
+ "rigSave","rigClearChecks","rigTemplateSave","rigRestore",
+ /* Worship sets on the Now tab. */
+ "setSets","pcoSync"
 ]);
 
 /* ---------------- per-county scoping (v1.11.0) ----------------
@@ -964,6 +966,7 @@ function mkKeys(cty){
   core: "core" + x,
   checkins: "checkins" + x,
   io: "io" + x,
+  sets: "sets" + x,
   radios: "radios" + x,
   agg: "count-agg" + x,
   decAgg: "dec-agg" + x,
@@ -1108,14 +1111,15 @@ const legacyState = s => async () => (await s.get("state", { type:"json" })) || 
 const casCore = (s, K, mutate) => compareAndSwap(s, K.core, normCore, mutate, legacyState(s));
 
 async function readAll(s, K){
- const [core, checkins, io, prompter, radios] = await Promise.all([
+ const [core, checkins, io, prompter, radios, sets] = await Promise.all([
  s.get(K.core, { type:"json" }),
  s.get(K.checkins, { type:"json" }),
  s.get(K.io, { type:"json" }),
  s.get("prompter", { type:"json" }),   // season-long, never county-scoped
- s.get(K.radios, { type:"json" })
+ s.get(K.radios, { type:"json" }),
+ s.get(K.sets, { type:"json" })
  ]);
- return { core, checkins, io, prompter, radios };
+ return { core, checkins, io, prompter, radios, sets };
 }
 
 async function migrateIfNeeded(s, K, parts){
@@ -1133,7 +1137,7 @@ async function migrateIfNeeded(s, K, parts){
  (old && old.count) ? s.setJSON(devKey("legacy", K), old.count) : Promise.resolve()
  ]);
  // old "state" blob is left in place untouched as a safety net
- return { core, checkins, io, prompter, radios: parts.radios || null };
+ return { core, checkins, io, prompter, radios: parts.radios || null, sets: parts.sets || null };
 }
 
 /* ---- head count aggregation ---- */
@@ -1311,6 +1315,9 @@ async function assemble(s, K, active, lvl){
     Once an event has a lineup (rig) the legacy list is left out of the poll
     to keep it light; only app copies older than v1.21.0 ever read it. */
  ...ioPayload(parts.io),
+ /* This event's worship sets (from Planning Center or a leader's edit);
+    null until one exists, and the app falls back to its built-in list. */
+ sets: parts.sets ? normSets(parts.sets) : null,
  dayPinSet: !!dayPin, // the PIN itself is never sent to clients
  county: K.cty,          // which county's board this is
  countyAuto: !active.manual,
@@ -1354,6 +1361,119 @@ function hash(strv){
 const json = (obj, status=200) => new Response(JSON.stringify(obj), {
  status, headers: { "Content-Type":"application/json", "Cache-Control":"no-store" }
 });
+
+/* ---- Worship sets (v1.23.0) ----
+   The songs, keys and leads under each worship set on the Now tab, per
+   event. They come from the event's Planning Center plan (pcoSync, and an
+   hourly scheduled run) or from a leader's edit (setSets). Once a leader has
+   edited an event by hand the scheduled run leaves it alone; a leader's own
+   "Sync from Planning Center" still overwrites it on purpose.
+   Keep SET_NAMES in step with SETLISTS_DEFAULT in js/app-core.js — they are
+   the Now-tab segments that carry a setlist, in program order. */
+export const SET_NAMES = ["Worship Set 1","Worship Set 2","Worship Set 3","Worship Set 4","Outro + Blessing"];
+function normSong(x){
+ x = x || {};
+ return { title: str(x.title, 80).trim(), key: str(x.key, 8).trim(), lead: str(x.lead, 300).trim() };
+}
+export function normSets(v){
+ v = v || {};
+ const src = (v.sets && typeof v.sets === "object") ? v.sets : {};
+ const sets = {};
+ for(const n of SET_NAMES) sets[n] = (Array.isArray(src[n]) ? src[n] : []).map(normSong).filter(x => x.title).slice(0, 12);
+ const p = v.pco && typeof v.pco === "object" ? v.pco : null;
+ return {
+  rev: clampInt(v.rev, 0, 1e9, 0),
+  source: v.source === "pco" || v.source === "manual" ? v.source : "",
+  savedAt: str(v.savedAt, 30), savedBy: str(v.savedBy, 40),
+  pco: p ? { planId: idStr(p.planId, 20), title: str(p.title, 80), date: str(p.date, 10), syncedAt: str(p.syncedAt, 30) } : null,
+  warnings: (Array.isArray(v.warnings) ? v.warnings : []).map(w => str(w, 160)).slice(0, 6),
+  sets
+ };
+}
+
+/* ---- Planning Center Services ----
+   A Personal Access Token (Application ID + Secret) in the Netlify env vars
+   PCO_APP_ID / PCO_SECRET. Optional PCO_SERVICE_TYPE (default "K2C Day").
+   Read-only use: service types, plans, plan items. Never logged. */
+const PCO_API = "https://api.planningcenteronline.com/services/v2";
+let _pcoFetch = null;
+export function __setPcoFetch(fn){ _pcoFetch = fn; } // test seam
+const pcoConfigured = () => !!(process.env.PCO_APP_ID && process.env.PCO_SECRET);
+async function pcoGet(path){
+ const auth = "Basic " + Buffer.from(process.env.PCO_APP_ID + ":" + process.env.PCO_SECRET).toString("base64");
+ const r = await (_pcoFetch || fetch)(PCO_API + path, { headers: { Authorization: auth, Accept: "application/json" } });
+ if(!r.ok){ const e = new Error("planning center " + r.status); e.status = r.status; throw e; }
+ return r.json();
+}
+/* The calendar date a plan falls on, in New Hampshire. */
+const nhDate = iso => { try { return new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/New_York" }); } catch(_) { return ""; } };
+async function pcoFindPlan(ev){
+ const want = (process.env.PCO_SERVICE_TYPE || "K2C Day").trim().toLowerCase();
+ const types = (await pcoGet("/service_types?per_page=100")).data || [];
+ const st = types.find(t => String(t.attributes && t.attributes.name || "").trim().toLowerCase() === want);
+ if(!st) return { error: "no service type named " + (process.env.PCO_SERVICE_TYPE || "K2C Day") };
+ const plans = (await pcoGet("/service_types/" + st.id + "/plans?order=-sort_date&per_page=50")).data || [];
+ /* The plan on the event Saturday; failing that, one titled after the place
+    or county (plans are named by location). */
+ let plan = plans.find(p => nhDate(p.attributes && p.attributes.sort_date) === ev.date);
+ if(!plan){
+  const names = [ev.place, ev.name, ev.name.replace(/ County$/, "")].map(x => String(x || "").toLowerCase()).filter(Boolean);
+  plan = plans.find(p => { const t = String(p.attributes && p.attributes.title || "").toLowerCase(); return t && names.some(n => t.includes(n) || n.includes(t)); });
+ }
+ if(!plan) return { error: "no " + (process.env.PCO_SERVICE_TYPE || "K2C Day") + " plan for " + ev.dateLong };
+ return { st, plan };
+}
+/* Songs in plan order, grouped into sets: a run of song items is one set,
+   and anything that isn't a song (TTT, Gospel Presentation, a header…) ends
+   it. The runs fill SET_NAMES in order. The lead comes from the item's
+   Description, which is where the team writes it. */
+export function pcoSetsFromItems(items){
+ const runs = [];
+ let cur = null;
+ for(const it of (items || []).slice().sort((a, b) => (a.attributes.sequence || 0) - (b.attributes.sequence || 0))){
+  const a = it.attributes || {};
+  if(a.item_type === "song"){
+   if(!cur){ cur = []; runs.push(cur); }
+   cur.push(normSong({ title: a.title, key: a.key_name, lead: a.description }));
+  } else cur = null;
+ }
+ const sets = {}, warnings = [];
+ SET_NAMES.forEach((n, i) => { sets[n] = runs[i] || []; });
+ if(runs.length < SET_NAMES.length) warnings.push("Planning Center has " + runs.length + " song group" + (runs.length === 1 ? "" : "s") + " for " + SET_NAMES.length + " sets — " + SET_NAMES.slice(runs.length).join(", ") + " left empty");
+ if(runs.length > SET_NAMES.length) warnings.push("Extra songs after " + SET_NAMES[SET_NAMES.length - 1] + " were not placed: " + runs.slice(SET_NAMES.length).flat().map(x => x.title).join(", "));
+ return { sets, warnings };
+}
+const eventFor = K => SCHEDULE.find(e => e.key === K.cty) || currentEvent();
+async function pcoSyncEvent(s, K, by, onlyIfNotManual){
+ const ev = eventFor(K);
+ const found = await pcoFindPlan(ev);
+ if(found.error) return { status: 404, body: { error: found.error } };
+ const items = (await pcoGet("/service_types/" + found.st.id + "/plans/" + found.plan.id + "/items?per_page=100")).data || [];
+ const { sets, warnings } = pcoSetsFromItems(items);
+ let skipped = false;
+ await compareAndSwap(s, K.sets, normSets, cur => {
+  if(onlyIfNotManual && cur.source === "manual"){ skipped = true; return undefined; }
+  return normSets({
+   rev: cur.rev + 1, source: "pco", savedAt: new Date().toISOString(), savedBy: str(by, 40),
+   pco: { planId: found.plan.id, title: (found.plan.attributes && found.plan.attributes.title) || "", date: nhDate(found.plan.attributes && found.plan.attributes.sort_date), syncedAt: new Date().toISOString() },
+   warnings, sets
+  });
+ }, () => ({}));
+ const songs = SET_NAMES.reduce((n, k) => n + sets[k].length, 0);
+ return { status: 200, body: { ok: true, skipped, plan: (found.plan.attributes && found.plan.attributes.title) || "", songs, warnings } };
+}
+/* Hourly (netlify/functions/pco-sync-scheduled.mjs): refresh the live
+   event's sets unless a leader has edited them by hand. */
+export async function pcoScheduledSync(){
+ if(!pcoConfigured()) return { skipped: "not configured" };
+ const s = openStore();
+ await ensureScopeReady(s);
+ const active = await readActive(s);
+ const K = mkKeys(active.county);
+ if(!K.cty) return { skipped: "no county" };
+ const r = await pcoSyncEvent(s, K, "", true);
+ return r.body;
+}
 
 /* ---- Tech I/O: where a new event's lineup comes from ----
    An event with no lineup of its own starts from the most recent earlier
@@ -1839,6 +1959,22 @@ export default async (req, context) => {
     silent overwrite of the team's own I/O map — and it did exactly that once.
     Replacing the roster is a leader decision (setIOList), never a side effect
     of ticking an input off. */
+ /* ---- Worship sets (v1.23.0) ---- */
+ case "setSets":
+ await compareAndSwap(s, K.sets, normSets, cur => normSets({
+  ...cur, rev: cur.rev + 1, source: "manual", savedAt: new Date().toISOString(), savedBy: str(payload.by, 40),
+  warnings: [], sets: payload.sets
+ }), () => ({}));
+ break;
+ case "pcoSync": {
+ if(!pcoConfigured()) return json({ error:"Planning Center is not connected (PCO_APP_ID / PCO_SECRET)" }, 501);
+ try {
+  const r = await pcoSyncEvent(s, K, payload.by, false);
+  return json(r.body, r.status);
+ } catch(e){
+  return json({ error: "Planning Center request failed", status: e.status || 0 }, 502);
+ }
+ }
  /* ---- Tech I/O lineup (v1.21.0) ---- */
  case "rigSeed":
  await rigEnsure(s, K, payload.seed);

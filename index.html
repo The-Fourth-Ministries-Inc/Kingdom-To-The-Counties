@@ -171,7 +171,22 @@ textarea, select,
   .setlist .sn{display:block;font-weight:600;color:var(--ink);font-size:13px;margin-bottom:3px}
   .setlist .sm{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .setlist .sk{flex:none;font-weight:700;font-size:10.5px;color:var(--wine);background:#f4e6dc;padding:2px 7px;border-radius:99px;letter-spacing:.2px}
-  .setlist .sl{flex:none;color:var(--muted);font-size:11.5px}
+  .setlist .sl{flex:1 1 160px;min-width:0;color:var(--muted);font-size:11.5px}
+  /* Worship sets: source line, leader sync/edit, editor (v1.23.0) */
+  .wsbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:16px 0 4px}
+  .wssrc{flex-basis:100%;font-size:11.5px;color:var(--muted);line-height:1.4}
+  .wswarn{flex-basis:100%;font-size:11.5px;line-height:1.45;color:#6e5311;background:#f7edd0;border:1px solid #e3d3a4;border-radius:10px;padding:8px 10px}
+  .wsacts{display:flex;flex-wrap:wrap;gap:8px}
+  .wsedit{margin-top:16px}
+  .wsset{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .wsset h4{font-family:var(--serif);font-size:15px;margin:0 0 4px}
+  .wsrow{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 10px;padding:9px 0;border-top:1px solid var(--line)}
+  .wsrow .iofield{flex:0 1 90px}
+  .wsrow .iofield.grow{flex:1 1 180px}
+  .wsrow input,.wsrow textarea{width:100%;min-height:44px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-family:inherit;resize:vertical}
+  .wsrow .iomv{align-self:center}
+  .wsrow .iodel{width:44px;height:44px;align-self:center}
+  .wsset .ioaddperf{margin:8px 0 0}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 17px;box-shadow:var(--shadow);margin-bottom:13px}
   .card h3{font-family:var(--serif);font-weight:600;font-size:17px;margin:0 0 6px;display:flex;align-items:center;gap:8px}
   .card p{margin:0 0 8px;font-size:14px;color:#403d38}.card p:last-child{margin-bottom:0}
@@ -1216,7 +1231,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.22.0</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.23.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1245,6 +1260,7 @@ textarea, select,
       <p class="eyebrow">Order of Events</p><h1 class="title">The Day</h1>
       <p class="sub">Saturday · Setup 9:00 AM → Program 2:00–5:00 PM <b>SHARP</b></p>
       <div id="spineMount"></div>
+      <div id="setsBar"></div>
     </div>
   </section>
   <section class="page" id="page-crew">
@@ -2606,6 +2622,7 @@ textarea, select,
   <button class="tab" data-tab="guides"><svg viewBox="0 0 24 24"><path d="M12 6c-2-2-5-2-7-1v13c2-1 5-1 7 1 2-2 5-2 7-1V5c-2-1-5-1-7 1z"/><path d="M12 6v13"/></svg><span class="tl">Resources</span></button>
 </nav>
 <script src="mobile-runtime.js"></script>
+<script src="js/worship.js"></script>
 <script src="js/techio.js"></script>
 <script src="js/app-core.js"></script>
 <script src="js/counties.js"></script>

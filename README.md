@@ -5,6 +5,46 @@ live view: checklist, announcements, check-ins, headcount, praises, and feedback
 all stay in sync across phones within a few seconds.
 
 
+## Worship sets from Planning Center (v1.23.0)
+
+On the **Now** tab, the roll-down songs under Worship Set 1–4 and Outro +
+Blessing come from each event's own sets instead of a hardcoded list. A line
+under the schedule says where they came from.
+
+- **⟳ Sync from Planning Center** (leader PIN) reads the **"K2C Day"** plan for
+  the event. It's matched by the plan's date (the event Saturday), or failing
+  that by a title containing the event's location or county. Songs are taken
+  in plan order. Each unbroken run of songs is one set, and any non-song item
+  (TTT, Gospel Presentation, Altar Call, a header) ends the set. The runs fill
+  Worship Set 1, 2, 3, 4 and Outro + Blessing in that order. Each song brings
+  its **key** from the plan item and its **lead** from the item's
+  **Description**, which can run to several lines. If the plan has more or fewer
+  song groups than five, leaders see a warning under the schedule.
+- **Hourly sync.** `netlify/functions/pco-sync-scheduled.mjs` refreshes the live
+  event every hour (production only).
+- **✏️ Edit sets** (leader PIN) changes any song, key or lead, or adds, removes
+  and reorders songs. A hand edit **pauses the hourly sync for that event**, so
+  a day-of fix isn't overwritten. Tapping **Sync** goes back to Planning Center.
+- Until an event has been synced or edited, the built-in list
+  (`SETLISTS_DEFAULT` in `js/app-core.js`) shows as before.
+
+Sets are stored per event in the `sets~<county>` blob and ride the normal poll.
+Everyone past the Day PIN sees them. The end-of-day Reset leaves them alone.
+
+### Connecting Planning Center (one-time)
+
+1. Sign in at <https://api.planningcenteronline.com/oauth/applications> and
+   create a **Personal Access Token**. Use an account that can **view** Services
+   plans. The token has that account's permissions, and the app only reads.
+2. In Netlify → **Site configuration → Environment variables**, add
+   `PCO_APP_ID` (the Application ID) and `PCO_SECRET` (the Secret). Optionally
+   add `PCO_SERVICE_TYPE` if the service type is ever renamed from "K2C Day".
+3. Trigger a redeploy. The first **⟳ Sync from Planning Center** confirms it
+   works.
+
+The token never reaches phones or the repo, and the server never logs it.
+Without it, Sync says "not connected" and the hourly job does nothing.
+
 ## Tech I/O Lineup (v1.22.0)
 
 Under **Specialists → 🎛️ Tech I/O List**. The code lives in `js/techio.js`
@@ -188,6 +228,8 @@ and remaining human steps are in `docs/store-release/`.
 ## How it works
 
 - **`index.html`** — the entire app (front end).
+- **`js/worship.js`** — worship-set edit & Planning Center sync on the Now tab;
+  loaded before `js/app-core.js`.
 - **`js/techio.js`** — Tech I/O (lineup model, views, editor, print/CSV);
   loaded before `js/app-core.js`.
 - **`assets/`** — images, the counselor booklet PDF, and self-hosted fonts. These

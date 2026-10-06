@@ -1,5 +1,8 @@
 function m(h,min){return h*60+(min||0);}
-/* Worship set songs — keep in sync with data/setlists-default.json */
+/* Built-in worship set songs: shown until the event has its own (from
+   Planning Center or a leader's edit — js/worship.js). Keep the set names in
+   step with SET_NAMES in netlify/functions/data.mjs and
+   data/setlists-default.json. */
 var SETLISTS_DEFAULT={
   "Worship Set 1":[
     {title:"The Joy",key:"G",lead:"Karielle"},
@@ -24,11 +27,13 @@ var SETLISTS_DEFAULT={
     {title:"I Speak Jesus",key:"E",lead:"Karielle"}
   ]
 };
-function setlistFor(name){return SETLISTS_DEFAULT[name]||null;}
+function setlistFor(name){return (typeof wsSongsFor==="function")?wsSongsFor(name):(SETLISTS_DEFAULT[name]||null);}
 function setlistRowsHtml(songs){
   if(!songs||!songs.length)return "";
   return '<ul class="setlist">'+songs.map(function(s){
-    return '<li><span class="sn">'+esc(s.title)+'</span><div class="sm"><span class="sk">'+esc(s.key)+'</span><span class="sl">'+esc(s.lead)+'</span></div></li>';
+    /* A lead from Planning Center can run to several lines ("Karielle - V1" /
+       "Angel - melody"); keep them as lines. */
+    return '<li><span class="sn">'+esc(s.title)+'</span><div class="sm">'+(s.key?'<span class="sk">'+esc(s.key)+'</span>':'')+'<span class="sl">'+esc(s.lead).replace(/\n/g,"<br>")+'</span></div></li>';
   }).join("")+'</ul>';
 }
 const SEGMENTS=[
@@ -104,6 +109,7 @@ function renderSpine(){
     html+='</div></div>';
   });
   mount.innerHTML=html;
+  if(typeof wsRenderBar==="function")wsRenderBar();
 }
 function renderStrip(){
   if(typeof paintOffDayStrip==="function"&&paintOffDayStrip())return;
@@ -183,7 +189,7 @@ var SETUP=[
   ]}
 ];
 var TEARDOWN=[];
-var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],miracles:[],binNotes:[],binState:{},count:0,event:{name:"",date:""},ioList:[],ioBuses:[],rig:null,dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
+var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],miracles:[],binNotes:[],binState:{},count:0,event:{name:"",date:""},ioList:[],ioBuses:[],rig:null,sets:null,dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
 var LIVE=false,LEADER=false,seenAnn=0,seenIssue=0,inflight=0,countFlushT=null,countSending=false;
 /* Which announcement the volunteer closed (id, or "checkin"), and the last
    urgent one we alerted for — see renderAnnouncements. */
@@ -212,7 +218,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
    onclick="fn('...')" handlers all over this file, so a lone ' would break out
    of the JS string literal inside the attribute. */
 function esc(s){return(s||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
-function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],miracles:Array.isArray(s.miracles)?s.miracles:[],witnessMin:s.witnessMin||2,binNotes:Array.isArray(s.binNotes)?s.binNotes:[],binState:(s.binState&&typeof s.binState==="object")?s.binState:{},binsRev:(s.binsRev!=null?s.binsRev:null),county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],ioBuses:Array.isArray(s.ioBuses)?s.ioBuses:[],rig:(s.rig&&Array.isArray(s.rig.positions))?s.rig:null,dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
+function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],miracles:Array.isArray(s.miracles)?s.miracles:[],witnessMin:s.witnessMin||2,binNotes:Array.isArray(s.binNotes)?s.binNotes:[],binState:(s.binState&&typeof s.binState==="object")?s.binState:{},binsRev:(s.binsRev!=null?s.binsRev:null),county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],ioBuses:Array.isArray(s.ioBuses)?s.ioBuses:[],rig:(s.rig&&Array.isArray(s.rig.positions))?s.rig:null,sets:(s.sets&&s.sets.sets&&typeof s.sets.sets==="object")?s.sets:null,dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
 /* toast(msg) is the plain one. toast(msg,label,fn) adds a tappable action —
    used for Undo, which gets a longer dwell because you have to reach for it. */
 function toast(msg,actLabel,actFn){
@@ -344,13 +350,14 @@ var OB_KEY={
      single queued op each. */
   setIOList:function(){return "io";},
   rigSave:function(){return "rig";},
+  setSets:function(){return "sets";},
   rigClearChecks:function(){return "rigclear";},
   setEvent:function(){return "event";},
   setFunding:function(){return "funding";}
 };
 /* Actions the server gates behind the leader PIN — held in the queue (not
    sent, not dropped) whenever this session has no PIN, e.g. after a reload. */
-var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,rigSave:1,rigClearChecks:1,setEvent:1,setFunding:1,miracleDelete:1,binNoteAck:1,annDelete:1};
+var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,rigSave:1,rigClearChecks:1,setSets:1,setEvent:1,setFunding:1,miracleDelete:1,binNoteAck:1,annDelete:1};
 var OUTBOX=[];
 try{OUTBOX=JSON.parse(localStorage.getItem("k2c_outbox")||"[]");}catch(_){OUTBOX=[];}
 if(!Array.isArray(OUTBOX))OUTBOX=[];
@@ -445,6 +452,8 @@ function applyPending(st){
       if(st.rig)ioSetCheck(st.rig,p.iid,p.done,p.by,p.t);
     }else if(op.a==="rigSave"){
       if(p.rig){var nr=ioMergeChecks(JSON.parse(JSON.stringify(p.rig)),st.rig);nr.rev=(Number(st.rig&&st.rig.rev)||0)+1;nr.savedBy=p.by||"";nr.from=(st.rig&&st.rig.from)||null;st.rig=nr;}
+    }else if(op.a==="setSets"){
+      st.sets={rev:(Number(st.sets&&st.sets.rev)||0)+1,source:"manual",savedAt:(st.sets&&st.sets.savedAt)||"",savedBy:p.by||"",pco:(st.sets&&st.sets.pco)||null,warnings:[],sets:p.sets||{}};
     }else if(op.a==="rigClearChecks"){
       if(st.rig)ioClearChecks(st.rig);
     }else if(op.a==="addCheckin"){
@@ -1360,7 +1369,7 @@ function restoreComments(snaps){
     else if(s.focused==="ct"&&ct){ct.focus();try{ct.setSelectionRange(s.selS,s.selE);}catch(_){}}
   }
 }
-function renderDynamic(){var _cs=snapshotComments();refreshChecklists();renderAnnouncements();renderAnnGate();renderSimGate();renderPraise();renderMiracles();renderInvNotes();renderInvLeader();renderPackBar();renderIssues();renderRoster();renderCount();renderRadios();renderEvent();renderFunding();renderDashboard();updateBadges();if(!ioEditing)renderIOList();restoreComments(_cs);if(typeof chMaybeSync==="function")chMaybeSync();binsMaybeSync();}
+function renderDynamic(){var _cs=snapshotComments();refreshChecklists();renderAnnouncements();renderAnnGate();renderSimGate();renderPraise();renderMiracles();renderInvNotes();renderInvLeader();renderPackBar();renderIssues();renderRoster();renderCount();renderRadios();renderEvent();renderFunding();renderDashboard();updateBadges();renderSpine();if(!ioEditing)renderIOList();restoreComments(_cs);if(typeof chMaybeSync==="function")chMaybeSync();binsMaybeSync();}
 function updateBadges(){
   function set(id,n){var e=document.getElementById(id);if(!e)return;e.textContent=n;e.style.display=n?"flex":"none";}
   set("crewCheckinPill",STATE.checkins.length);set("crewCountPill",STATE.count);
@@ -1877,7 +1886,7 @@ document.getElementById("resetBtn").addEventListener("click",function(){
   if(pw==null)return;
   if((pw||"").trim().toUpperCase()!=="RESET"){alert("Not reset — you must type RESET exactly.");return;}
   if(!confirm("Reset event data (checklists, check-ins, head count, radios, praise, announcements & issues)? Keeps event name, Day PIN and the ENTIRE Tech I/O section — roster and patch checkmarks both. A backup snapshot is saved server-side first."))return;
-  doAction("reset",{},function(){var ev=STATE.event,fu=STATE.funding,pr=STATE.prompter,dps=STATE.dayPinSet,io=STATE.ioList,rig=STATE.rig;STATE=normalize({checklist:{},announcements:[],checkins:[],feedback:[],praises:[],count:0,event:ev,ioList:io,rig:rig,dayPinSet:dps,funding:fu,prompter:pr});});
+  doAction("reset",{},function(){var ev=STATE.event,fu=STATE.funding,pr=STATE.prompter,dps=STATE.dayPinSet,io=STATE.ioList,rig=STATE.rig,sets=STATE.sets;STATE=normalize({checklist:{},announcements:[],checkins:[],feedback:[],praises:[],count:0,event:ev,ioList:io,rig:rig,sets:sets,dayPinSet:dps,funding:fu,prompter:pr});});
 });
 document.addEventListener("click",function(e){var row=e.target.closest(".chk");if(row)toggleCheck(row.getAttribute("data-id"));});
 /* Keyboard/switch access for the same rows (they are role=button). */
