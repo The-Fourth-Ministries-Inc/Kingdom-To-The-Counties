@@ -72,7 +72,7 @@ function fakeEl(init) {
     },
     contains: (node) => node === el || kids.indexOf(node) >= 0,
     querySelector: (sel) => {
-      if (sel.indexOf(".dgsheet") >= 0) return init.sheet || null;
+      if (sel.indexOf(".dgbody") >= 0) return init.sheet || null;
       if (sel.indexOf(".sheet") >= 0) return init.sheet || null;
       return null;
     },
@@ -138,6 +138,18 @@ test("kbNeedPin is true only when the visual viewport and layout disagree", () =
   assert.equal(run({ offsetTop: 180, offsetLeft: 0, height: 500 }, 844), true, "iOS scrolled visualViewport");
   assert.equal(run({ offsetTop: 0, offsetLeft: 12, height: 844 }, 844), true, "horizontal visual offset");
   assert.equal(run(null, 844), false);
+});
+
+test("short scrollports reveal the whole field without repeated-sync jitter", () => {
+  const scroller = { scrollTop: 0, getBoundingClientRect: () => ({ top: 0, bottom: 69, height: 69 }) };
+  const field = { getBoundingClientRect: () => ({ top: 100 - scroller.scrollTop, bottom: 144 - scroller.scrollTop, height: 44 }) };
+  const ctx = createContext({ scroller, field });
+  runInContext(extractFunction(js, "kbScrollField") + "\nkbScrollField(field, scroller);", ctx);
+  const settled = scroller.scrollTop;
+  for (let i = 0; i < 5; i++) runInContext("kbScrollField(field, scroller);", ctx);
+  assert.equal(scroller.scrollTop, settled);
+  const rect = field.getBoundingClientRect();
+  assert.ok(rect.top >= 0 && rect.bottom <= 69);
 });
 
 test("kbPinOverlay writes the visual rect and kbUnpinOverlay clears it", () => {
@@ -342,7 +354,7 @@ ${pinFn}
 (function () {
   var phone = document.getElementById("phone");
   var gate = document.getElementById("dayGate");
-  var sheet = document.querySelector(".dgsheet");
+  var sheet = document.querySelector(".dgbody");
   var pin = document.getElementById("dayPinInput");
   gate.classList.add("show");
   function box(el) {
