@@ -151,7 +151,7 @@ phone.srcdoc = ${JSON.stringify(frame).replace(/</g, "\\u003c")};
 }
 
 function chromeBin() {
-  for (const name of ["chromium", "chromium-browser", "google-chrome", "google-chrome-stable"]) {
+  for (const name of ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]) {
     const found = spawnSync("which", [name], { encoding: "utf8" });
     if (found.status === 0 && found.stdout.trim()) return found.stdout.trim();
   }
@@ -175,7 +175,7 @@ function dumpDom(bin, file, profile) {
       if (error) reject(error);
       else resolve(output);
     }
-    const timer = setTimeout(() => finish(new Error("Day PIN Chromium probe timed out")), 25000);
+    const timer = setTimeout(() => finish(new Error("Day PIN Chromium probe timed out: " + errors)), 25000);
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", part => { errors = (errors + part).slice(-2000); });
@@ -222,7 +222,9 @@ test("Day PIN fields and fixed action footer never collide across keyboard trans
       return dumpDom(bin, file, join(dir, "chrome-retry"));
     });
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    // Chrome helpers can briefly retain the temporary profile after exit.
+    try { rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
+    catch (_) { /* Do not hide the probe result behind profile cleanup. */ }
   }
   const title = output.match(/<title>(\{[\s\S]*?\})<\/title>/);
   assert.ok(title, "Chromium did not return Day PIN layout measurements");
