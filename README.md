@@ -5,6 +5,149 @@ live view: checklist, announcements, check-ins, headcount, praises, and feedback
 all stay in sync across phones within a few seconds.
 
 
+## Tech I/O Lineup (v1.21.0)
+
+Under **Specialists → 🎛️ Tech I/O List**. The code lives in `js/techio.js`
+(loaded before `app-core.js`).
+
+### The model: positions, people, packs, transmitters
+
+```
+Position ──person──▶ Person ◀──person── Pack ──▶ Transmitter (L / R / stereo) ──▶ Ark out / Aux
+   └── inputs (AVB, Ark split, snake, NSB, console channels…)
+```
+
+- **Positions** are the stage roles that persist week to week: Lead Vox · Mic A,
+  Acoustic 1, Bass, Drums, Talkback 1, Host 1, Playback, Spotify… Each has a
+  **person**, a **Used this event** switch, a **Needs IEM** switch and its
+  inputs. Add, rename, reorder and delete them in the Lineup tab. Switching a
+  position off keeps its inputs for next time but drops them from the patch
+  list, the progress count and the snake numbering.
+- **People** are just names. One person can hold several positions (Zach: Lead
+  Vox · Mic A, Acoustic 1, Talkback 1) and still gets **one card, one pack, one
+  mix**, because the mix belongs to the pack, not the position.
+- **Packs** are the physical belt packs: label, person, transmitter, and leg
+  when the transmitter is dual-mono. A pack with no person is a spare that
+  isn't handed out ("Extra" Pack, Spare Pack 2).
+- **Transmitters** are the eight Phenyx Pro units in the Ark. **TX n always owns
+  Ark outputs / Q-Mix aux 2n-1 and 2n.** Stereo hands both to every pack on it;
+  dual-mono gives the left one to its L packs and the right one to its R packs.
+  Each transmitter has a colour, and its packs show that colour.
+
+**Split to mono keeps the packs already on the transmitter.** The first pack
+keeps L and the rest move to R, so splitting Mike's TX 4 puts Mike on Aux 7
+and Spare Pack 2 on Aux 8. (v1.19 invented a new "no pack" line instead.)
+**Back to stereo** warns first if two different people would end up on one mix.
+
+### The weekly update
+
+**✏️ Edit** (leader PIN) opens the **Lineup** tab. One draft covers every tab,
+saved with a single **Save**:
+
+1. Pick the person on each position, or untick **Used this event**.
+2. Set the person on each pack. Swapping Julian for Steve on AG2 is two name
+   changes: Acoustic 2 → Steve, Pack 5 → Steve.
+3. Split or merge transmitters if there are more or fewer musicians than mixes.
+4. Fix anything in the warning strip at the top. It lists every musician with
+   no pack, packs whose person isn't on any position, two people on one mix, a
+   mono pack with no leg, duplicate AVB / Ark split / console channels, and a
+   snake that's out of channels.
+
+Inputs are edited under **🎚 Inputs → ✎**, in a form that opens under the row
+and fits a phone screen. **＋ Add input** asks which position it belongs to.
+
+### Snake and stage-box numbers are worked out, not typed
+
+Inputs that ride the snake are numbered **contiguously in snake order, skipping
+anything not in use this event**, so unused ports end up at the end. Turn off
+the snare-bottom mic and the toms move from Snake 4-6 to 3-5, the overheads
+from 7-8 to 6-7, and everything after them moves down one. Change the order
+with ▲▼ in **Lineup → Snake & stage box**.
+
+- **NSB 32.16 inputs** (toms, overheads) are numbered the same way from **First
+  NSB input**: 1 for one stage orientation, 12 for the other. Their AVB stream
+  is NSB input + 40 (AVB 41 = NSB 1). That offset is a setting, in case the
+  network patch changes.
+- **Mixdowns** (Toms – Mixdown on AVB 57, Overheads – Mixdown on AVB 58, built
+  on the StudioLive 32 at FOH) are **Mix of** their source mics, so their snake
+  and NSB ranges always quote wherever the mics actually are. The FOH bus table
+  links Aux 9 / Aux 10 to those inputs, so the AVB number is written once.
+
+### Where a new event's lineup comes from
+
+Tech I/O is county-scoped like the rest of the event board. The first time
+anyone opens Tech I/O for a new event, the server copies, in order of
+preference:
+
+1. the **most recent earlier event** that has a lineup;
+2. otherwise the saved **Template**;
+3. otherwise the **built-in roster** (`IO_RIG` in `js/techio.js`).
+
+Checkmarks always start clear. A line under the tabs says which one it used.
+
+Leader tools (not shown while editing):
+
+- **🧹 Clear checkmarks** clears only the patch ticks. The lineup is untouched.
+- **💾 Save as Template** stores this event's saved lineup season-wide.
+- **↺ Restore…** replaces this event's lineup with the last event's, the
+  Template, or the built-in roster. It asks first, clears checkmarks, and saves a
+  backup snapshot before it writes.
+
+The end-of-day **Reset** still leaves Tech I/O entirely alone.
+
+### Who can do what
+
+- **Everyone past the Day PIN** can view all three tabs, **🖨 Print** the input
+  list + IEM sheet, download a **⬇ CSV** of both, and tick inputs off as
+  they're patched (`rigCheck`, keyed per input, merged on the server).
+- **Leaders** edit (`rigSave`), clear checkmarks, save the Template and restore.
+
+Saving never wipes a tech's ticks: the server keeps its own current tick state
+for every input that still exists. If another leader saved while you were
+editing, you're asked before yours overwrites theirs.
+
+### Why AVB is the left-hand column
+
+We run three consoles. The FOH board is a StudioLive 32 with preamp control.
+The Ark holds a 32SC running as the monitor mixer and a 32R running as a
+stagebox, with 3× 8-ch splitters (Raw vs Tuned through 5 Mic Mechanics) and
+front-of-box inputs. **Their channel numbers disagree.** FOH takes the drums
+discrete (Tom 1–3 and the overheads on 23–27). The 32SC takes them pre-mixed
+on 23–24 and spends the freed channels on the raw vocal splits. The AVB stream
+is the one identifier both consoles use for the same signal, so the Inputs
+table sorts on it and shows both channel columns. The **Console** filter
+narrows the table to one board.
+
+### It works at a laptop, not just a phone
+
+`main.wide` (toggled on this page, up to 1480px) drops the 560px letterbox.
+From ~1100px the tables show every column at once and the musician cards
+flow into a grid. Below that, read views scroll sideways with AVB pinned.
+
+### Stored format and older app copies
+
+The lineup is stored as `rig` on the county's `io~<county>` blob, next to the
+v1.19 `list`, and the season Template is stored in `io-template`. App copies
+older than v1.21.0 still read and write `list` (`setIOList` / `ioSetRow`). Those
+writes are accepted and can never touch `rig`, which `normIO` carries through
+every write. Once an event has a lineup, the poll stops sending the old list.
+
+### Non-production deploys get their own data
+
+Netlify Blobs are site-wide, not deploy-scoped, so `storeName()` namespaces the
+store by `CONTEXT` and branch. Only production touches `k2c-ambassador`. A
+deploy preview lands in `k2c-ambassador--deploy-preview--<branch>` and is safe
+to try the Lineup on.
+
+### The routing workbook
+
+`scripts/excel-to-io.mjs` still reads a K2C "INP-OUT Map" tab (merging the FOH
+and 32SC halves on AVB, expanding merged cells first; see
+`test/io-consolidate.test.js`) and prints the result or writes it with
+`--output`. It's for reference only. `--write-index` is retired: the built-in
+roster is the positions model in `js/techio.js`, and day-to-day changes happen
+in the app.
+
 ## Day PIN keyboard overlap (v1.20.1)
 
 The Day PIN form now scrolls independently of Unlock and Privacy. The footer
@@ -40,6 +183,8 @@ and remaining human steps are in `docs/store-release/`.
 ## How it works
 
 - **`index.html`** — the entire app (front end).
+- **`js/techio.js`** — Tech I/O (lineup model, views, editor, print/CSV);
+  loaded before `js/app-core.js`.
 - **`assets/`** — images, the counselor booklet PDF, and self-hosted fonts. These
   used to be base64-embedded in `index.html` (which made it ~3 MB); keeping them
   as separate files keeps the page small and lets the browser cache them.
@@ -571,190 +716,6 @@ rendered, so it can't go stale either.
 All ten graphics are live as of v1.15.1. The banners are 1920×1080 and the
 mission card 1080×1350, matching what the socials want; keep new artwork at
 those sizes and under ~300KB so the precache stays reasonable on field signal.
-
-## Tech I/O List (v1.19.9)
-
-Under **Specialists → 🎛️ Tech I/O List**. Three views of one dataset, switched
-with the segmented control at the top:
-
-- **👤 Musicians** — the original per-pack cards. What one player needs, and the
-  patch checkmarks techs tick off during line check.
-- **🎚 Inputs** — the full input list as a table, **keyed on the AVB stream
-  number**, with Snake Map and Ark splitter columns, plus the console channel
-  for the board you're on. The **FOH board** / **32SC monitors** filters keep
-  only that board's channel column. Where the two consoles wrote different
-  gear or notes for one signal, the 32SC reading rides along labelled.
-- **🎧 Outputs** — the Ark 32R IEM mixes (transmitter, pack, assignee,
-  stereo/mono) and the NSB 32.16 PA buses.
-
-**Belmont roster (v1.18.0).** Defaults come from `K2C Belmont - INP-OUT Map`:
-Julian on Pack 5 (Yellow) for Acoustic Guitar 2; Alissa on Spare Pack 1 /
-Aux 6 (mono R of Transmitter 3) for Wireless Mic E; Annie mono on Aux 5
-(Pack 3 Green, Transmitter 3 L).
-
-**The tables are the master routing and the musician cards are built from
-them.** Editing happens *only* in a table — there is no edit affordance on the
-musician cards at all, so nobody changes routing from a view that can't show
-routing. The tables sit behind the **leader PIN**; the Musicians view stays
-open to any tech past the Day PIN, along with the patch checkmarks they tick
-during line check. (Ticking an input off is progress, not a change to the
-routing, which is why it stays on the open view.)
-
-### It works at a laptop, not just a phone
-
-The rest of the app is a 560px phone column. Tech I/O is the one page people
-actually work at a desk, so `main.wide` (toggled on that page, up to 1480px)
-drops the letterbox at any width. From ~1100px up the tables stop scrolling
-sideways and show every column at once, and the musician cards flow into a
-2–3 column grid instead of stretching to absurd line lengths. Below that,
-read views still scroll sideways with AVB pinned; **Edit table** stacks each
-row as a labelled card so a laptop window does not need a sideways drag.
-
-### The columns follow the signal
-
-Left to right, the Inputs table runs the way the signal does:
-
-| Column | What it is |
-| --- | --- |
-| **AVB** | the network stream, the number every console agrees on |
-| **Snake** | the multicore **Snake Map** number from the sheet (stage loom) |
-| **Ark split** | an Ark XLR splitter input — the splitter feeds the 32R |
-
-NSB stage-box ports still appear in the musician-card `loc` line when a row
-is patched that way (`AVB 41 · Snake 3 · NSB 1`). Computer sources (tracks,
-click, guide) have neither Snake nor Ark — they land straight on AVB from the
-playback Mac. Console channels sit at the far right; the FOH / 32SC filter
-shows only the column for the board you're stood at.
-
-The sheet's Snake Map column used to be skipped (it sits next to the gutter
-between the two console halves). v1.18.0 imports it and writes it onto the
-musician cards.
-
-### Musicians are a roster, not free text
-
-Every Source cell in the edit view is a dropdown of the people already on the
-list, so a musician's card and the table can't drift into describing two
-different people. Picking a different name **moves that input onto their card**
-— that single action is what "the tables feed the performer view" means in
-practice. **＋ Add a musician** puts a new name on the roster (and into every
-dropdown) before they have any inputs.
-
-The sheet's own Source wording still rides along per row, so "Zach TB" and
-"Zach AG" stay distinguishable while both resolving to Zach's card.
-
-### Why AVB is the left-hand column
-
-We run three consoles — the FOH board, a 32SC for monitors, and a 32R mostly
-for patching — and **their channel numbers disagree**. The FOH board takes drums
-discrete (Tom 1–3 and overheads on channels 23–27); the 32SC takes them
-pre-mixed on 23–24 and spends the freed channels on the raw vocal splits. The
-one identifier both consoles name for the same signal is the AVB stream, so
-that's the key the table sorts and merges on. Each row still shows both channel
-numbers, and the **Console** filter narrows to just the FOH or just the 32SC
-view when you're standing at one of them.
-
-### IEM packs stay colour-coded
-
-The belt packs are colour-coded on the hardware and the team reads them that
-way, so the colour is a real field, not a label: the Outputs table shows the
-pack as a coloured chip, and in edit mode the chip becomes a text field plus a
-colour swatch. Change the pack a musician is on and the chip follows.
-
-The chip's **label colour is computed from the background** (`ioInk`), because
-the packs run from the yellow one to the purple one and no single ink works for
-both — white on yellow is unreadable, dark ink on purple is worse. The table
-chips also inherit the card chips' weight and border now; they previously
-picked up neither, which is why the same pack looked like two different styles
-depending on which view you were in.
-
-### Collapsing an IEM mix to mono
-
-Everyone wants stereo — an aux pair, a whole transmitter, two outputs. But the
-32R has sixteen outputs, so with more musicians than pairs somebody has to go
-mono. On the **Outputs** view a leader taps **Split to mono →** on a stereo mix:
-the current owner keeps the left leg, and the right leg opens as a free mono
-slot on the same transmitter. **← Back to stereo** merges the two legs again.
-
-Splitting doesn't consume more outputs — it buys another *mix* out of the same
-pair, which is why the header counts both ("16 of 16 outputs in use · 9 mixes").
-Going back to stereo always costs somebody their mix, so the app names who and
-asks first; that person keeps all their inputs and drops to "no mix assigned"
-until a leader hands them another. The assignee dropdown moves a mix between
-people, swapping if the target already holds one.
-
-### The sheet is canon — including where it disagrees with itself
-
-The roster is imported from `The Fourth Routing and Input Lists — K2C.xlsx`,
-tab `K2C Belmont - INP-OUT Map`, and imported **verbatim**. That sheet
-contradicts itself in a few places, so rather than guess a winner the importer
-keeps both readings and the Inputs view flags them in a banner at the top:
-
-- **AVB 41** is written as both Tom 1 (FOH ch 23, NSB.32-1) and a spare channel
-  (FOH ch 32, Ark splitter 32).
-- **AVB 38 / 39** appear as both 32SC spares on NSB.32-4/5 and FOH unused
-  channels on Ark splitter 29/30 — and NSB.32-4/5 are also the overheads.
-- **The saxophone** is AVB 37 on FOH and AVB 28 on the 32SC, off one splitter
-  port.
-
-Two more worth knowing that the app can't detect: the Toms/overheads mixdown is
-sent on **AVB 49/50** by the FOH output table but received on **AVB 57/58** by
-the 32SC input list, and the transmitters run 1, 2, 3, 4, **9**, 6, 7, 8 — there
-is no unit 5. Fix any of these in the app and the app becomes the truth.
-
-### Non-production deploys get their own data
-
-Netlify Blobs are **site-wide, not deploy-scoped**. Every deploy preview and
-branch deploy used to read and write the live event data, so opening a preview
-link and tapping anything edited production — which is exactly how a preview of
-this feature overwrote the team's Tech I/O roster. `storeName()` now namespaces
-the store by `CONTEXT` and branch, so only the real production deploy touches
-`k2c-ambassador`; anything else lands in
-`k2c-ambassador--deploy-preview--<branch>` and is safe to poke at.
-
-### An older stored roster is shown, never silently replaced
-
-A roster saved before v1.16.0 carries only role / gear / location — no AVB, no
-channel numbers, no patch point — so it cannot fill the tables. Because the
-stored roster overrides the deployed defaults, a phone reading one would show a
-short, half-empty input list and look like the import had failed.
-
-The app detects that (no AVB anywhere in the list), falls back to the deployed
-defaults **for display only**, and says so in a banner rather than leaving a
-leader guessing which roster is real. Replacing the stored roster takes a
-deliberate **Reload defaults**.
-
-An earlier revision tried to be clever here and upgraded the roster
-automatically on the first patch tap. `ioSetRow` is open to any tech behind the
-Day PIN, so that turned one checkbox into a silent overwrite of the team's own
-I/O map, and it destroyed a real roster. The `seed` payload now only populates
-a server that has **no** roster at all.
-
-### Merged cells are the whole ballgame
-
-A merged cell stores its value only in the top-left slot; every other slot in
-the block reads back empty even though the sheet *displays* the value on all of
-them. `sheetToRows` expands merges before anything else looks at the grid,
-because that is where a third of this sheet's content lives: Kyle's name down
-the eight drum rows, the physical port and hardware for the playback returns,
-the `13/14 (stereo)` channel labels, the `Aux 16` bus, and every note written
-once against a block of rows. Skip that step and the import looks complete
-while quietly dropping ~70 values. `test/io-consolidate.test.js` pins the
-behaviour, including that expansion never becomes a general fill-down over
-genuinely blank cells.
-
-### Re-importing from the workbook
-
-```bash
-node scripts/excel-to-io.mjs --workbook "The Fourth Routing and Input Lists — K2C.xlsx" \
-  --sheet "K2C Belmont - INP-OUT Map" \
-  --output data/io-default.json --write-index --verbose
-```
-
-`--write-index` rewrites `IO_DEFAULT` and `IO_BUSES` in `js/app-core.js`; both
-halves of the sheet, the IEM table and the PA bus table are discovered by their
-header text, not by hard-coded row numbers, so the other county tabs import with
-`--sheet`. Note that this only changes the *defaults* — phones keep whatever
-roster is stored on the server until a leader taps **Reload defaults**.
 
 ## Recording Studio (Teleprompter) (v1.19.3)
 

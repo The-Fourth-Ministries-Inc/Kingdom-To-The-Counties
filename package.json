@@ -6,7 +6,6 @@
     "test": "npm run check:syntax && node --test test/*.test.js",
     "check:syntax": "node scripts/check-syntax.mjs",
     "import:io": "node scripts/excel-to-io.mjs",
-    "import:io:write": "node scripts/excel-to-io.mjs --write-index",
     "sync:scripts": "node scripts/sync-starter-scripts.mjs",
     "prepare:mobile": "node scripts/prepare-mobile.mjs",
     "patch:native": "node scripts/patch-native.mjs",
