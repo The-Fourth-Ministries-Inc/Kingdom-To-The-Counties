@@ -34,22 +34,26 @@ for (const [platform, protocol] of [["iPhone", "capacitor:"], ["Android", "https
   for (const cached of [true, false]) {
     test(platform + " offline boot " + (cached ? "restores saved real lineup and sets" : "uses empty state without fabricated data"), async () => {
       const c = context(true, protocol);
-      const state = { ioRig: { positions: [{ id: "lead", person: "Saved leader" }] }, sets: { source: "manual", sets: { "Worship Set 1": [{ title: "Saved song" }] } } };
-      const empty = {};
+      const state = { rig: { positions: [{ id: "lead", person: "Saved leader" }] }, sets: { source: "manual", sets: { "Worship Set 1": [{ title: "Saved song" }] } } };
+      const storage = new Map();
       let demoCalls = 0, finishes = 0;
       Object.assign(c, {
         LEADERPIN: "", LIVE: true, STATE: null,
         apiGet: () => Promise.reject(new Error("offline")),
         seedDemo: () => { demoCalls++; return { fabricated: true }; },
-        loadCache: () => cached ? state : null,
-        normalize: () => empty,
+        cacheAge: 0,
+        localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
         finishBoot: () => { finishes++; }
       });
       for (const name of ["refreshAll", "bindPageHistory", "bindNativeBack", "bindUploadLinks", "bindPlaybookToc", "renderIOList", "renderLeaders"]) c[name] = () => {};
-      runInContext(helpers + "\n" + extract("boot") + "\nboot();", c);
+      runInContext(helpers + "\n" + ["normalize", "saveCache", "loadCache"].map(extract).join("\n"), c);
+      if (cached) c.saveCache(state);
+      runInContext(extract("boot") + "\nboot();", c);
       await new Promise(resolve => setImmediate(resolve));
       assert.equal(demoCalls, 0, "a production native app must never seed demo content");
-      assert.equal(c.STATE, cached ? state : empty);
+      assert.deepEqual(JSON.parse(JSON.stringify(c.STATE.rig)), cached ? state.rig : null);
+      assert.deepEqual(JSON.parse(JSON.stringify(c.STATE.sets)), cached ? state.sets : null);
+      assert.equal(c.cacheAge > 0, cached);
       assert.equal(c.LIVE, false);
       assert.equal(finishes, 1);
     });
