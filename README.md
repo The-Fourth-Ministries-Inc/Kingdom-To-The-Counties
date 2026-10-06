@@ -5,6 +5,15 @@ live view: checklist, announcements, check-ins, headcount, praises, and feedback
 all stay in sync across phones within a few seconds.
 
 
+## Native offline persistence (v1.23.1)
+
+Installed iPhone and Android apps now treat Capacitor's localhost origin as
+production. If a phone opens without a connection, it restores the last real
+cached board, including the saved Tech I/O lineup and worship sets, or shows
+empty state when nothing has synced yet. It never falls back to demo content.
+Share App in the native shells now uses the public Ambassador Companion URL.
+Mike's v1.23.0 updates and the earlier PIN/schedule fixes remain included.
+
 ## Worship sets from Planning Center (v1.23.0)
 
 On the **Now** tab, the roll-down songs under Worship Set 1–4 and Outro +
