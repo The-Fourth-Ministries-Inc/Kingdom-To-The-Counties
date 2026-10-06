@@ -5,6 +5,18 @@ live view: checklist, announcements, check-ins, headcount, praises, and feedback
 all stay in sync across phones within a few seconds.
 
 
+## Day PIN keyboard overlap (v1.20.1)
+
+The Day PIN form now scrolls independently of Unlock and Privacy. The footer
+keeps its own layout space instead of sticking over the focused PIN. Focus
+scrolling uses the form's actual visible bounds for both Safari's visual
+viewport and native shells that resize their layout viewport. The updated
+v1.20.0 event schedule remains bundled in this release.
+
+Automated layout tests cover reduced viewports, rotation, repeated focus, and
+keyboard close/reopen. These simulations do not replace testing the keyboard
+on a physical iPhone in Safari and in the signed TestFlight app before release.
+
 ## Mobile store foundation (v1.17.2)
 
 Ambassador Companion now has one permanent native identity for both stores:

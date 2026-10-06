@@ -93,7 +93,7 @@ test("check-in prompt buttons and Day PIN Privacy link are ≥44px", () => {
   assert.match(rule(".dgsheet .ok"), /min-height\s*:\s*44px/);
 });
 
-test("Day PIN overlay can scroll the whole card when the viewport is short", () => {
+test("Day PIN card keeps a separate form scrollport when the viewport is short", () => {
   const gate = rule(".daygate");
   assert.match(gate, /align-items\s*:\s*flex-start/);
   assert.match(gate, /overflow\s*:\s*hidden/);
@@ -101,7 +101,9 @@ test("Day PIN overlay can scroll the whole card when the viewport is short", () 
   const sheet = rule(".dgsheet");
   assert.match(sheet, /margin-top\s*:\s*auto/);
   assert.match(sheet, /margin-bottom\s*:\s*auto/);
-  assert.match(sheet, /overflow-y\s*:\s*auto/);
+  assert.match(sheet, /overflow\s*:\s*hidden/);
+  assert.match(rule(".dgbody"), /overflow-y\s*:\s*auto/);
+  assert.match(rule(".dgactions"), /flex:\s*0 0 auto/);
   /* 100svh alone is the Chrome *window*, not a 390-tall #phone frame.
      min(100%, …) keeps the sheet inside the overlay on first paint. */
   assert.match(sheet, /min\(100%,calc\(100svh - 16px\)\)/);

@@ -2111,7 +2111,9 @@ function kbScrollField(field,scroller){
   if(!field||!scroller||field===scroller)return;
   var fr=field.getBoundingClientRect();
   var sr=scroller.getBoundingClientRect();
-  var pad=16;
+  /* In a short landscape keyboard viewport, leave only the padding that
+     fits around the field. A fixed 16px can push its other edge out of view. */
+  var pad=Math.min(16,Math.floor(Math.max(0,(sr.height-fr.height)/2)));
   if(fr.bottom>sr.bottom-pad)scroller.scrollTop+=Math.ceil(fr.bottom-(sr.bottom-pad));
   else if(fr.top<sr.top+pad)scroller.scrollTop-=Math.ceil((sr.top+pad)-fr.top);
 }
@@ -2145,9 +2147,9 @@ function syncKbOverlay(){
     else kbUnpinOverlay(el);
   }
   var ae=document.activeElement;
-  if(shown.length&&rect&&kbIsField(ae)){
+  if(shown.length&&kbIsField(ae)){
     for(j=0;j<shown.length;j++){
-      if(shown[j].contains(ae))kbScrollField(ae,shown[j].querySelector(".dgsheet, .sheet")||shown[j]);
+      if(shown[j].contains(ae))kbScrollField(ae,shown[j].querySelector(".dgbody, .sheet")||shown[j]);
     }
   }else if(!shown.length){
     kbSyncPageField();
