@@ -193,6 +193,17 @@ test("progress counts only what is in use this event", () => {
   assert.equal(T.ioCounts(rig).done, 0);
 });
 
+test("musician cards show the stage patch, not the AVB stream", () => {
+  const rig = fresh(), D = T.ioDerive(rig);
+  assert.equal(T.ioLocStr(D, inp(rig, "kick").r), "Snake 1 · Ark 25");
+  assert.equal(T.ioLocStr(D, inp(rig, "tom-1").r), "Snake 4 · NSB 1");
+  assert.equal(T.ioLocStr(D, inp(rig, "vox-a-tuned").r), "Ark 1");
+  assert.equal(T.ioLocStr(D, inp(rig, "toms-mix").r), "Snake 4-6");
+  assert.equal(T.ioLocStr(D, inp(rig, "tracks-l").r), "Personal MBP Network");
+  const html = T.ioRenderCards(rig, D);
+  assert.doesNotMatch(html, /class="loc">[^<]*AVB/, "no AVB on any card");
+});
+
 test("CSV export lists the inputs by AVB and the IEM sheet", () => {
   const rows = T.ioCsvRows(fresh());
   eq(rows[0].slice(0, 3), ["AVB", "Snake", "Patch"]);

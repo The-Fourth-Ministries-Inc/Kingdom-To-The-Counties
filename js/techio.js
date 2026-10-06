@@ -233,10 +233,11 @@ function ioPatchOf(D,r){
   }
   return r.port||"";
 }
-/* The one-line patch reference on a musician card. */
+/* The one-line patch reference on a musician card: where to plug in on stage.
+   AVB is network routing that lives in the Inputs table, so it stays off
+   the card (v1.21.1). */
 function ioLocStr(D,r){
-  var bits=[],a=ioAvbOf(D,r),s=ioSnakeOf(D,r);
-  if(a)bits.push("AVB "+a);
+  var bits=[],s=ioSnakeOf(D,r);
   if(s)bits.push("Snake "+s);
   if(r.via==="split"&&r.split)bits.push("Ark "+r.split);
   if(r.via==="nsb"&&D.nsb[r.id])bits.push("NSB "+D.nsb[r.id]);
