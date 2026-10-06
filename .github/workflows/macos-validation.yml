@@ -1,0 +1,55 @@
+name: Native macOS validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MOBILE_API_ORIGIN: https://ambassadorcompanion.netlify.app
+
+jobs:
+  macos:
+    name: Universal AppKit build and desktop smoke tests
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - name: Build Apple Silicon and Intel macOS app
+        run: npm run build:macos
+      - name: Run native window and WebKit smoke tests
+        run: |
+          set -o pipefail
+          "build/macos/Ambassador Companion.app/Contents/MacOS/AmbassadorCompanion" --smoke-test 2>&1 | tee build/macos/test-results/native-smoke.log
+          OUTPUT="$(sed -n 's/^SMOKE_OUTPUT_DIRECTORY=//p' build/macos/test-results/native-smoke.log | head -1)"
+          test -n "$OUTPUT"
+          cp "$OUTPUT"/*.png build/macos/test-results/
+      - name: Package validation app
+        run: ditto -c -k --sequesterRsrc --keepParent "build/macos/Ambassador Companion.app" build/macos/Ambassador-Companion-macOS-validation.zip
+      - name: Upload desktop test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambassador-companion-macos-test-evidence
+          path: build/macos/test-results
+          retention-days: 14
+      - name: Upload native macOS validation app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambassador-companion-macos-universal-validation
+          path: build/macos/Ambassador-Companion-macOS-validation.zip
+          retention-days: 14

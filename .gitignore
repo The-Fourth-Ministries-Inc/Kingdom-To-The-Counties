@@ -36,3 +36,6 @@ npm-debug.log*
 *.p8
 AuthKey_*.p8
 keystore.properties
+
+# Native macOS sources are committed; generated app bundles are not.
+/build/
