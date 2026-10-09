@@ -172,6 +172,19 @@ textarea, select,
   .setlist .sm{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .setlist .sk{flex:none;font-weight:700;font-size:10.5px;color:var(--wine);background:#f4e6dc;padding:2px 7px;border-radius:99px;letter-spacing:.2px}
   .setlist .sl{flex:1 1 160px;min-width:0;color:var(--muted);font-size:11.5px}
+  /* Shared event schedule editor. */
+  .scbar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+  .sceditor{margin:14px 0}
+  .scrow{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-bottom:10px}
+  .scrow h4{margin:0 0 8px;font-family:var(--serif);font-size:16px}
+  .scrow label{display:block;font-size:13px;color:var(--muted)}
+  .scrow input{display:block;width:100%;min-width:0;min-height:44px;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);margin:4px 0 8px}
+  .sctimes{display:flex;gap:10px}
+  .sctimes label{flex:1;min-width:0}
+  .scshift{display:flex;flex-wrap:wrap;gap:8px}
+  .scshift button{min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-family:inherit}
+  .scerror{color:#8a201e;font-size:13px;line-height:1.4}
+  .scerror:empty{display:none}
   /* Worship sets: source line, leader sync/edit, editor (v1.23.0) */
   .wsbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:16px 0 4px}
   .wssrc{flex-basis:100%;font-size:11.5px;color:var(--muted);line-height:1.4}
@@ -1231,7 +1244,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.23.0</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.24.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1258,7 +1271,8 @@ textarea, select,
     <div class="checkinprompt" id="tourPrompt" style="display:none"><span>🧭 First time in the app?</span><button onclick="guideStart()">Take the tour</button></div>
     <div id="scheduleAnchor" style="margin-top:28px;padding-top:22px;border-top:1px solid var(--line)">
       <p class="eyebrow">Order of Events</p><h1 class="title">The Day</h1>
-      <p class="sub">Saturday · Setup 9:00 AM → Program 2:00–5:00 PM <b>SHARP</b></p>
+      <p class="sub" id="scheduleSummary">Event day · 8:00 AM – 5:00 PM</p>
+      <div id="scheduleBar"></div>
       <div id="spineMount"></div>
       <div id="setsBar"></div>
     </div>
@@ -2622,6 +2636,7 @@ textarea, select,
   <button class="tab" data-tab="guides"><svg viewBox="0 0 24 24"><path d="M12 6c-2-2-5-2-7-1v13c2-1 5-1 7 1 2-2 5-2 7-1V5c-2-1-5-1-7 1z"/><path d="M12 6v13"/></svg><span class="tl">Resources</span></button>
 </nav>
 <script src="mobile-runtime.js"></script>
+<script src="js/schedule.js"></script>
 <script src="js/worship.js"></script>
 <script src="js/techio.js"></script>
 <script src="js/app-core.js"></script>

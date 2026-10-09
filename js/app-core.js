@@ -66,6 +66,7 @@ function findCurrent(t){for(var i=0;i<SEGMENTS.length;i++){if(t>=SEGMENTS[i].s&&
 function findNext(t){for(var i=0;i<SEGMENTS.length;i++){if(SEGMENTS[i].s>t)return i;}return -1;}
 function countdownStr(toMin){var diff=toMin-nowMinutes();if(diff<0)diff=0;var h=Math.floor(diff/60),mn=Math.floor(diff%60),s=Math.floor((diff*60)%60);if(h>0)return h+"h "+mn+"m";if(mn>0)return mn+"m "+String(s).padStart(2,"0")+"s";return s+"s";}
 function renderNow(){
+  if(typeof scApply==="function")scApply();
   /* Off event-weekend the LIVE card is the next county stop, not Saturday's
      clock segments (those look empty or "Program complete" on a Tuesday). */
   if(typeof paintOffDayStop==="function"&&paintOffDayStop())return;
@@ -79,11 +80,12 @@ function renderNow(){
   }else{liveTag.classList.add("off");liveTxt.textContent="Standing By";badge.style.display="none";progWrap.style.display="none";
     if(t<SEGMENTS[0].s){document.getElementById("nowName").textContent="Not started yet";document.getElementById("nowWhen").textContent="First call at "+fmt(SEGMENTS[0].s);cd.innerHTML="Day starts in <b>"+countdownStr(SEGMENTS[0].s)+"</b>";}
     else if(ni>=0){document.getElementById("nowName").textContent="Between segments";document.getElementById("nowWhen").textContent="Catch your breath — next up soon";cd.innerHTML="Next in <b>"+countdownStr(SEGMENTS[ni].s)+"</b>";}
-    else{document.getElementById("nowName").textContent="Program complete 🎉";document.getElementById("nowWhen").textContent="Ended 5:00 PM SHARP — great work, team.";cd.textContent="Time for teardown. God is good!";}}
+    else{document.getElementById("nowName").textContent="Program complete 🎉";document.getElementById("nowWhen").textContent="Ended "+fmt(SEGMENTS[SEGMENTS.length-1].e)+" — great work, team.";cd.textContent="Time for teardown. God is good!";}}
   var nc=document.getElementById("nextCard");
   if(ni>=0){nc.style.display="block";document.getElementById("nextName").textContent=SEGMENTS[ni].name;document.getElementById("nextWhen").textContent=range(SEGMENTS[ni])+" · "+MUSIC_LABEL[SEGMENTS[ni].music];}else{nc.style.display="none";}
 }
 function renderSpine(){
+  if(typeof scApply==="function")scApply();
   var t=nowMinutes(),ci=findCurrent(t),mount=document.getElementById("spineMount"),html="",lastGroup="";
   var openSets={};
   mount.querySelectorAll(".setdrop[open]").forEach(function(d){
@@ -91,7 +93,11 @@ function renderSpine(){
     if(k) openSets[k]=true;
   });
   SEGMENTS.forEach(function(seg,i){
-    if(seg.group!==lastGroup){html+='<div class="group-label">'+(seg.group==="setup"?"Setup · 8 AM – 1 PM":"Program · 2 – 5 PM Sharp")+'</div>';lastGroup=seg.group;}
+    if(seg.group!==lastGroup){
+      var groupEnd=seg.e;
+      for(var j=i+1;j<SEGMENTS.length&&SEGMENTS[j].group===seg.group;j++)groupEnd=SEGMENTS[j].e;
+      html+='<div class="group-label">'+(seg.group==="setup"?"Setup":"Program")+' · '+fmt(seg.s)+' – '+fmt(groupEnd)+'</div>';lastGroup=seg.group;
+    }
     var cls="seg";if(i===ci)cls+=" now";else if(t>=seg.e)cls+=" past";
     var songs=setlistFor(seg.name);
     var meta=MUSIC_LABEL[seg.music]+(seg.meta?(" · "+seg.meta):"");
@@ -109,6 +115,9 @@ function renderSpine(){
     html+='</div></div>';
   });
   mount.innerHTML=html;
+  var summary=document.getElementById("scheduleSummary");
+  if(summary)summary.textContent="Event day · "+fmt(SEGMENTS[0].s)+" – "+fmt(SEGMENTS[SEGMENTS.length-1].e);
+  if(typeof scRenderBar==="function")scRenderBar();
   if(typeof wsRenderBar==="function")wsRenderBar();
 }
 function renderStrip(){
@@ -189,7 +198,7 @@ var SETUP=[
   ]}
 ];
 var TEARDOWN=[];
-var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],miracles:[],binNotes:[],binState:{},count:0,event:{name:"",date:""},ioList:[],ioBuses:[],rig:null,sets:null,dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
+var STATE={checklist:{},announcements:[],checkins:[],feedback:[],praises:[],miracles:[],binNotes:[],binState:{},count:0,event:{name:"",date:""},ioList:[],ioBuses:[],rig:null,sets:null,schedule:null,dayPinSet:false,funding:{pct:64,needed:"$60,000"},prompter:{scripts:[]},tallyBy:{},radios:[]};
 var LIVE=false,LEADER=false,seenAnn=0,seenIssue=0,inflight=0,countFlushT=null,countSending=false;
 /* Which announcement the volunteer closed (id, or "checkin"), and the last
    urgent one we alerted for — see renderAnnouncements. */
@@ -218,7 +227,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
    onclick="fn('...')" handlers all over this file, so a lone ' would break out
    of the JS string literal inside the attribute. */
 function esc(s){return(s||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
-function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],miracles:Array.isArray(s.miracles)?s.miracles:[],witnessMin:s.witnessMin||2,binNotes:Array.isArray(s.binNotes)?s.binNotes:[],binState:(s.binState&&typeof s.binState==="object")?s.binState:{},binsRev:(s.binsRev!=null?s.binsRev:null),county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],ioBuses:Array.isArray(s.ioBuses)?s.ioBuses:[],rig:(s.rig&&Array.isArray(s.rig.positions))?s.rig:null,sets:(s.sets&&s.sets.sets&&typeof s.sets.sets==="object")?s.sets:null,dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
+function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],miracles:Array.isArray(s.miracles)?s.miracles:[],witnessMin:s.witnessMin||2,binNotes:Array.isArray(s.binNotes)?s.binNotes:[],binState:(s.binState&&typeof s.binState==="object")?s.binState:{},binsRev:(s.binsRev!=null?s.binsRev:null),county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],ioBuses:Array.isArray(s.ioBuses)?s.ioBuses:[],rig:(s.rig&&Array.isArray(s.rig.positions))?s.rig:null,sets:(s.sets&&s.sets.sets&&typeof s.sets.sets==="object")?s.sets:null,schedule:(s.schedule&&typeof s.schedule==="object")?s.schedule:null,dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
 /* toast(msg) is the plain one. toast(msg,label,fn) adds a tappable action —
    used for Undo, which gets a longer dwell because you have to reach for it. */
 function toast(msg,actLabel,actFn){
