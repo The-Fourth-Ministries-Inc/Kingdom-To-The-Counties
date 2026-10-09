@@ -4,6 +4,33 @@ A lightweight, no-login companion app for K2C ambassadors. Everyone shares one
 live view: checklist, announcements, check-ins, headcount, praises, and feedback
 all stay in sync across phones within a few seconds.
 
+## Change the event schedule without a store release (v1.24.0)
+
+On **Now → The Day → Edit schedule**, unlock with the leader PIN, change a
+segment's start/end time or notes, and tap **Save to everyone**. **From here
++5 min / −5 min** shifts that segment and everything after it, preserving
+durations and gaps. NOW, NEXT, countdowns, the running order, and its time
+headings use the saved times. Overlapping or reversed times cannot be saved.
+
+Edits belong to the selected county's event and arrive through the normal
+poll (usually within five seconds while the app is open and connected).
+**Restore original** returns that event to the bundled times. Switching
+counties restores the selected event's own schedule, and end-of-day Reset
+does not erase it. Another leader's save or a county change makes a stale
+editor fail with a message instead of overwriting their work.
+
+Saving requires a connection and confirms the server accepted the change.
+An unsuccessful save keeps the draft open. Offline phones keep the last
+schedule they synced and receive changes after reconnecting; an open editor
+is never rebuilt by a background poll. This edits the day's running order,
+not county dates or checklist deadlines.
+
+Native copies need **one update to v1.24.0 or later** to read shared schedules.
+After that, timing changes are server data and need no Apple/Google build or
+review. v1.23.0 and earlier still use their bundled times. Schedule records
+live separately in `schedule~<county>` so those older app copies cannot
+erase them with a board write.
+
 
 ## Worship sets from Planning Center (v1.23.0)
 

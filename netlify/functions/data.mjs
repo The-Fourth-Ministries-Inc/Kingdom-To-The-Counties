@@ -1,4 +1,5 @@
 import { getStore } from "@netlify/blobs";
+import { normalizeSegments, normalizeEventSchedule } from "./event-schedule.mjs";
 // Starter teleprompter scripts. Missing ones are merged into the live board
 // automatically on read, so every user sees every county without a leader
 // having to seed anything. Generated from data/scripts.json — regenerate with
@@ -852,7 +853,7 @@ const LEADER_ACTIONS = new Set([
     ioSetRow. */
  "rigSave","rigClearChecks","rigTemplateSave","rigRestore",
  /* Worship sets on the Now tab. */
- "setSets","pcoSync"
+ "setSets","pcoSync","setSchedule"
 ]);
 
 /* ---------------- per-county scoping (v1.11.0) ----------------
@@ -967,6 +968,7 @@ function mkKeys(cty){
   checkins: "checkins" + x,
   io: "io" + x,
   sets: "sets" + x,
+  schedule: "schedule" + x,
   radios: "radios" + x,
   agg: "count-agg" + x,
   decAgg: "dec-agg" + x,
@@ -1111,15 +1113,16 @@ const legacyState = s => async () => (await s.get("state", { type:"json" })) || 
 const casCore = (s, K, mutate) => compareAndSwap(s, K.core, normCore, mutate, legacyState(s));
 
 async function readAll(s, K){
- const [core, checkins, io, prompter, radios, sets] = await Promise.all([
+ const [core, checkins, io, prompter, radios, sets, schedule] = await Promise.all([
  s.get(K.core, { type:"json" }),
  s.get(K.checkins, { type:"json" }),
  s.get(K.io, { type:"json" }),
  s.get("prompter", { type:"json" }),   // season-long, never county-scoped
  s.get(K.radios, { type:"json" }),
- s.get(K.sets, { type:"json" })
+ s.get(K.sets, { type:"json" }),
+ s.get(K.schedule, { type:"json" })
  ]);
- return { core, checkins, io, prompter, radios, sets };
+ return { core, checkins, io, prompter, radios, sets, schedule };
 }
 
 async function migrateIfNeeded(s, K, parts){
@@ -1137,7 +1140,7 @@ async function migrateIfNeeded(s, K, parts){
  (old && old.count) ? s.setJSON(devKey("legacy", K), old.count) : Promise.resolve()
  ]);
  // old "state" blob is left in place untouched as a safety net
- return { core, checkins, io, prompter, radios: parts.radios || null, sets: parts.sets || null };
+ return { core, checkins, io, prompter, radios: parts.radios || null, sets: parts.sets || null, schedule: parts.schedule || null };
 }
 
 /* ---- head count aggregation ---- */
@@ -1318,6 +1321,7 @@ async function assemble(s, K, active, lvl){
  /* This event's worship sets (from Planning Center or a leader's edit);
     null until one exists, and the app falls back to its built-in list. */
  sets: parts.sets ? normSets(parts.sets) : null,
+ schedule: parts.schedule ? normalizeEventSchedule(parts.schedule) : null,
  dayPinSet: !!dayPin, // the PIN itself is never sent to clients
  county: K.cty,          // which county's board this is
  countyAuto: !active.manual,
@@ -1959,6 +1963,33 @@ export default async (req, context) => {
     silent overwrite of the team's own I/O map — and it did exactly that once.
     Replacing the roster is a leader decision (setIOList), never a side effect
     of ticking an input off. */
+ /* Schedule edits are online-only, scoped to the event the editor opened,
+    and revision-checked. A stale editor must never overwrite another leader
+    or silently save to the new county after rollover. */
+ case "setSchedule": {
+ if(payload.county !== K.cty) return json({ error:"event changed" }, 409);
+ const segments = payload.segments === null ? null : normalizeSegments(payload.segments);
+ if((payload.segments !== null && !segments) ||
+    !Number.isSafeInteger(payload.baseRev) || payload.baseRev < 0 ||
+    typeof payload.saveId !== "string" || !/^[a-zA-Z0-9_-]{1,60}$/.test(payload.saveId)){
+  return json({ error:"schedule needs ordered, non-overlapping times and a valid revision" }, 400);
+ }
+ let saved;
+ try {
+  saved = await compareAndSwap(s, K.schedule, normalizeEventSchedule, cur => {
+   if(cur.saveId === payload.saveId) return undefined; // confirmed retry
+   if(cur.rev !== payload.baseRev) throw new Error("schedule revision changed");
+   return normalizeEventSchedule({
+    rev: cur.rev + 1, saveId: payload.saveId, savedBy: str(payload.by, 40),
+    savedAt: new Date().toISOString(), segments
+   });
+  });
+ } catch(e){
+  if(e.message === "schedule revision changed") return json({ error:"schedule changed; reopen the editor" }, 409);
+  throw e;
+ }
+ return json({ ok:true, county:K.cty, schedule:saved });
+ }
  /* ---- Worship sets (v1.23.0) ---- */
  case "setSets":
  await compareAndSwap(s, K.sets, normSets, cur => normSets({
