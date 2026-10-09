@@ -1,0 +1,23 @@
+/* Native AppKit supplies navigation; the shared feature views fill its detail
+   pane. Breakpoints use the pane width, not the whole Mac display. */
+html.k2c-macos body{display:flex;flex-direction:column;min-width:0}
+html.k2c-macos .tabbar{display:none}
+html.k2c-macos main{width:100%;max-width:1480px;padding:24px clamp(18px,3vw,44px) 36px}
+html.k2c-macos .topwrap{width:100%}
+html.k2c-macos .topbar,html.k2c-macos .nowstrip,html.k2c-macos .annbar{padding-left:24px;padding-right:24px}
+html.k2c-macos .toast{bottom:22px}
+html.k2c-macos button,html.k2c-macos a{touch-action:manipulation}
+html.k2c-macos :focus-visible{outline:3px solid var(--rust);outline-offset:3px}
+html.k2c-macos #page-now.active{display:block}
+html.k2c-macos #page-now #scheduleAnchor{margin-top:22px!important;padding-top:22px!important;border-top:1px solid var(--line)!important}
+@media (min-width:800px){
+  html.k2c-macos #page-crew .hub,html.k2c-macos #page-guides .hub{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  html.k2c-macos #page-crew .hubcard,html.k2c-macos #page-guides .hubcard{height:100%}
+}
+@media (min-width:1000px){
+  html.k2c-macos #page-now.active{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:34px;align-items:start}
+  html.k2c-macos #page-now #scheduleAnchor{grid-column:2;grid-row:1/span 12;margin-top:0!important;padding-top:0!important;border-top:0!important}
+}
+@media print{
+  html.k2c-macos main{max-width:none;padding:0}
+}

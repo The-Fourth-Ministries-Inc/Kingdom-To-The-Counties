@@ -65,3 +65,11 @@ absent until a human confirms otherwise.
 - [app-store-listing.DRAFT.md](app-store-listing.DRAFT.md) — App Store copy. **Not live.**
 - [google-play-listing.DRAFT.md](google-play-listing.DRAFT.md) — Play copy. **Not live.**
 - [reviewer-notes.DRAFT.md](reviewer-notes.DRAFT.md) — review Day PIN placeholder. **Not live.**
+
+## Native macOS workspace (v1.23.0)
+
+A separate native AppKit desktop target and hosted validation workflow now live
+in `macos/` and `.github/workflows/macos-validation.yml`. Native window/sidebar,
+menus and desktop behavior host the shared WebKit feature views. This does not
+change the iPhone-only iOS target. See [MACOS.md](MACOS.md) for architecture,
+verification coverage, artifact names and the remaining Mac signing/release gates.

@@ -252,6 +252,19 @@ internal testing (draft) and TestFlight once GitHub Actions secrets exist.
 It never submits a production release. The secrets checklist, draft listings,
 and remaining human steps are in `docs/store-release/`.
 
+## Native macOS workspace (v1.23.0)
+
+A separate universal macOS app now provides a native AppKit window, resizable
+sidebar, desktop toolbar, menus, keyboard navigation, Find, printing and file
+panels. The shared feature views fill the desktop detail pane in WebKit, with
+no duplicate phone tab bar. Content is bundled for offline startup and uses
+the same authenticated backend and outbox.
+
+GitHub Actions builds Apple Silicon and Intel executables and runs native
+window/WebKit smoke tests at three desktop sizes. This is a validation target;
+Mac signing, distribution and hardware QA remain release gates. See
+[Native macOS release and testing](docs/store-release/MACOS.md).
+
 ## How it works
 
 - **`index.html`** — the entire app (front end).

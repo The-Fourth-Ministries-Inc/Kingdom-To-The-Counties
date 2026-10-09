@@ -545,6 +545,7 @@ window.addEventListener("pagehide",function(){
 });
 /* Demo content is for local development only — see boot(). */
 function isLocalDev(){
+  if(window.K2C_DESKTOP)return false;
   try{var h=location.hostname;return h==="localhost"||h==="127.0.0.1"||h==="::1"||h===""||location.protocol==="file:";}catch(_){return false;}
 }
 /* Last good server payload, so an offline boot shows the real board (clearly
@@ -2149,7 +2150,10 @@ function show(id,opts){
   if(id==="church"&&typeof renderChurchPage==="function"){renderChurchPage();if(typeof chFetch==="function")chFetch();}
 }
 /* v1.6.1 — Share-this-app QR (drawn locally from the current URL, works offline) */
-function appShareUrl(){return location.origin+location.pathname.replace(/index\.html$/,"");}
+function appShareUrl(){
+  if(window.K2C_DESKTOP)return "https://ambassadorcompanion.netlify.app/";
+  return location.origin+location.pathname.replace(/index\.html$/,"");
+}
 function renderShareQR(){
   var box=document.getElementById("qrBox");if(!box)return;
   var url=appShareUrl();
