@@ -2151,19 +2151,24 @@ export default async (req, context) => {
      when nothing is missing). */
   const part = wantPart;
   if(part === "blobsdiag" && storeName(req, context) !== STORE){
-   const out = {};
-   const a = await s.getWithMetadata("churches", { type: "json" });
-   out.readEtag = a && a.etag; out.readEtagType = typeof (a && a.etag);
-   const m = await s.getMetadata("churches").catch(e => ({ err: String(e) }));
-   out.metaEtag = m && m.etag;
-   await s.setJSON("diag", { n: 1 });
-   const d = await s.getWithMetadata("diag", { type: "json" });
-   out.diagEtag = d && d.etag;
-   out.bogus = await s.setJSON("diag", { n: 2 }, { onlyIfMatch: '"bogus"' }).catch(e => ({ err: String(e) }));
-   out.good = d && d.etag ? await s.setJSON("diag", { n: 3 }, { onlyIfMatch: d.etag }).catch(e => ({ err: String(e) })) : "no etag";
-   out.stale = d && d.etag ? await s.setJSON("diag", { n: 4 }, { onlyIfMatch: d.etag }).catch(e => ({ err: String(e) })) : "no etag";
-   out.final = await s.get("diag", { type: "json" });
-   return new Response(JSON.stringify(out), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+   const key = "diagcnt-" + Date.now();
+   const n = Number(new URL(req.url).searchParams.get("n")) || 20;
+   const stats = { wins: 0, conflicts: 0, throws: 0, noEtag: 0 };
+   const one = async () => {
+    for(let i = 0; i < 60; i++){
+     if(i) await backoff(i);
+     const r = await s.getWithMetadata(key, { type: "json" });
+     if(r && !r.etag) stats.noEtag++;
+     const next = { n: ((r && r.data && r.data.n) || 0) + 1 };
+     let w;
+     try { w = await s.setJSON(key, next, r ? { onlyIfMatch: r.etag } : { onlyIfNew: true }); } catch(e){ stats.throws++; continue; }
+     if(w && w.modified){ stats.wins++; return; }
+     stats.conflicts++;
+    }
+   };
+   await Promise.all(Array.from({ length: n }, one));
+   const fin = await s.get(key, { type: "json" });
+   return new Response(JSON.stringify({ n, final: fin, stats }), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
   }
   if(part === "churches"){
    const ch = await casChurches(s, c => {
