@@ -1689,14 +1689,16 @@ async function bumpDecAgg(s, K, effTotal, effBy){
   try { res = await s.getWithMetadata(K.decAgg, { type:"json" }); } catch(_) { res = null; }
   if(!(res && res.data && typeof res.data.total === "number")){
    const fresh = await rebuildDecAgg(s, K);
-   let w; try { w = await s.setJSON(K.decAgg, fresh, { onlyIfNew:true }); } catch(_) { w = { modified:false }; }
-   if(w && w.modified) return;
+   const mark = uid();
+   let w; try { w = await s.setJSON(K.decAgg, fresh, { onlyIfNew:true, metadata: { w: [mark] } }); } catch(_) { w = { modified:false }; }
+   if(w && w.modified && await casSurvived(s, K.decAgg, mark)) return;
    continue;
   }
   const agg = { total: Math.max(0, (Number(res.data.total) || 0) + (effTotal || 0)), by: { ...res.data.by } };
   if(effBy) for(const k of Object.keys(effBy)) agg.by[k] = Math.max(0, (Number(agg.by[k]) || 0) + effBy[k]);
-  let w; try { w = await s.setJSON(K.decAgg, agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
-  if(w && w.modified) return;
+  const mark = uid();
+  let w; try { w = await s.setJSON(K.decAgg, agg, { onlyIfMatch: res.etag, metadata: { w: [...casTrail(res.metadata), mark] } }); } catch(_) { w = { modified:false }; }
+  if(w && w.modified && await casSurvived(s, K.decAgg, mark)) return;
  }
  await s.delete(K.decAgg).catch(() => {});
 }
@@ -1726,14 +1728,16 @@ async function bumpAgg(s, K, effTotal, effBy){
   if(!(res && res.data && typeof res.data.total === "number")){
    // No cache yet — seed it from the shards (which already include this tap).
    const fresh = await rebuildAgg(s, K);
-   let w; try { w = await s.setJSON(K.agg, fresh, { onlyIfNew:true }); } catch(_) { w = { modified:false }; }
-   if(w && w.modified) return;
+   const mark = uid();
+   let w; try { w = await s.setJSON(K.agg, fresh, { onlyIfNew:true, metadata: { w: [mark] } }); } catch(_) { w = { modified:false }; }
+   if(w && w.modified && await casSurvived(s, K.agg, mark)) return;
    continue; // someone else seeded it; loop to apply our delta on top
   }
   const agg = { total: Math.max(0, (Number(res.data.total) || 0) + (effTotal || 0)), by: { ...res.data.by } };
   if(effBy) for(const k of Object.keys(effBy)) agg.by[k] = Math.max(0, (Number(agg.by[k]) || 0) + effBy[k]);
-  let w; try { w = await s.setJSON(K.agg, agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
-  if(w && w.modified) return;
+  const mark = uid();
+  let w; try { w = await s.setJSON(K.agg, agg, { onlyIfMatch: res.etag, metadata: { w: [...casTrail(res.metadata), mark] } }); } catch(_) { w = { modified:false }; }
+  if(w && w.modified && await casSurvived(s, K.agg, mark)) return;
  }
  await s.delete(K.agg).catch(() => {}); // give up cleanly → next read rebuilds
 }
@@ -2176,27 +2180,6 @@ export default async (req, context) => {
      The read is also where missing starter churches self-seed (no-op write
      when nothing is missing). */
   const part = wantPart;
-  if(part === "blobsdiag" && storeName(req, context) !== STORE){
-   const n = Number(new URL(req.url).searchParams.get("n")) || 20;
-   const raw = new URL(req.url).searchParams.get("raw") === "1";
-   const key = "diagcas-" + Date.now();
-   await s.setJSON(key, { ids: [] });
-   const stats = { mutates: 0, throws: 0, rawWins: 0 };
-   const one = async i => {
-    const id = "w" + i;
-    if(!raw) return compareAndSwap(s, key, v => ({ ids: (v && v.ids) || [] }), c => { stats.mutates++; return c.ids.includes(id) ? undefined : { ids: [...c.ids, id] }; }, () => ({ ids: [] })).catch(() => { stats.throws++; });
-    for(let a = 0; a < 60; a++){
-     if(a) await backoff(a);
-     const r = await s.getWithMetadata(key, { type: "json" });
-     const w = await s.setJSON(key, { ids: [...r.data.ids, id] }, { onlyIfMatch: r.etag }).catch(() => null);
-     if(w && w.modified){ stats.rawWins++; return; }
-    }
-   };
-   await Promise.all(Array.from({ length: n }, (_, i) => one(i)));
-   await sleep(500);
-   const fin = await s.get(key, { type: "json" });
-   return new Response(JSON.stringify({ n, raw, landed: fin.ids.length, stats }), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
-  }
   if(part === "churches"){
    const ch = await casChurches(s, c => {
     const merged = mergeStarterChurches(c);

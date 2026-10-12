@@ -53,14 +53,25 @@ longer reads the whole roster.
   nothing is saved and you see the latest copy. Edits to different fields of
   the same church both land. Copies older than v1.25.0 save the way they always
   did.
-- **Atomic writes (v1.25.1).** Every shared blob (churches, Tech I/O,
+- **No lost writes (v1.25.1).** Every shared blob (churches, Tech I/O,
   announcements, counters) is written with compare-and-swap: read with its
-  etag, write `onlyIfMatch`, retry on a lost race. `@netlify/blobs` 8.x
-  silently ignored `onlyIfMatch`/`onlyIfNew`, so until v1.25.1 those writes
-  were last-writer-wins within the same instant. The app now pins
-  `@netlify/blobs` 10.7.x, the newest line that runs on Node 18+ (11.x needs
-  Node 22.12). `test/blobs-client.test.js` fails if the installed client stops
-  honouring conditional writes.
+  etag, write `onlyIfMatch`, retry on a lost race. Two things made that a
+  fiction before v1.25.1:
+  - `@netlify/blobs` 8.x silently ignored `onlyIfMatch`/`onlyIfNew`. The app
+    now pins 10.7.x, the newest line that runs on Node 18+ (11.x needs Node
+    22.12). `test/blobs-client.test.js` fails if the installed client stops
+    honouring conditional writes.
+  - Netlify's `onlyIfMatch` is not atomic under contention. On a deploy
+    preview, 20 parallel conditional writes to one blob all reported success
+    and only 6–11 of the changes survived. So `compareAndSwap` no longer
+    trusts a "won" write. Each write adds a random mark to a short trail in
+    the blob's *metadata* (the stored value is unchanged), and a write built
+    on ours inherits the trail. About 150 ms later the writer reads the
+    metadata back. If its mark is gone, someone overwrote it from an older
+    copy, and the change is re-applied to the current value. The same
+    20-writer test then landed 20/20, 20/20 and 30/30, and 20 and 30
+    simultaneous church-log requests all landed. `test/cas-lossy.test.js`
+    reproduces the non-atomic store.
 - **Audit log.** Every change records who, when, and the before and after for
   each field in `churches-audit-YYYY-MM`, including bot imports and the
   one-time migrations.
