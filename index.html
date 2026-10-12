@@ -1268,7 +1268,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.26.0</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.27.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1709,7 +1709,8 @@ textarea, select,
         <div class="form" style="margin-bottom:0">
           <input id="chaName" maxlength="120" placeholder="Church / ministry name *" autocomplete="off" />
           <div class="twocol"><select id="chaKind"><option value="church">⛪ Church</option><option value="ministry">🕊️ Ministry</option></select><select id="chaCounty"></select></div>
-          <div class="twocol"><input id="chaTown" maxlength="60" placeholder="Town" autocomplete="off" /><input id="chaState" maxlength="20" placeholder="State" value="NH" autocomplete="off" /></div>
+          <div class="twocol"><input id="chaTown" maxlength="60" placeholder="Town" autocomplete="off" /><select id="chaState" aria-label="State"><option>NH</option><option>ME</option><option>VT</option><option>MA</option></select></div>
+          <select id="chaType" aria-label="Church type"><option value="">Church type…</option><option value="congregation">Congregation</option><option value="house-church">House church</option><option value="church-plant">Church plant</option><option value="campus">Campus of a multi-site church</option><option value="other">Other</option></select>
           <input id="chaAddress" maxlength="160" placeholder="Street address" autocomplete="off" />
           <div class="twocol"><input id="chaPhone" maxlength="40" inputmode="tel" placeholder="Phone" autocomplete="off" /><input id="chaEmail" maxlength="120" inputmode="email" placeholder="Email" autocomplete="off" /></div>
           <input id="chaWebsite" maxlength="200" inputmode="url" placeholder="Website" autocomplete="off" />

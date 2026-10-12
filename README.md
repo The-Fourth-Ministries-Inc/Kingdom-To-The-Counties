@@ -4,6 +4,43 @@ A lightweight, no-login companion app for K2C ambassadors. Everyone shares one
 live view: checklist, announcements, check-ins, headcount, praises, and feedback
 all stay in sync across phones within a few seconds.
 
+## Church profile: every field on Zach's list (v1.27.0)
+
+The church schema, the bot import API and the app all hold the same fields.
+New fields are stored only when set, so the roster download doesn't grow for
+churches that don't have them.
+
+| Field (API name) | Stored as | In the app |
+|---|---|---|
+| `name`, `town`, `address`, `phone`, `email`, `website`, `denomination` | same | Edit form; contact info and About cards |
+| `state`: `NH`, `ME`, `VT` or `MA` | `state` | Picker on the add and edit forms |
+| `pastor` | `leader` | "Pastor / leader" |
+| `socialLinks` (list of links) | `social` | About card, labelled Facebook, Instagram, YouTube… |
+| `description` (up to 600 characters) | `description` | Top of the About card |
+| `accreditations` (list) | `accreditations` | About card |
+| `network` (larger network, e.g. Acts 29) | `network` | About card |
+| `size`: a band or a head count | `sizeBand` | About card |
+| `type`: `congregation`, `house-church`, `church-plant`, `campus`, `other` | `churchType` | Picker on the add and edit forms |
+| `sourceUrls` (list of links) | `src` | About card; leaders can edit it |
+| partner level and flag | `partnerLevel` | Partnership card; leaders only |
+
+- **State.** Only the four states are accepted, from the API, the add form and
+  the edit form. "Maine", "Mass." or "nh" are rewritten to the code. Anything
+  else is refused with a reason (API `invalid`, app 400). The list today is
+  NH and ME only, so no existing church is affected.
+- **Lists** hold up to 10 entries, are de-duplicated, and keep only http(s)
+  links. More than 10 is refused, not trimmed. In the edit form, lists are
+  typed one per line.
+- **Partner level stays with leaders.** Bots still can't set it (`partner` or
+  `partnerLevel` in a record is `invalid`). `keys` and `lookup` now return
+  `partnerLevel` and `partner` (true for Partner or Covenant / Host, unless
+  flagged) so a bot can see it.
+- **Dedup is unchanged:** normalized name + town + state. The same name in the
+  same town in another state is a different church.
+- **Search and CSV.** Search also matches state, denomination, network, type and
+  description. The CSV adds Church type, Larger network, Accreditations,
+  Description and Social links as new columns at the end.
+
 ## Tech I/O kept on the server, copied before every write (v1.26.0)
 
 The Tech I/O lineup, the legacy roster, the PA outputs and the season
@@ -217,11 +254,13 @@ to revoke the bot. Two optional variables:
   is 150.
 
 A record has `name`, `town`, `county` (required for NH: one of the ten, or
-`Out of state`), `state` (default `NH`), at least one `sourceUrls` link and
-`researchedAt` (YYYY-MM-DD). It may also carry `kind`, `address`, `phone`,
-`email`, `website`, `contact`, `contactRole`, `leader`, `notes`,
-`denomination`, `sizeBand` and your own `ref`. Each record comes back with one
-of these statuses:
+`Out of state`), `state` (`NH`, `ME`, `VT` or `MA`; default `NH`), at least
+one `sourceUrls` link and `researchedAt` (YYYY-MM-DD). It may also carry
+`kind`, `address`, `pastor`, `phone`, `email`, `socialLinks`, `website`,
+`description`, `denomination`, `accreditations`, `network`, `size`, `type`,
+`contact`, `contactRole`, `notes` and your own `ref`. See the field table in
+the v1.27.0 section above. `fields`, `conflicts` and `missing` in answers use
+these names. Each record comes back with one of these statuses:
 
 - `created`: added unverified, with its sources.
 - `exists`: already on the list. This is what `create_only` returns for a match.

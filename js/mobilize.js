@@ -31,6 +31,16 @@ function chDigits(p){var d=(p||"").replace(/\D/g,"");if(d.length===11&&d.charAt(
 /* Partnership (v1.25.0). Partner + Covenant/Host count toward the goal;
    Praying is the first step. Flagged churches never count. */
 var CH_TIERS={praying:{ic:"🙏",lbl:"Praying"},partner:{ic:"🤝",lbl:"Partner"},covenant:{ic:"🏛",lbl:"Covenant / Host"}};
+/* Church profile (v1.27.0). Lists are typed one per line in the edit form. */
+var CH_STATES=["NH","ME","VT","MA"];
+var CH_TYPES=[["","Church type…"],["congregation","Congregation"],["house-church","House church"],["church-plant","Church plant"],["campus","Campus of a multi-site church"],["other","Other"]];
+function chTypeLbl(t){for(var i=1;i<CH_TYPES.length;i++)if(CH_TYPES[i][0]===t)return CH_TYPES[i][1];return "";}
+function chUrl(u){u=(u||"")+"";return /^https?:\/\//i.test(u)?u:"";}
+function chLines(v){var seen={},out=[];(v||"").split(/\r?\n/).forEach(function(x){x=x.trim();if(x&&!seen[x]){seen[x]=1;out.push(x);}});return out;}
+function chHost(u){var m=/^https?:\/\/(?:www\.)?([^\/?#:]+)/i.exec(u||"");return m?m[1].toLowerCase():"";}
+var CH_SOCIAL={"facebook.com":"Facebook","fb.com":"Facebook","instagram.com":"Instagram","youtube.com":"YouTube","youtu.be":"YouTube","x.com":"X","twitter.com":"X","tiktok.com":"TikTok","linkedin.com":"LinkedIn","threads.net":"Threads","vimeo.com":"Vimeo"};
+function chSocialLbl(u){var h=chHost(u);for(var k in CH_SOCIAL)if(h===k||h.slice(-k.length-1)==="."+k)return CH_SOCIAL[k];return h||"link";}
+function chLinks(list,lbl){return (list||[]).map(chUrl).filter(Boolean).map(function(u,i){return '<a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:var(--wine);font-weight:700;text-decoration:none;display:inline-block;padding:4px 0">'+esc(lbl(u,i))+' ↗</a>';}).join("<br>");}
 var CH_SIZES=[["","Size…"],["under-50","Under 50"],["50-99","50–99"],["100-249","100–249"],["250-499","250–499"],["500-999","500–999"],["1000+","1,000+"]];
 function chPartnerStats(){
   var n={praying:0,partner:0,covenant:0};
@@ -87,7 +97,7 @@ function chSetView(v){chView=v;var b=document.querySelectorAll("#chViews button"
 function chLoadMore(){chShown+=CH_PAGE;chRenderList();}
 function chMatches(c){
   if(chCounty&&c.county!==chCounty)return false;
-  if(chQ){var hay=(c.name+" "+c.town+" "+c.county+" "+c.leader+" "+c.contact+" "+c.notes).toLowerCase();if(hay.indexOf(chQ)<0)return false;}
+  if(chQ){var hay=(c.name+" "+c.town+" "+c.county+" "+c.state+" "+c.leader+" "+c.contact+" "+c.notes+" "+(c.denomination||"")+" "+(c.network||"")+" "+(c.description||"")+" "+chTypeLbl(c.churchType)).toLowerCase();if(hay.indexOf(chQ)<0)return false;}
   var eng=!!chLastEngage(c.id),conn=c.connections.length>0,flag=!!c.flag;
   if(chView==="need")return !flag&&!conn&&!eng;
   if(chView==="conn")return conn;
@@ -197,7 +207,8 @@ function chAddOpen(){
 /* CSV export — open to every ambassador (the list is shared team data). */
 function chExportCSV(){
   var cols=["Name","Type","Alignment","Status","Interest (0-5)","Town","County","State","Address","Phone","Email","Website","Primary contact","Contact role","Pastor / leader","Team connections","Last conversation","Flagged","Notes",
-    "Partner level","Date committed","Commitments","Pastor needs","Next step","Next step due","Owner","Follow-up contact","Follow-up phone","Follow-up email","Denomination","Size","Verified","Sources"];
+    "Partner level","Date committed","Commitments","Pastor needs","Next step","Next step due","Owner","Follow-up contact","Follow-up phone","Follow-up email","Denomination","Size","Verified","Sources",
+    "Church type","Larger network","Accreditations","Description","Social links"];
   var q=function(v){v=(v==null?"":""+v);return '"'+v.replace(/"/g,'""')+'"';};
   var rows=CH.list.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(c){
     var eng=chLastEngage(c.id);
@@ -207,7 +218,8 @@ function chExportCSV(){
       eng?((chFmtD(eng.d)||eng.t)+" — "+eng.by+(eng.note?": "+eng.note:"")):"",
       c.flag?(c.flag.reason+(c.flag.note?" — "+c.flag.note:"")):"",c.notes,
       CH_TIERS[c.partnerLevel]?CH_TIERS[c.partnerLevel].lbl:"",c.partnerSince||"",c.commitments||"",c.pastorNeeds||"",c.nextStep||"",c.nextStepDue||"",c.owner||"",
-      c.followName||"",c.followPhone||"",c.followEmail||"",c.denomination||"",c.sizeBand||"",c.verified===false?"No":"Yes",(c.src||[]).join(" ")].map(q).join(",");
+      c.followName||"",c.followPhone||"",c.followEmail||"",c.denomination||"",c.sizeBand||"",c.verified===false?"No":"Yes",(c.src||[]).join(" "),
+      chTypeLbl(c.churchType),c.network||"",(c.accreditations||[]).join("; "),c.description||"",(c.social||[]).join(" ")].map(q).join(",");
   });
   var csv="﻿"+cols.map(q).join(",")+"\r\n"+rows.join("\r\n");
   var a=document.createElement("a");
@@ -466,13 +478,13 @@ function chAddSubmit(){
   chMe(function(){
     var st=chStamp(),by=myTag();
     var rec={id:uid(),name:name,kind:g("chaKind")||"church",town:g("chaTown"),county:g("chaCounty"),state:g("chaState")||"NH",
-      address:g("chaAddress"),phone:g("chaPhone"),email:g("chaEmail"),website:g("chaWebsite"),
+      churchType:g("chaType"),address:g("chaAddress"),phone:g("chaPhone"),email:g("chaEmail"),website:g("chaWebsite"),
       contact:g("chaContact"),contactRole:"",leader:g("chaLeader"),notes:g("chaNotes"),intro:"",ask:"",
       align:"unverified",interest:0,flag:null,connections:[],addedBy:by,t:st.t,d:st.d};
     if(!chAction("churchAdd",{church:rec},function(){
       CH.list.push(rec);CH.log.push({id:uid(),ch:rec.id,type:"add",by:by,note:name,t:st.t,d:st.d});
     }))return;
-    ["chaName","chaTown","chaAddress","chaPhone","chaEmail","chaWebsite","chaContact","chaLeader","chaNotes"].forEach(function(i){var e=document.getElementById(i);if(e)e.value="";});
+    ["chaName","chaTown","chaAddress","chaPhone","chaEmail","chaWebsite","chaContact","chaLeader","chaNotes","chaType"].forEach(function(i){var e=document.getElementById(i);if(e)e.value="";});
     toast("➕ "+name+" added to the master list");
   });
 }
@@ -497,17 +509,21 @@ function chEditSubmit(id){
     partnerLevel:g("cheTier"),partnerSince:g("chePartnerSince"),commitments:g("cheCommitments"),pastorNeeds:g("chePastorNeeds"),
     nextStep:g("cheNextStep"),nextStepDue:g("cheNextStepDue"),owner:g("cheOwner"),
     followName:g("cheFollowName"),followPhone:g("cheFollowPhone"),followEmail:g("cheFollowEmail"),
-    denomination:g("cheDenom"),sizeBand:g("cheSize")};
+    denomination:g("cheDenom"),sizeBand:g("cheSize"),
+    churchType:g("cheType"),network:g("cheNetwork"),description:g("cheDescription"),
+    accreditations:chLines(g("cheAccred")),social:chLines(g("cheSocial")),src:chLines(g("cheSources"))};
   var vb=document.getElementById("cheVerified");if(vb)form.verified=!!vb.checked;
   if(!form.name){flash("cheName");return;}
+  var longL=[["accreditations","cheAccred","accreditations"],["social","cheSocial","social media links"],["src","cheSources","source links"]].filter(function(x){return form[x[0]].length>10;})[0];
+  if(longL){flash(longL[1]);toast("Up to 10 "+longL[2]+" — trim the list and save again");return;}
   /* A level set for the first time gets today's date unless one was typed. */
   if(form.partnerLevel&&!form.partnerSince&&!(chEditBase&&chEditBase.partnerLevel))form.partnerSince=st.d;
   var was=chEditBase||chById(id)||{},patch={},base={},n=0;
   /* A flagged church's alignment is cleared from the flag bar, not here. */
   if(was.align==="flagged")delete form.align;
   for(var k in form){
-    var before=was[k]==null?(k==="verified"?true:""):was[k];
-    if(form[k]!==before){patch[k]=form[k];base[k]=before;n++;}
+    var before=was[k]==null?(k==="verified"?true:(Array.isArray(form[k])?[]:"")):was[k];
+    if(JSON.stringify(form[k])!==JSON.stringify(before)){patch[k]=form[k];base[k]=before;n++;}
   }
   chEditOpen=false;chEditBase=null;
   if(!n){renderChurchPage();toast("Nothing changed");return;}
@@ -576,8 +592,26 @@ function renderChurchPage(){
     +infoRows.map(function(r){return '<div class="give"><span'+(r[1]?"":' style="opacity:.55"')+'>'+r[0]+'</span><b style="font-family:var(--sans);font-size:13px;text-align:right;max-width:60%">'+(r[1]||miss)+'</b></div>';}).join("")
     +(c.notes?'<div class="chknote" style="margin-top:10px">📝 '+esc(c.notes)+'</div>':"")
     +(missing?'<p class="hint" style="margin-top:8px">Know any of the missing info? Post it as a note below and a leader will fill it in.</p>':"")+'</div>';
+  // ⛪ about the church — the research profile (v1.27.0)
+  var sz=CH_SIZES.filter(function(x){return x[0]&&x[0]===c.sizeBand;})[0];
+  var aRows=[
+    ["🏷️ Church type",chTypeLbl(c.churchType)?esc(chTypeLbl(c.churchType)):null],
+    ["⛪ Denomination",c.denomination?esc(c.denomination):null],
+    ["🕸️ Larger network",c.network?esc(c.network):null],
+    ["🎓 Accreditations",(c.accreditations&&c.accreditations.length)?c.accreditations.map(esc).join("<br>"):null],
+    ["👥 Size",sz?esc(sz[1]):null],
+    ["📱 Social media",chLinks(c.social,chSocialLbl)||null],
+    ["🔎 Sources",chLinks(c.src,function(u){return chHost(u)||"source";})||null]
+  ];
+  var aHave=aRows.filter(function(r){return r[1];});
+  h+='<div class="card"><h3>⛪ About the church</h3>'
+    +(c.description?'<p style="margin:0 0 8px;font-size:14px;line-height:1.45">'+esc(c.description)+'</p>':"")
+    +aHave.map(function(r){return '<div class="give"><span>'+r[0]+'</span><b style="font-family:var(--sans);font-size:13px;text-align:right;max-width:60%;word-break:break-word">'+r[1]+'</b></div>';}).join("")
+    +((!c.description&&!aHave.length)?'<p class="hint" style="margin:0">No profile yet: type, denomination, network, size, social media and sources show here once a leader or research bot adds them.</p>':"")
+    +(c.verified===false?'<p class="hint" style="margin-top:8px">🤖 Added by a research bot'+(c.researchedAt?' ('+esc(chFmtD(c.researchedAt))+')':"")+' — a leader should confirm the details.</p>':"")
+    +'</div>';
   // 🤝 partnership — leaders keep it; everyone can see where it stands
-  var tier=CH_TIERS[c.partnerLevel],sz=CH_SIZES.filter(function(x){return x[0]&&x[0]===c.sizeBand;})[0];
+  var tier=CH_TIERS[c.partnerLevel];
   var follow=[c.followName,c.followPhone,c.followEmail].filter(Boolean).join(" · ");
   var pRows=[
     ["🤝 Level",tier?tier.ic+" "+tier.lbl+(c.partnerSince?' · since '+esc(chFmtD(c.partnerSince)):""):null],
@@ -585,15 +619,11 @@ function renderChurchPage(){
     ["🙏 Pastor's needs",c.pastorNeeds?esc(c.pastorNeeds):null],
     ["➡️ Next step",c.nextStep?esc(c.nextStep)+(c.nextStepDue?' · '+(chDue(c)?'<span style="color:var(--rust)">⏰ ':'<span>')+esc(chFmtD(c.nextStepDue))+'</span>':""):null],
     ["👤 Owner",c.owner?esc(c.owner):null],
-    ["📇 Follow-up contact",follow?esc(follow):null],
-    ["⛪ Denomination",c.denomination?esc(c.denomination):null],
-    ["👥 Size",sz?esc(sz[1]):null]
+    ["📇 Follow-up contact",follow?esc(follow):null]
   ].filter(function(r){return r[1];});
   h+='<div class="card chpart" style="border-left:4px solid var(--wine)"><h3>🤝 Partnership</h3>'
     +(pRows.length?pRows.map(function(r){return '<div class="give"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>';}).join("")
       :'<p class="hint" style="margin:0">Not a partner yet. When they commit to praying, partnering or hosting, a leader records it here.</p>')
-    +(c.verified===false?'<p class="hint" style="margin-top:8px">🤖 Added by a research bot'+(c.researchedAt?' ('+esc(chFmtD(c.researchedAt))+')':"")+' — a leader should confirm the details.'
-      +((c.src&&c.src.length)?' Sources: '+c.src.slice(0,3).map(function(u,i){return '<a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:var(--rust)">'+(i+1)+' ↗</a>';}).join(" "):"")+'</p>':"")
     +'<button class="btn ghost" style="margin-top:10px" onclick="chEditToggle(\''+id+'\')">'+(LEADER?"✏️ Update partnership":"🔒 Update partnership (leaders)")+'</button></div>';
   // 🗣️ conversation record — the manual "engaged" switch
   var convos=chLogFor(c.id).filter(function(e){return e.type==="convo";}).slice(-5).reverse();
@@ -668,7 +698,7 @@ function renderChurchPage(){
       +'<select id="cheAlign">'+opt("strong",c.align,"✅ Strong fit")+opt("partial",c.align,"🟡 Verify fit")+opt("unverified",c.align,"❔ Unverified")+'</select></div>'
       +flbl("Location")
       +'<div class="twocol"><input id="cheTown" maxlength="60" value="'+esc(c.town)+'" placeholder="Town" /><select id="cheCounty">'+'<option value="">County…</option>'+NHC.map(function(x){return '<option'+(c.county===x?" selected":"")+'>'+x+'</option>';}).join("")+'<option'+(c.county==="Out of state"?" selected":"")+'>Out of state</option></select></div>'
-      +'<input id="cheState" maxlength="20" value="'+esc(c.state)+'" placeholder="State" />'
+      +'<select id="cheState" aria-label="State">'+(CH_STATES.indexOf(c.state)<0&&c.state?opt(esc(c.state),c.state,esc(c.state)):"")+CH_STATES.map(function(x){return opt(x,c.state||"NH",x);}).join("")+'</select>'
       +'<input id="cheAddress" maxlength="160" value="'+esc(c.address)+'" placeholder="Street address" />'
       +flbl("Reach them")
       +'<div class="twocol"><input id="chePhone" maxlength="40" value="'+esc(c.phone)+'" placeholder="Phone" /><input id="cheEmail" maxlength="120" value="'+esc(c.email)+'" placeholder="Email" /></div>'
@@ -687,7 +717,12 @@ function renderChurchPage(){
       +'<div class="twocol"><input id="cheFollowName" maxlength="80" value="'+esc(c.followName||"")+'" placeholder="Follow-up contact" /><input id="cheFollowPhone" maxlength="40" inputmode="tel" value="'+esc(c.followPhone||"")+'" placeholder="Their phone" /></div>'
       +'<input id="cheFollowEmail" maxlength="120" inputmode="email" value="'+esc(c.followEmail||"")+'" placeholder="Their email" />'
       +flbl("About the church")
-      +'<div class="twocol"><input id="cheDenom" maxlength="60" value="'+esc(c.denomination||"")+'" placeholder="Denomination" /><select id="cheSize">'+CH_SIZES.map(function(x){return opt(x[0],c.sizeBand||"",x[1]);}).join("")+'</select></div>'
+      +'<div class="twocol"><select id="cheType" aria-label="Church type">'+CH_TYPES.map(function(x){return opt(x[0],c.churchType||"",x[1]);}).join("")+'</select><select id="cheSize" aria-label="Size">'+CH_SIZES.map(function(x){return opt(x[0],c.sizeBand||"",x[1]);}).join("")+'</select></div>'
+      +'<div class="twocol"><input id="cheDenom" maxlength="60" value="'+esc(c.denomination||"")+'" placeholder="Denomination" /><input id="cheNetwork" maxlength="100" value="'+esc(c.network||"")+'" placeholder="Larger network (e.g. Acts 29)" /></div>'
+      +'<textarea id="cheDescription" rows="3" maxlength="600" placeholder="Brief description of the church">'+esc(c.description||"")+'</textarea>'
+      +'<textarea id="cheAccred" rows="2" placeholder="Accreditations — one per line">'+esc((c.accreditations||[]).join("\n"))+'</textarea>'
+      +'<textarea id="cheSocial" rows="2" inputmode="url" placeholder="Social media links — one per line">'+esc((c.social||[]).join("\n"))+'</textarea>'
+      +'<textarea id="cheSources" rows="2" inputmode="url" placeholder="Source links (where these details came from) — one per line">'+esc((c.src||[]).join("\n"))+'</textarea>'
       +(c.verified===false?'<label style="display:flex;align-items:center;gap:10px;min-height:44px;font-size:13.5px;font-weight:600"><input id="cheVerified" type="checkbox" style="width:22px;height:22px" /> I checked these details — mark as verified</label>':"")
       +'<button class="btn wine" onclick="chEditSubmit(\''+id+'\')">💾 Save changes</button>'
       +'<button class="btn ghost" style="margin-top:8px" onclick="chEditOpen=false;renderChurchPage()">Cancel</button>'
