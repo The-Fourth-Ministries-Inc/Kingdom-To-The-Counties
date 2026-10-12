@@ -88,11 +88,11 @@ test("version badge, service worker cache, and SW comment stay aligned", () => {
   const html = read("index.html");
   const sw = read("sw.js");
   const version = readAppVersion(html);
-  assert.equal(version, "1.25.1");
+  assert.equal(version, "1.25.2");
   assert.match(sw, new RegExp("app v" + version.replace(/\./g, "\\.")));
   const cache = sw.match(/var CACHE = "(k2c-v\d+)"/);
   assert.ok(cache, "SW cache name missing");
-  assert.equal(cache[1], "k2c-v83");
+  assert.equal(cache[1], "k2c-v84");
 });
 
 test("keyboard overlay pin does not revert the in-flow 100dvh tab bar", () => {

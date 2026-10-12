@@ -51,17 +51,26 @@ test("the first read keeps an untouched pre-v1.25.0 copy and keeps all 900 churc
   assert.ok(await store.get("bak-pre-v1.25.0-io"), "io blobs backed up too");
 });
 
-test("Zeal Movement Church is added once, as a Partner, by migration", async () => {
+test("The Zeal Movement is added once, as a Partner, by migration", async () => {
   const c = await roster();
   const z = c.list.filter(x => /zeal movement/i.test(x.name));
   assert.equal(z.length, 1);
+  assert.equal(z[0].id, "zeal-movement-manchester");
+  assert.equal(z[0].name, "The Zeal Movement");
   assert.equal(z[0].town, "Manchester");
   assert.equal(z[0].county, "Hillsborough");
   assert.equal(z[0].partnerLevel, "partner");
-  assert.equal(z[0].contact, "Phil Cuddle");
-  assert.match(z[0].notes, /spouse/i);
+  assert.equal(z[0].contact, "Phil & Kaylin Tuttle");
+  assert.equal(z[0].contactRole, "Lead Pastors");
+  assert.equal(z[0].address, "811 Canal Street, Manchester, NH 03101");
+  assert.equal(z[0].website, "http://www.thezealmovement.com");
+  assert.equal(z[0].email, "admin@thezealmovement.com");
+  assert.deepEqual(z[0].src, ["http://www.thezealmovement.com/our-team"]);
+  assert.doesNotMatch(JSON.stringify(c), /Cuddle/);
   assert.equal(z[0].origin, "migration");
   assert.ok(c.migr.includes("2026-10-12-zeal-movement-partner"));
+  assert.ok(c.migr.includes("2026-10-12-zeal-movement-correction"));
+  assert.equal(c.log.filter(e => e.ch === z[0].id).length, 1, "a fresh store gets one 'added' entry, no correction noise");
   assert.equal(c.removed.length, 0);
   // Deleting it sticks: the migration has run and never runs again.
   assert.equal((await call("churchDelete", { ch: z[0].id, ...stamp })).status, 200);
@@ -84,8 +93,50 @@ test("the migration fills blanks on an existing match instead of adding a twin",
   assert.equal(z.length, 1, "no duplicate");
   assert.equal(z[0].id, "zeal");
   assert.equal(z[0].partnerLevel, "partner");
-  assert.equal(z[0].contact, "Phil Cuddle");
-  assert.equal(z[0].notes, "Met at a rally", "existing notes are never overwritten");
+  assert.equal(z[0].contact, "Phil & Kaylin Tuttle");
+  assert.match(z[0].notes, /^Met at a rally\n/, "a leader's notes are kept");
+});
+
+test("the correction fixes the shipped Zeal row and folds Manchester duplicates into it", async () => {
+  const shipped = { id: "zeal-movement-manchester", name: "Zeal Movement Church", kind: "church", town: "Manchester", county: "Hillsborough", state: "NH",
+    contact: "Phil Cuddle", partnerLevel: "partner", notes: "Partner church. Contact: Phil Cuddle (spouse's name TBD).", origin: "migration", v: 1 };
+  const dup = { id: "zeal-church", name: "Zeal Church", town: "Manchester", county: "Hillsborough", state: "NH", phone: "603-555-0199",
+    interest: 3, notes: "Sunday 10:30", connections: [{ id: "k1", amb: "Ann", note: "knows Phil", t: "1:00 PM", d: "2026-10-01" }] };
+  const bySite = { id: "zm2", name: "ZM Manchester", town: "Manchester, NH", county: "Hillsborough", state: "NH", website: "https://thezealmovement.com/visit" };
+  const elsewhere = { id: "zeal-concord", name: "Zeal Movement Church", town: "Concord", county: "Merrimack", state: "NH" };
+  const s4 = mockStore();
+  s4._data.set("churches", { value: JSON.stringify({ rev: 360, migr: ["2026-10-12-zeal-movement-partner"], removed: [],
+    list: [shipped, dup, bySite, elsewhere], log: [{ id: "l1", ch: "zeal-church", type: "call", by: "Ann", note: "", t: "2:00 PM", d: "2026-10-02" }] }), etag: "x" });
+  __setStoreFactory(() => s4);
+  const r = await roster();
+  const again = await roster();
+  __setStoreFactory(() => store);
+  const z = r.list.filter(x => x.town.startsWith("Manchester") && /zeal|zm/i.test(x.name));
+  assert.equal(z.length, 1, "one Manchester Zeal row");
+  const k = z[0];
+  assert.equal(k.id, "zeal-movement-manchester");
+  assert.equal(k.name, "The Zeal Movement");
+  assert.equal(k.contact, "Phil & Kaylin Tuttle");
+  assert.equal(k.leader, "Pastors Phil & Kaylin Tuttle");
+  assert.equal(k.address, "811 Canal Street, Manchester, NH 03101");
+  assert.equal(k.email, "admin@thezealmovement.com");
+  assert.equal(k.phone, "603-555-0199", "blanks filled from the duplicate");
+  assert.equal(k.interest, 3);
+  assert.equal(k.connections.length, 1);
+  assert.equal(k.v, 2);
+  assert.doesNotMatch(k.notes, /Cuddle/);
+  assert.match(k.notes, /Sunday 10:30/);
+  assert.match(k.notes, /Tuttle/);
+  assert.ok(r.list.some(x => x.id === "zeal-concord"), "a Zeal in another town is a different church");
+  assert.deepEqual(r.removed.sort(), ["zeal-church", "zm2"], "duplicates are tombstoned, not resurrected");
+  assert.equal(r.log.find(e => e.id === "l1").ch, k.id, "their history moves to the kept row");
+  assert.ok(r.log.some(e => e.ch === k.id && /Corrected from thezealmovement\.com\/our-team/.test(e.note) && /merged 2 duplicates/.test(e.note)));
+  assert.ok(r.rev > 360);
+  assert.equal(again.rev, r.rev, "runs once");
+  const audit = await s4.get([...s4._data.keys()].find(x => x.startsWith("churches-audit-")));
+  const upd = audit.entries.find(e => e.act === "update" && e.ch === k.id);
+  assert.deepEqual(upd.changes.contact, { from: "Phil Cuddle", to: "Phil & Kaylin Tuttle" });
+  assert.equal(audit.entries.filter(e => e.act === "merge").length, 2);
 });
 
 test("adding a duplicate is refused with the existing id, not silently dropped", async () => {

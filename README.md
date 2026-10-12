@@ -89,9 +89,23 @@ longer reads the whole roster.
 - **One-time data migrations** (`CH_MIGRATIONS` in `data.mjs`) run once, inside
   the roster's own compare-and-swap. Each is recorded in `migr` and never runs
   again, even after a leader deletes what it added. Each checks the live list
-  first and only fills blanks on a match. The first one adds **Zeal Movement
-  Church** (Manchester, Hillsborough) as a Partner, with Phil Cuddle as the
-  contact and his spouse's name still to come.
+  first and only fills blanks on a match. The first one adds **The Zeal
+  Movement** (Manchester, Hillsborough) as a Partner.
+- **Zeal correction (v1.25.2).** The first migration shipped a misheard
+  contact ("Phil Cuddle") and no details.
+  `2026-10-12-zeal-movement-correction` fixes the row from
+  thezealmovement.com/our-team:
+  - lead pastors Phil & Kaylin Tuttle;
+  - 811 Canal Street, Manchester, NH 03101;
+  - http://www.thezealmovement.com and admin@thezealmovement.com;
+  - Partner level.
+
+  It first folds every other Manchester entry that is the same church into
+  `zeal-movement-manchester`: the same name key, any name containing "Zeal",
+  or the same website or email domain. Blanks are filled from the duplicates,
+  connections and history move over, and the duplicates are tombstoned. A
+  leader's own notes are kept; only the migration's wrong sentence is
+  replaced. A Zeal in another town is left alone.
 
 ### Bot import API
 

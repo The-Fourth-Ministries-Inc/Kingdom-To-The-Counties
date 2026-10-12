@@ -11,7 +11,7 @@ import STARTER_CHURCHES from "./starter-churches.mjs";
 // Trailer Load List: the real bin roster from the team's inventory sheet.
 // Merged on read, tombstoned on delete — same pattern again.
 import STARTER_BINS from "./starter-bins.mjs";
-import { dedupKey, townKey, phoneDigits, siteDomain, slugId } from "./church-dedup.mjs";
+import { dedupKey, townKey, nameKey, phoneDigits, siteDomain, slugId } from "./church-dedup.mjs";
 
 const STORE = "k2c-ambassador";
 // Leader PIN is verified SERVER-SIDE. Set LEADER_PIN in Netlify
@@ -645,13 +645,63 @@ const chNowLabel = () => {
    compare-and-swap and records its id in `migr`, so it never runs again —
    not after a deploy, and not after a leader deletes what it added. Each one
    checks the live list first and only fills blanks on an existing match. */
+const ZEAL = {
+ name: "The Zeal Movement", kind: "church", town: "Manchester", county: "Hillsborough", state: "NH",
+ address: "811 Canal Street, Manchester, NH 03101", website: "http://www.thezealmovement.com",
+ email: "admin@thezealmovement.com", leader: "Pastors Phil & Kaylin Tuttle",
+ contact: "Phil & Kaylin Tuttle", contactRole: "Lead Pastors", partnerLevel: "partner",
+ src: ["http://www.thezealmovement.com/our-team"],
+ notes: "Partner church. Lead pastors Phil & Kaylin Tuttle (thezealmovement.com/our-team)."
+};
 const CH_MIGRATIONS = [
- { id: "2026-10-12-zeal-movement-partner", run: (c, audit) => chUpsertFromLeadership(c, audit, {
-   name: "Zeal Movement Church", kind: "church", town: "Manchester", county: "Hillsborough", state: "NH",
-   contact: "Phil Cuddle", partnerLevel: "partner",
-   notes: "Partner church. Contact: Phil Cuddle (spouse's name TBD)."
-  }, "Added as a Partner church (Zach)") }
+ { id: "2026-10-12-zeal-movement-partner", run: (c, audit) => chUpsertFromLeadership(c, audit, ZEAL, "Added as a Partner church (Zach)") },
+ { id: "2026-10-12-zeal-movement-correction", run: (c, audit) => chCorrectZeal(c, audit) }
 ];
+/* The first Zeal migration shipped a misheard contact ("Phil Cuddle") and no
+   details. Fold every Manchester entry that is the same church — same name
+   key, or the same website / email domain, or any name containing "zeal" —
+   into one row, then set the details confirmed on thezealmovement.com/our-team.
+   Notes a leader added are kept; only the migration's own wrong sentence is
+   replaced. */
+const ZEAL_OLD_NOTE = "Partner church. Contact: Phil Cuddle (spouse's name TBD).";
+function chCorrectZeal(c, audit){
+ const at = new Date().toISOString(), d = chToday(), t = chNowLabel();
+ const tk = townKey(ZEAL.town), key = dedupKey(ZEAL.name, ZEAL.town, ZEAL.state), dom = siteDomain(ZEAL.website);
+ const mailDom = e => siteDomain(String(e || "").split("@")[1] || "");
+ const same = x => townKey(x.town) === tk && (chKeyOf(x) === key || nameKey(x.name, x.town).split("-").includes("zeal")
+  || (dom && (siteDomain(x.website) === dom || mailDom(x.email) === dom)));
+ const hits = c.list.filter(same);
+ if(!hits.length){ chUpsertFromLeadership(c, audit, ZEAL, "Added as a Partner church (Zach)"); return; }
+ const keep = hits.find(x => x.id === "zeal-movement-manchester") || hits.find(x => chKeyOf(x) === key) || hits[0];
+ const before = { ...keep };
+ let merged = { ...keep };
+ for(const dup of hits.filter(x => x !== keep)){
+  for(const k of Object.keys(dup)){
+   const cur = merged[k];
+   if((cur == null || cur === "" || cur === 0 || (Array.isArray(cur) && !cur.length)) && dup[k] != null) merged[k] = dup[k];
+  }
+  const have = new Set((merged.connections || []).map(x => x.id));
+  merged.connections = [...(merged.connections || []), ...(dup.connections || []).filter(x => !have.has(x.id))];
+  merged.interest = Math.max(Number(merged.interest) || 0, Number(dup.interest) || 0);
+  if(dup.notes && dup.notes !== merged.notes && !String(merged.notes || "").includes(dup.notes)) merged.notes = (merged.notes ? merged.notes + "\n" : "") + dup.notes;
+  for(const e of c.log) if(e.ch === dup.id) e.ch = keep.id;
+  c.list.splice(c.list.indexOf(dup), 1);
+  if(!c.removed.includes(dup.id)) c.removed.push(dup.id);
+  audit.push({ at, actor: "migration", src: "migration", act: "merge", ch: keep.id, name: ZEAL.name, from: dup.id, changes: {} });
+ }
+ const notes = String(merged.notes || "");
+ merged = { ...merged, ...ZEAL, src: [...new Set([...(merged.src || []), ...ZEAL.src])],
+  notes: notes.includes(ZEAL_OLD_NOTE) ? notes.replace(ZEAL_OLD_NOTE, ZEAL.notes) : (notes.includes(ZEAL.notes) ? notes : (notes ? notes + "\n" : "") + ZEAL.notes),
+  researchedAt: d, v: (keep.v || 0) + 1 };
+ const row = normChurch(merged);
+ const changes = chDiff(normChurch(before), row);
+ delete changes.v; delete changes.researchedAt;
+ if(!Object.keys(changes).length && hits.length === 1) return;
+ c.list[c.list.indexOf(keep)] = row;
+ chLogPush(c, { ch: keep.id, type: "edit", by: "Leadership", t, d,
+  note: "Corrected from thezealmovement.com/our-team — " + (Object.keys(changes).join(", ") || "merged duplicates") + (hits.length > 1 ? " (merged " + (hits.length - 1) + " duplicate" + (hits.length > 2 ? "s" : "") + ")" : "") });
+ audit.push({ at, actor: "migration", src: "migration", act: "update", ch: keep.id, name: row.name, changes });
+}
 function chUpsertFromLeadership(c, audit, rec, why){
  const key = dedupKey(rec.name, rec.town, rec.state);
  const at = new Date().toISOString(), d = chToday(), t = chNowLabel();
