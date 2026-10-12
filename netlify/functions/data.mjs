@@ -2177,21 +2177,25 @@ export default async (req, context) => {
      when nothing is missing). */
   const part = wantPart;
   if(part === "blobsdiag" && storeName(req, context) !== STORE){
-   const out = {};
-   let ctxKeys = [];
-   try { const raw = (typeof process !== "undefined" && process.env.NETLIFY_BLOBS_CONTEXT) || (globalThis.netlifyBlobsContext) || ""; const j = raw ? JSON.parse(Buffer.from(raw, "base64").toString()) : {}; ctxKeys = Object.keys(j); out.hasUncached = !!j.uncachedEdgeURL; out.edgeHost = j.edgeURL ? new URL(j.edgeURL).host : null; out.uncachedHost = j.uncachedEdgeURL ? new URL(j.uncachedEdgeURL).host : null; } catch(e){ out.ctxErr = String(e && e.message); }
-   out.ctxKeys = ctxKeys;
-   const k1 = "diagmeta-" + Date.now();
-   out.metaWrite = await s.setJSON(k1, { a: 1 }, { metadata: { w: ["x1"] } }).catch(e => ({ err: String(e) }));
-   out.getMetadata = await s.getMetadata(k1).catch(e => ({ err: String(e) }));
-   out.getWithMetadata = await s.getWithMetadata(k1, { type: "json" }).catch(e => ({ err: String(e) }));
-   const k2 = "diagnew-" + Date.now();
-   const rs = await Promise.all(Array.from({ length: 10 }, (_, i) => s.setJSON(k2, { i }, { onlyIfNew: true, metadata: { w: ["m" + i] } }).then(w => !!(w && w.modified)).catch(() => "err")));
-   out.onlyIfNewWins = rs.filter(x => x === true).length;
-   const seen = [];
-   for(const ms of [0, 200, 800, 2000, 4000]){ await sleep(ms ? ms - (seen.length ? 0 : 0) : 0); const g = await s.getWithMetadata(k2, { type: "json" }).catch(() => null); seen.push({ ms, data: g && g.data, w: g && g.metadata && g.metadata.w, etag: g && g.etag }); }
-   out.readsOverTime = seen;
-   return new Response(JSON.stringify(out), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+   const n = Number(new URL(req.url).searchParams.get("n")) || 20;
+   const raw = new URL(req.url).searchParams.get("raw") === "1";
+   const key = "diagcas-" + Date.now();
+   await s.setJSON(key, { ids: [] });
+   const stats = { mutates: 0, throws: 0, rawWins: 0 };
+   const one = async i => {
+    const id = "w" + i;
+    if(!raw) return compareAndSwap(s, key, v => ({ ids: (v && v.ids) || [] }), c => { stats.mutates++; return c.ids.includes(id) ? undefined : { ids: [...c.ids, id] }; }, () => ({ ids: [] })).catch(() => { stats.throws++; });
+    for(let a = 0; a < 60; a++){
+     if(a) await backoff(a);
+     const r = await s.getWithMetadata(key, { type: "json" });
+     const w = await s.setJSON(key, { ids: [...r.data.ids, id] }, { onlyIfMatch: r.etag }).catch(() => null);
+     if(w && w.modified){ stats.rawWins++; return; }
+    }
+   };
+   await Promise.all(Array.from({ length: n }, (_, i) => one(i)));
+   await sleep(500);
+   const fin = await s.get(key, { type: "json" });
+   return new Response(JSON.stringify({ n, raw, landed: fin.ids.length, stats }), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
   }
   if(part === "churches"){
    const ch = await casChurches(s, c => {
