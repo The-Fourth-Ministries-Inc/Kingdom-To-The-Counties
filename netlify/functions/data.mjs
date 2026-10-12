@@ -11,6 +11,7 @@ import STARTER_CHURCHES from "./starter-churches.mjs";
 // Trailer Load List: the real bin roster from the team's inventory sheet.
 // Merged on read, tombstoned on delete — same pattern again.
 import STARTER_BINS from "./starter-bins.mjs";
+import { dedupKey, townKey, phoneDigits, siteDomain, slugId } from "./church-dedup.mjs";
 
 const STORE = "k2c-ambassador";
 // Leader PIN is verified SERVER-SIDE. Set LEADER_PIN in Netlify
@@ -63,6 +64,25 @@ function pinMatchesLeader(candidate){
              GET payload (fetched separately via GET ?part=churches with its
              own ETag) so the 5-second poll stays light. Survives reset —
              it's a season-long relationship record, not day-scoped data.
+             v1.25.0: no silent caps (a full list refuses with an error; an
+             oversized log moves its oldest entries to churches-logarch-*
+             instead of dropping them), a per-church version `v`, and the
+             partnership fields. migr lists one-time data migrations already
+             applied, so each runs exactly once.
+ churches-meta — {rev, count, partner, covenant, praying}: what the main poll
+             needs (rev + the "N / 100 partner churches" counter) without
+             reading the whole roster on every poll.
+ churches-audit-YYYY-MM — field-level history of every church write
+             {at, actor, src, act, ch, name, changes:{field:{from,to}}}. One
+             blob per month, never capped.
+ bak-*     — v1.25.0 backups. bak-day-YYYY-MM-DD-{churches,io} nightly
+             (backup-scheduled.mjs, 60 days kept), bak-ch-<ms>-<tag> before a
+             delete / restore / bot import (newest 40), and
+             bak-pre-v1.25.0-{churches,io}: the data exactly as it was before
+             this version first wrote to it. Restore: backupList / churchRestore
+             (leaders), or copy a blob back with the Netlify CLI.
+ io-history~<county> — the last 25 saved Tech I/O lineups for an event, so a
+             bad save or restore can be undone in-app (rigVersions / rigRestore).
  capmedia- — one blob per capture holding its photo/audio as a data URL,
              fetched on demand by leaders (never included in the GET payload,
              so polling stays light and contact PII isn't broadcast to every
@@ -445,14 +465,62 @@ const CH_KINDS = new Set(["church","ministry"]);
 // that marks a church as engaged (tapping Call/Email never does).
 const CH_OPEN_LOG = new Set(["call","text","email","convo","visit","script","share","note"]);
 const CH_LOG_TYPES = new Set([...CH_OPEN_LOG, "connect","flag","unflag","edit","add","interest","delete"]);
+/* Partnership (v1.25.0). Levels follow the Oct 2026 research brief:
+   praying → partner → covenant (Covenant / Host). Partner and Covenant count
+   toward the 100-church goal. */
+export const CH_PARTNER_LEVELS = ["praying","partner","covenant"];
+const CH_PARTNER = new Set(CH_PARTNER_LEVELS);
+const CH_COUNTS_TOWARD_GOAL = new Set(["partner","covenant"]);
+export const CH_PARTNER_GOAL = 100;
+const CH_SIZES = new Set(["under-50","50-99","100-249","250-499","500-999","1000+"]);
+const CH_PARTNER_FIELDS = ["denomination","sizeBand","partnerLevel","partnerSince","commitments","pastorNeeds",
+ "nextStep","nextStepDue","owner","followName","followPhone","followEmail"];
 const CH_EDIT_FIELDS = ["name","kind","town","county","state","address","phone","email","website",
- "contact","contactRole","leader","notes","intro","ask","align","interest"];
+ "contact","contactRole","leader","notes","intro","ask","align","interest","verified", ...CH_PARTNER_FIELDS];
+/* Hard limits. Hitting one is an error the caller sees, never a silent drop. */
+const CH_LIST_MAX = 5000;
+const CH_CONN_MAX = 200;
+const CH_LOG_KEEP = 4000;      // entries kept in the roster blob; older ones move to churches-logarch-*
+const CH_LOG_ARCHIVE_TO = 3500;
+const isoDay = v => { const s = str(v, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : ""; };
 
 function normChConn(x){
  x = x || {};
  return { amb: str(x.amb, 40), note: str(x.note, 160), t: str(x.t, 12), d: str(x.d, 10) };
 }
-function normChurch(x){
+/* The v1.25.0 fields are written only when set, so the ~400 existing records
+   don't each grow by a dozen empty strings on the roster download. Readers
+   treat a missing field as empty. */
+function chExtras(x){
+ const o = {
+  v: Math.max(0, Math.round(Number(x.v) || 0)),
+  denomination: str(x.denomination, 60),
+  sizeBand: CH_SIZES.has(x.sizeBand) ? x.sizeBand : "",
+  partnerLevel: CH_PARTNER.has(x.partnerLevel) ? x.partnerLevel : "",
+  partnerSince: isoDay(x.partnerSince),
+  commitments: str(x.commitments, 600),
+  pastorNeeds: str(x.pastorNeeds, 600),
+  nextStep: str(x.nextStep, 200),
+  nextStepDue: isoDay(x.nextStepDue),
+  owner: str(x.owner, 60),
+  followName: str(x.followName, 80),
+  followPhone: str(x.followPhone, 40),
+  followEmail: str(x.followEmail, 120),
+  origin: str(x.origin, 30),
+  /* Only bot-added rows start unverified; everything else is a person's entry. */
+  verified: x.verified === false || x.verified === "false" ? false : true,
+  src: (Array.isArray(x.src) ? x.src : []).map(u => safeUrl(u, 300)).filter(Boolean).slice(0, 10),
+  researchedAt: isoDay(x.researchedAt)
+ };
+ const out = {};
+ for(const k of Object.keys(o)){
+  const val = o[k];
+  if(k === "verified"){ if(val === false) out.verified = false; continue; }
+  if(Array.isArray(val) ? val.length : val) out[k] = val;
+ }
+ return out;
+}
+export function normChurch(x){
  x = x || {};
  return {
   id: idStr(x.id) || uid(),
@@ -476,9 +544,10 @@ function normChurch(x){
   notes: str(x.notes, 2000),
   intro: str(x.intro, 900),
   ask: str(x.ask, 400),
-  connections: Array.isArray(x.connections) ? x.connections.map(normChConn).filter(c => c.amb).slice(0, 40) : [],
+  connections: Array.isArray(x.connections) ? x.connections.map(normChConn).filter(c => c.amb) : [],
   addedBy: str(x.addedBy, 40),
-  t: str(x.t, 12), d: str(x.d, 10)
+  t: str(x.t, 12), d: str(x.d, 10),
+  ...chExtras(x)
  };
 }
 function normChLog(x){
@@ -492,25 +561,47 @@ function normChLog(x){
   t: str(x.t, 12), d: str(x.d, 10)
  };
 }
+/* No slicing here: normalization runs on every read and write, so a cap in
+   this function is a silent drop. Limits are enforced where records are
+   added, and answered with an error. */
 export function normChurches(c){
  c = c || {};
  const tpl = c.tpl || {};
  return {
   rev: Math.max(0, Math.round(Number(c.rev) || 0)),
-  removed: Array.isArray(c.removed) ? c.removed.map(x => str(x, 40)).filter(Boolean).slice(0, 500) : [],
-  list: Array.isArray(c.list) ? c.list.map(normChurch).slice(0, 800) : [],
-  log: Array.isArray(c.log) ? c.log.map(normChLog).slice(-1200) : [],
+  removed: Array.isArray(c.removed) ? c.removed.map(x => str(x, 40)).filter(Boolean) : [],
+  list: Array.isArray(c.list) ? c.list.map(normChurch) : [],
+  log: Array.isArray(c.log) ? c.log.map(normChLog) : [],
   // Master outreach templates — one email & one text for EVERY church, so the
   // whole team sends the same message. Leader-editable (churchTemplate).
-  tpl: { subject: str(tpl.subject, 200), email: str(tpl.email, 4000), sms: str(tpl.sms, 600) }
+  tpl: { subject: str(tpl.subject, 200), email: str(tpl.email, 4000), sms: str(tpl.sms, 600) },
+  migr: Array.isArray(c.migr) ? c.migr.map(x => str(x, 60)).filter(Boolean) : []
  };
 }
 const emptyChurches = () => ({ rev: 0, removed: [], list: [], log: [] });
 // Writes seed the starter roster too, so a POST that lands before the first
 // roster read (fresh deploy) can't no-op against an empty list.
 const seededChurches = () => { const c = emptyChurches(); mergeStarterChurches(c); return c; };
-const casChurches = (s, mutate) => compareAndSwap(s, "churches", normChurches, mutate, seededChurches);
-function chLogPush(c, entry){ c.log.push(normChLog(entry)); c.log = c.log.slice(-1200); }
+/* Every church write goes through here: back up the pre-v1.25.0 blob once,
+   apply any pending one-time migration in the same compare-and-swap, then
+   refresh the poll's meta blob, archive an oversized log and record the audit
+   trail. `audit(c)` returns this write's audit entries for the value that
+   actually landed (it is called after the CAS, never inside it). */
+async function casChurches(s, mutate, audit, fallback){
+ await preBackups(s);
+ let migAudit = [], wrote = false;
+ const out = await compareAndSwap(s, "churches", normChurches, c => {
+  migAudit = []; wrote = false;
+  const migrated = chMigrate(c, migAudit);
+  let next = mutate(c);
+  if(next === undefined && migrated) next = c;
+  wrote = next !== undefined;
+  return next;
+ }, fallback || seededChurches);
+ if(wrote) await chAfterWrite(s, out, [...migAudit, ...((audit && audit(out)) || [])]);
+ return out;
+}
+function chLogPush(c, entry){ c.log.push(normChLog(entry)); }
 /* Belt + braces against the retry-duplication bug: a mutate that already ran
    (its log-entry id is present) must be a no-op. Every church action passes a
    client-generated id for its log entry. */
@@ -540,6 +631,366 @@ function mergeStarterChurches(c){
  }
  if(added) c.rev++;
  return added;
+}
+
+export const chKeyOf = c => dedupKey(c.name, c.town, c.state);
+const chToday = () => todayLocalISO();
+const chNowLabel = () => {
+ try { return new Date().toLocaleTimeString("en-US", { timeZone: EVENT_TZ, hour: "numeric", minute: "2-digit" }); }
+ catch(_) { return ""; }
+};
+
+/* ---- one-time data migrations (v1.25.0) ----
+   Data, not code defaults: each runs once inside the roster's own
+   compare-and-swap and records its id in `migr`, so it never runs again —
+   not after a deploy, and not after a leader deletes what it added. Each one
+   checks the live list first and only fills blanks on an existing match. */
+const CH_MIGRATIONS = [
+ { id: "2026-10-12-zeal-movement-partner", run: (c, audit) => chUpsertFromLeadership(c, audit, {
+   name: "Zeal Movement Church", kind: "church", town: "Manchester", county: "Hillsborough", state: "NH",
+   contact: "Phil Cuddle", partnerLevel: "partner",
+   notes: "Partner church. Contact: Phil Cuddle (spouse's name TBD)."
+  }, "Added as a Partner church (Zach)") }
+];
+function chUpsertFromLeadership(c, audit, rec, why){
+ const key = dedupKey(rec.name, rec.town, rec.state);
+ const at = new Date().toISOString(), d = chToday(), t = chNowLabel();
+ const hit = c.list.find(x => chKeyOf(x) === key);
+ if(hit){
+  const changes = {};
+  for(const k of Object.keys(rec)){
+   if(k === "name" || k === "town" || k === "state") continue;
+   const cur = hit[k] == null ? "" : hit[k];
+   if(cur === "" || cur === 0){ changes[k] = { from: cur, to: rec[k] }; hit[k] = rec[k]; }
+  }
+  if(!Object.keys(changes).length) return;
+  const i = c.list.indexOf(hit);
+  c.list[i] = normChurch({ ...hit, v: (hit.v || 0) + 1 });
+  chLogPush(c, { ch: hit.id, type: "edit", by: "Leadership", note: why + " — filled in " + Object.keys(changes).join(", "), t, d });
+  audit.push({ at, actor: "migration", src: "migration", act: "update", ch: hit.id, name: hit.name, changes });
+  return;
+ }
+ let id = slugId(rec.name, rec.town);
+ const taken = new Set([...c.list.map(x => x.id), ...c.removed]);
+ for(let n = 2; taken.has(id); n++) id = slugId(rec.name, rec.town).slice(0, 36) + "-" + n;
+ const row = normChurch({ ...rec, id, origin: "migration", addedBy: "Leadership", v: 1, t, d });
+ c.list.push(row);
+ chLogPush(c, { ch: id, type: "add", by: "Leadership", note: rec.name + " — " + why, t, d });
+ audit.push({ at, actor: "migration", src: "migration", act: "create", ch: id, name: rec.name, changes: chDiff({}, row) });
+}
+function chMigrate(c, audit){
+ let changed = false;
+ for(const m of CH_MIGRATIONS){
+  if(c.migr.includes(m.id)) continue;
+  m.run(c, audit);
+  c.migr.push(m.id);
+  changed = true;
+ }
+ if(changed) c.rev++;
+ return changed;
+}
+
+/* Field-level before/after for the audit trail. */
+const CH_AUDIT_SKIP = new Set(["connections","t","d","v"]);
+function chDiff(before, after){
+ const out = {};
+ for(const k of new Set([...Object.keys(before || {}), ...Object.keys(after || {})])){
+  if(CH_AUDIT_SKIP.has(k)) continue;
+  const a = before && before[k] != null ? before[k] : "", b = after && after[k] != null ? after[k] : "";
+  if(JSON.stringify(a) !== JSON.stringify(b)) out[k] = { from: a, to: b };
+ }
+ return out;
+}
+export function partnerStats(list){
+ const n = { praying: 0, partner: 0, covenant: 0 };
+ for(const c of list || []) if(c && n[c.partnerLevel] != null && !c.flag) n[c.partnerLevel]++;
+ return { ...n, count: n.partner + n.covenant };
+}
+const CH_META = "churches-meta";
+function chMetaOf(c){
+ const p = partnerStats(c.list);
+ return { rev: c.rev, count: c.list.length, partner: p.partner, covenant: p.covenant, praying: p.praying };
+}
+/* The meta blob only ever moves forward, so two writers finishing out of
+   order can't leave the poll pointing at an older rev. */
+async function chMetaSync(s, c){
+ const next = chMetaOf(c);
+ await compareAndSwap(s, CH_META, v => v || {}, cur =>
+  (Number(cur.rev) > next.rev || JSON.stringify(cur) === JSON.stringify(next)) ? undefined : next, () => ({})).catch(() => {});
+ return next;
+}
+async function chMetaRead(s){
+ const m = await s.get(CH_META, { type: "json" }).catch(() => null);
+ if(m && Number.isFinite(Number(m.rev))) return m;
+ const raw = await s.get("churches", { type: "json" }).catch(() => null);
+ if(!raw) return { rev: 0, count: 0, partner: 0, covenant: 0, praying: 0 };
+ return chMetaSync(s, normChurches(raw));
+}
+/* Keep the roster blob a phone-sized download without losing history: past
+   CH_LOG_KEEP entries, the oldest move to a churches-logarch-<ms> blob (first,
+   so nothing is ever only in memory) and are then removed from the roster.
+   🗣️ conversations stay — they are what marks a church "We've talked". */
+async function chArchiveLog(s, c){
+ if(c.log.length <= CH_LOG_KEEP) return;
+ const movable = c.log.filter(e => e.type !== "convo");
+ const n = Math.min(movable.length, c.log.length - CH_LOG_ARCHIVE_TO);
+ if(n <= 0) return;
+ const moving = movable.slice(0, n), ids = new Set(moving.map(e => e.id));
+ await s.setJSON("churches-logarch-" + Date.now(), { at: new Date().toISOString(), entries: moving });
+ await compareAndSwap(s, "churches", normChurches, cur => {
+  const before = cur.log.length;
+  cur.log = cur.log.filter(e => !ids.has(e.id));
+  return cur.log.length === before ? undefined : cur;
+ }, seededChurches);
+}
+async function chAuditWrite(s, entries){
+ if(!entries || !entries.length) return;
+ const key = "churches-audit-" + chToday().slice(0, 7);
+ await compareAndSwap(s, key, v => ({ entries: Array.isArray(v && v.entries) ? v.entries : [] }), a => {
+  const seen = new Set(a.entries.map(e => e.id));
+  const add = entries.filter(e => !seen.has(e.id));
+  if(!add.length) return undefined;
+  a.entries.push(...add);
+  return a;
+ }, () => ({ entries: [] })).catch(e => console.log("church audit write failed:", e && e.message));
+}
+async function chAfterWrite(s, c, audit){
+ await chMetaSync(s, c);
+ await chAuditWrite(s, (audit || []).map(e => ({ id: uid(), ...e })));
+ await chArchiveLog(s, c).catch(e => console.log("church log archive failed:", e && e.message));
+}
+
+/* ---- backups (v1.25.0) ---- */
+const PRE_TAG = "bak-pre-v1.25.0";
+let _preBackupDone = false;
+/* Before this version writes anything, keep an untouched copy of the church
+   roster and every Tech I/O blob exactly as the previous version left them.
+   onlyIfNew: the first copy is the one that matters, and it is never replaced. */
+async function preBackups(s){
+ if(_preBackupDone) return;
+ try {
+  const [ch, io] = await Promise.all([ s.get(PRE_TAG + "-churches", { type: "json" }), s.get(PRE_TAG + "-io", { type: "json" }) ]);
+  if(!ch){
+   const raw = await s.get("churches", { type: "json" });
+   if(raw) await s.setJSON(PRE_TAG + "-churches", { at: new Date().toISOString(), tag: "pre-v1.25.0", data: raw }, { onlyIfNew: true });
+  }
+  if(!io) await s.setJSON(PRE_TAG + "-io", { at: new Date().toISOString(), tag: "pre-v1.25.0", keys: await ioBlobs(s) }, { onlyIfNew: true });
+  _preBackupDone = true;
+ } catch(e){ console.log("pre-v1.25.0 backup failed:", e && e.message); }
+}
+/* Every Tech I/O blob: io (pre-county), io~<county>, io-template, io-history~*. */
+async function ioBlobs(s){
+ const { blobs } = await s.list({ prefix: "io" });
+ const out = {};
+ for(const b of blobs || []){
+  if(b.key !== "io" && !/^io[~-]/.test(b.key)) continue;
+  out[b.key] = await s.get(b.key, { type: "json" });
+ }
+ return out;
+}
+const CH_SNAP_KEEP = 40;
+async function chSnapshot(s, tag, data){
+ try {
+  await s.setJSON("bak-ch-" + Date.now() + "-" + tag, { at: new Date().toISOString(), tag, data });
+  const { blobs } = await s.list({ prefix: "bak-ch-" });
+  const keys = (blobs || []).map(b => b.key).sort();
+  for(const k of keys.slice(0, Math.max(0, keys.length - CH_SNAP_KEEP))) await s.delete(k).catch(() => {});
+ } catch(e){ console.log("church snapshot failed:", e && e.message); }
+}
+const DAY_KEEP = 60;
+/* Nightly (netlify/functions/backup-scheduled.mjs). One copy of the church
+   roster and one of every Tech I/O blob per day, 60 days kept. */
+export async function nightlyBackup(){
+ const s = openStore();
+ const day = chToday();
+ const [ch, io] = await Promise.all([ s.get("churches", { type: "json" }), ioBlobs(s) ]);
+ const at = new Date().toISOString();
+ if(ch) await s.setJSON("bak-day-" + day + "-churches", { at, tag: "nightly", data: ch });
+ await s.setJSON("bak-day-" + day + "-io", { at, tag: "nightly", keys: io });
+ const { blobs } = await s.list({ prefix: "bak-day-" });
+ for(const suffix of ["-churches", "-io"]){
+  const keys = (blobs || []).map(b => b.key).filter(k => k.endsWith(suffix)).sort();
+  for(const k of keys.slice(0, Math.max(0, keys.length - DAY_KEEP))) await s.delete(k).catch(() => {});
+ }
+ return { ok: true, day, churches: ch ? normChurches(ch).list.length : 0, ioKeys: Object.keys(io).length };
+}
+const isChurchBackupKey = k => /^bak-day-\d{4}-\d{2}-\d{2}-churches$/.test(k) || /^bak-ch-\d+-[a-z0-9-]+$/.test(k) || k === PRE_TAG + "-churches";
+async function backupList(s){
+ const out = [];
+ for(const prefix of ["bak-day-", "bak-ch-", PRE_TAG]){
+  const { blobs } = await s.list({ prefix });
+  for(const b of blobs || []) out.push(b.key);
+ }
+ const when = k => { const m = /^bak-ch-(\d+)/.exec(k); if(m) return new Date(Number(m[1])).toISOString(); const d = /(\d{4}-\d{2}-\d{2})/.exec(k); return d ? d[1] + "T23:59:59Z" : ""; };
+ const kind = k => k.endsWith("-io") ? "io" : (isChurchBackupKey(k) ? "churches" : "other");
+ return [...new Set(out)].map(k => ({ key: k, at: when(k), kind: kind(k) })).filter(x => x.kind !== "other")
+  .sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+}
+
+/* ---- bot import (v1.25.0; HTTP side in churches-api.mjs) ----
+   Research bots add churches; people own the relationship. A bot can create
+   a row (marked unverified, with its sources) or fill a blank field on an
+   existing one. It never overwrites a value, never deletes, never touches
+   partnership, alignment, flags, interest or connections, and never re-adds
+   a church a leader removed. */
+export const CH_COUNTIES = ["Belknap","Carroll","Cheshire","Coös","Grafton","Hillsborough","Merrimack","Rockingham","Strafford","Sullivan"];
+const CH_API_FIELDS = ["name","kind","town","county","state","address","phone","email","website","contact","contactRole","leader","notes","denomination","sizeBand"];
+const CH_API_FORBIDDEN = ["id","partnerLevel","partnerSince","commitments","pastorNeeds","nextStep","nextStepDue","owner",
+ "followName","followPhone","followEmail","align","flag","interest","connections","verified","origin","addedBy","v"];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function apiCounty(v, state){
+ const c = str(v, 40).trim();
+ if(!c) return state === "NH" ? "" : "Out of state";
+ if(/^out of state$/i.test(c)) return "Out of state";
+ const k = c.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+county$/i, "").toLowerCase();
+ return CH_COUNTIES.find(x => x.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase() === k) || null;
+}
+/* One API record → { rec } or { error }. */
+export function apiRecord(x){
+ if(!x || typeof x !== "object" || Array.isArray(x)) return { error: "record must be an object" };
+ const bad = CH_API_FORBIDDEN.filter(k => k in x);
+ if(bad.length) return { error: "leaders set " + bad.join(", ") + " in the app — leave " + (bad.length > 1 ? "them" : "it") + " out" };
+ const unknown = Object.keys(x).filter(k => !CH_API_FIELDS.includes(k) && !["sourceUrls","researchedAt","ref"].includes(k));
+ if(unknown.length) return { error: "unknown field" + (unknown.length > 1 ? "s " : " ") + unknown.slice(0, 5).join(", ") };
+ const state = (str(x.state, 20) || "NH").toUpperCase();
+ if(!/^[A-Z]{2}$/.test(state)) return { error: "state must be a two-letter code" };
+ const name = str(x.name, 120).trim(), town = str(x.town, 60).trim();
+ if(!name) return { error: "name is required" };
+ if(!town) return { error: "town is required" };
+ const county = apiCounty(x.county, state);
+ if(county === null) return { error: "county must be one of " + CH_COUNTIES.join(", ") + " or Out of state" };
+ if(state === "NH" && !county) return { error: "county is required for NH churches" };
+ if(x.kind != null && !CH_KINDS.has(x.kind)) return { error: "kind must be church or ministry" };
+ if(x.sizeBand != null && x.sizeBand !== "" && !CH_SIZES.has(x.sizeBand)) return { error: "sizeBand must be one of " + [...CH_SIZES].join(", ") };
+ if(x.email && !EMAIL_RE.test(str(x.email, 120))) return { error: "email doesn't look like an address" };
+ if(x.website && !safeUrl(x.website)) return { error: "website must be an http(s) URL" };
+ const src = (Array.isArray(x.sourceUrls) ? x.sourceUrls : []).map(u => safeUrl(u, 300)).filter(Boolean);
+ if(!src.length) return { error: "sourceUrls needs at least one http(s) link to where this was found" };
+ const researchedAt = isoDay(x.researchedAt);
+ if(!researchedAt) return { error: "researchedAt must be a YYYY-MM-DD date" };
+ const rec = {};
+ for(const k of CH_API_FIELDS) if(x[k] != null && x[k] !== "") rec[k] = x[k];
+ Object.assign(rec, { name, town, state, county, src: src.slice(0, 10), researchedAt });
+ const n = normChurch(rec);
+ const out = {};
+ for(const k of [...CH_API_FIELDS, "src", "researchedAt"]) if(n[k] != null && n[k] !== "" && !(Array.isArray(n[k]) && !n[k].length)) out[k] = n[k];
+ if(!("kind" in rec)) delete out.kind;
+ return { rec: out, ref: str(x.ref, 80) };
+}
+const chEmpty = v => v == null || v === "" || (Array.isArray(v) && !v.length);
+/* Same phone or website domain in the same town (or county) — probably the
+   same church under another name. Held for a person to decide. */
+function chNearMatch(list, rec){
+ const ph = phoneDigits(rec.phone), dom = siteDomain(rec.website), tk = townKey(rec.town);
+ if(!ph && !dom) return null;
+ return list.find(x => (townKey(x.town) === tk || (rec.county && x.county === rec.county)) &&
+  ((ph && phoneDigits(x.phone) === ph) || (dom && siteDomain(x.website) === dom))) || null;
+}
+/* Pure: applies the batch to roster `c` (mutating it) and returns per-record
+   results. Called on a throwaway copy for dry runs and inside the CAS for
+   real ones, so both report exactly the same thing. */
+function chApplyImport(c, items, opt){
+ const results = [], audit = [];
+ const bot = opt.bot, by = "🤖 " + opt.botLabel;
+ const at = new Date().toISOString(), d = chToday(), t = chNowLabel();
+ const seen = new Map(), removed = new Set(c.removed);
+ const byKey = new Map(c.list.map(x => [chKeyOf(x), x]));
+ let created = 0, changed = false;
+ items.forEach((it, i) => {
+  const r = { i, ref: it.ref || "" };
+  results.push(r);
+  if(it.error){ r.status = "invalid"; r.reason = it.error; return; }
+  const rec = it.rec, key = chKeyOf(rec);
+  r.name = rec.name; r.key = key;
+  if(seen.has(key)){ r.status = "duplicate_in_batch"; r.of = seen.get(key); return; }
+  seen.set(key, i);
+  const hit = byKey.get(key);
+  if(hit){
+   r.id = hit.id;
+   if(opt.mode !== "upsert"){ r.status = "exists"; return; }
+   const fills = [], clashes = [];
+   for(const k of Object.keys(rec)){
+    if(k === "name" || k === "town" || k === "state" || k === "src" || k === "researchedAt") continue;
+    if(chEmpty(hit[k])) fills.push(k);
+    else if(JSON.stringify(hit[k]) !== JSON.stringify(rec[k])) clashes.push(k);
+   }
+   const newSrc = (rec.src || []).filter(u => !(hit.src || []).includes(u));
+   if(!fills.length){
+    r.status = clashes.length ? "conflict" : "exists";
+    if(clashes.length) r.conflicts = clashes;
+    return;
+   }
+   const before = { ...hit }, next = { ...hit };
+   for(const k of fills) next[k] = rec[k];
+   next.src = [...(hit.src || []), ...newSrc].slice(0, 10);
+   if(rec.researchedAt > (hit.researchedAt || "")) next.researchedAt = rec.researchedAt;
+   next.v = (hit.v || 0) + 1;
+   const row = normChurch(next);
+   c.list[c.list.indexOf(hit)] = row; byKey.set(key, row);
+   chLogPush(c, { ch: hit.id, type: "edit", by, note: "Filled in " + fills.join(", ") + " (researched " + rec.researchedAt + ")", t, d });
+   audit.push({ at, actor: "bot:" + bot, src: "api", act: "update", ch: hit.id, name: hit.name, changes: chDiff(before, row), runId: opt.runId, ref: r.ref });
+   r.status = "updated"; r.fields = fills;
+   if(clashes.length) r.conflicts = clashes;
+   changed = true;
+   return;
+  }
+  const slug = slugId(rec.name, rec.town);
+  if(removed.has(slug)){ r.status = "removed"; r.id = slug; r.reason = "a leader removed this church from the list"; return; }
+  const near = chNearMatch(c.list, rec);
+  if(near){ r.status = "possible_duplicate"; r.id = near.id; r.match = near.name + " (" + near.town + ")"; return; }
+  if(created >= opt.maxCreates){ r.status = "limit"; r.reason = "daily create limit reached"; return; }
+  if(c.list.length >= CH_LIST_MAX){ r.status = "limit"; r.reason = "the master list is full (" + CH_LIST_MAX + ")"; return; }
+  let id = slug;
+  const taken = new Set([...c.list.map(x => x.id), ...c.removed]);
+  for(let n = 2; taken.has(id); n++) id = slug.slice(0, 36) + "-" + n;
+  const row = normChurch({ ...rec, id, origin: "bot:" + bot, verified: false, addedBy: by, v: 1, t, d });
+  c.list.push(row); byKey.set(key, row);
+  chLogPush(c, { ch: id, type: "add", by, note: rec.name + " (researched " + rec.researchedAt + ")", t, d });
+  audit.push({ at, actor: "bot:" + bot, src: "api", act: "create", ch: id, name: rec.name, changes: chDiff({}, row), runId: opt.runId, ref: r.ref });
+  r.status = "created"; r.id = id;
+  created++; changed = true;
+ });
+ if(changed) c.rev++;
+ return { results, audit, changed, created };
+}
+export async function importChurches(opt){
+ const s = openStore();
+ const items = opt.records.map(apiRecord);
+ const o = { bot: opt.bot, botLabel: opt.botLabel || opt.bot, mode: opt.mode === "upsert" ? "upsert" : "create_only",
+  maxCreates: Math.max(0, opt.maxCreates == null ? Infinity : opt.maxCreates), runId: str(opt.runId, 60) };
+ const raw = await s.get("churches", { type: "json" }).catch(() => null);
+ const cur = raw ? normChurches(raw) : seededChurches();
+ chMigrate(cur, []);
+ const preview = chApplyImport(JSON.parse(JSON.stringify(cur)), items, o);
+ if(opt.dryRun || !preview.changed) return { dryRun: !!opt.dryRun, rev: cur.rev, results: preview.results, created: preview.created };
+ if(raw) await chSnapshot(s, "import", raw);
+ let res = null;
+ const out = await casChurches(s, c => {
+  res = chApplyImport(c, items, o);
+  return res.changed ? c : undefined;
+ }, () => res ? res.audit : []);
+ return { dryRun: false, rev: out.rev, results: res.results, created: res.created };
+}
+export async function churchKeys(state){
+ const s = openStore();
+ const raw = await s.get("churches", { type: "json" }).catch(() => null);
+ const c = raw ? normChurches(raw) : seededChurches();
+ const st = str(state, 2).toUpperCase();
+ return { rev: c.rev, count: c.list.length,
+  churches: c.list.filter(x => !st || x.state === st).map(x => ({ id: x.id, key: chKeyOf(x), name: x.name, town: x.town, county: x.county, verified: x.verified !== false })),
+  removed: c.removed };
+}
+export async function churchLookup(q){
+ const s = openStore();
+ const raw = await s.get("churches", { type: "json" }).catch(() => null);
+ const c = raw ? normChurches(raw) : seededChurches();
+ const state = (str(q.state, 2) || "NH").toUpperCase();
+ const key = dedupKey(q.name, q.town, state);
+ const hit = c.list.find(x => chKeyOf(x) === key) || null;
+ const near = hit ? null : chNearMatch(c.list, { town: str(q.town, 60), county: apiCounty(q.county, state) || "", phone: str(q.phone, 40), website: safeUrl(q.website) });
+ const pick = x => x && { id: x.id, name: x.name, town: x.town, county: x.county, state: x.state, verified: x.verified !== false,
+  missing: CH_API_FIELDS.filter(k => chEmpty(x[k])) };
+ return { key, match: pick(hit), possibleDuplicate: pick(near), removed: c.removed.includes(slugId(q.name, q.town)) };
 }
 
 export function normCheckin(x){
@@ -760,6 +1211,7 @@ export function normRig(r){
   v: 1,
   rev: clampInt(r.rev, 0, 1e9, 0),
   savedAt: str(r.savedAt, 30), savedBy: str(r.savedBy, 40),
+  saveId: /^[a-zA-Z0-9_-]{1,60}$/.test(str(r.saveId, 60)) ? str(r.saveId, 60) : "",
   from,
   snakeSize: clampInt(r.snakeSize, 1, 64, 16),
   nsbStart: clampInt(r.nsbStart, 1, 32, 1),
@@ -845,6 +1297,8 @@ const LEADER_ACTIONS = new Set([
  "setFunding","reset","promptSeed","promptAdd","promptEdit","promptDelete",
  "capturesList","captureMedia","captureDelete","capturePurge","revokeLeaderTokens",
  "churchEdit","churchDelete","churchFlagClear","churchTemplate","miracleDelete","binNoteAck","annDelete",
+ /* Church backups and Tech I/O version history (v1.25.0). */
+ "backupList","churchRestore","rigVersions",
  /* The trailer roster is the leaders' record — volunteers report against it
     (binNoteAdd) but never write it. */
  "binEdit","binAdd","binDelete","binItemAdd","binPackClear",
@@ -1265,7 +1719,7 @@ async function assemble(s, K, active, lvl){
  let parts = await readAll(s, K);
  parts = await migrateIfNeeded(s, K, parts);
  const core = normCore(parts.core);
- const [agg, decAgg, tallyEpoch, capturesRaw, churchesRaw, miraclesRaw, binNotesRaw, binsRaw, binStateRaw, pinCfg] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), s.get("churches", { type:"json" }), s.get("miracles", { type:"json" }), s.get("binnotes", { type:"json" }), s.get("bins", { type:"json" }), s.get("binstate", { type:"json" }), readDayPinCfg(s) ]);
+ const [agg, decAgg, tallyEpoch, capturesRaw, chMeta, miraclesRaw, binNotesRaw, binsRaw, binStateRaw, pinCfg] = await Promise.all([ readAgg(s, K), readDecAgg(s, K), readEpoch(s, K), s.get("captures", { type:"json" }), chMetaRead(s), s.get("miracles", { type:"json" }), s.get("binnotes", { type:"json" }), s.get("bins", { type:"json" }), s.get("binstate", { type:"json" }), readDayPinCfg(s) ]);
  const dayPin = pinCfg.pin;
  /* Leaders (and only leaders) get the actual PIN plus when it rolls over, so
     they can read it out at the huddle and tell people what changes Monday.
@@ -1284,10 +1738,11 @@ async function assemble(s, K, active, lvl){
   };
  }
  const captures = normCaptures(capturesRaw);
- // Only the rev + count ride in the main payload; the roster itself is
- // fetched on demand (GET ?part=churches) so polling stays light.
- const churchesRev = Math.max(0, Math.round(Number(churchesRaw && churchesRaw.rev) || 0));
- const churchCount = (churchesRaw && Array.isArray(churchesRaw.list)) ? churchesRaw.list.length : 0;
+ // Only the rev, count and partner counter ride in the main payload; the
+ // roster itself is fetched on demand (GET ?part=churches) so polling stays
+ // light — and the poll reads the small churches-meta blob, not the roster.
+ const churchesRev = Math.max(0, Math.round(Number(chMeta.rev) || 0));
+ const churchCount = Math.max(0, Math.round(Number(chMeta.count) || 0));
  // Self-seeding script board: fill in any missing starter scripts (no-op
  // write when nothing is missing, so the usual GET stays read-only). Counties
  // the season has already driven past are neither seeded nor sent — the board
@@ -1346,7 +1801,11 @@ async function assemble(s, K, active, lvl){
  // everyone's phone while they're loading, and it's only a few KB.
  binState: normBinState(binStateRaw).marks,
  churchesRev,
- churchCount
+ churchCount,
+ /* "N / 100 partner churches" for the Event Day and Pre-Crusade counters. */
+ partnerCount: (Number(chMeta.partner) || 0) + (Number(chMeta.covenant) || 0),
+ partnerGoal: CH_PARTNER_GOAL,
+ partnerTiers: { praying: Number(chMeta.praying) || 0, partner: Number(chMeta.partner) || 0, covenant: Number(chMeta.covenant) || 0 }
  };
 }
 
@@ -1515,6 +1974,79 @@ async function rigEnsure(s, K, seed){
  }, () => ({ list: [], buses: [] }));
 }
 
+/* ---- Tech I/O version history (v1.25.0) ----
+   Every lineup that a save or restore replaces is kept in io-history~<county>
+   (newest IO_HIST_KEEP). Leaders can list these — plus the reset/restore
+   snapshots, the nightly copies and the pre-v1.25.0 copy — and put any one
+   back from Restore. */
+const IO_HIST_KEEP = 25;
+const ioHistKey = K => "io-history" + (K.cty ? "~" + K.cty : "");
+async function ioHistoryPush(s, K, prev, why, by){
+ if(!prev || !Array.isArray(prev.positions) || !prev.positions.length) return;
+ await compareAndSwap(s, ioHistKey(K), v => ({ list: Array.isArray(v && v.list) ? v.list : [] }), h => {
+  h.list.push({ at: new Date().toISOString(), why: str(why, 20), by: str(by, 40), rig: prev });
+  h.list = h.list.slice(-IO_HIST_KEEP);
+  return h;
+ }, () => ({ list: [] })).catch(e => console.log("io history write failed:", e && e.message));
+}
+const rigOf = io => io ? normRig(io.rig) : null;
+function rigSummary(r){
+ const people = [...new Set(r.positions.map(p => p.person).filter(Boolean))];
+ const inputs = r.positions.reduce((n, p) => n + p.inputs.length, 0);
+ return { rev: r.rev, savedAt: r.savedAt, savedBy: r.savedBy, from: r.from ? r.from.kind : "",
+  positions: r.positions.length, inputs, people: people.slice(0, 8) };
+}
+/* Every earlier copy of THIS event's lineup we still hold, newest first,
+   identical copies collapsed. */
+async function rigVersionsFor(s, K){
+ const out = [];
+ const add = (key, idx, at, kind, r) => { if(r && r.positions.length) out.push({ key, idx, at, kind, rig: r }); };
+ const hist = await s.get(ioHistKey(K), { type: "json" }).catch(() => null);
+ (hist && Array.isArray(hist.list) ? hist.list : []).forEach((e, i) => add(ioHistKey(K), i, e.at, "history:" + (e.why || "save"), normRig(e.rig)));
+ const keysOf = async prefix => ((await s.list({ prefix }).catch(() => ({ blobs: [] }))).blobs || []).map(b => b.key);
+ for(const k of await keysOf("backup-")){
+  if(!/-(reset|io-restore)$/.test(k)) continue;
+  const b = await s.get(k, { type: "json" }).catch(() => null);
+  const d = b && b.data;
+  /* Restore snapshots name their county. Reset snapshots don't, so they are
+     offered for every event — the band's lineup rarely differs by county. */
+  if(!d || (d.county != null && d.county !== K.cty)) continue;
+  add(k, 0, b.at, k.endsWith("-reset") ? "before reset" : "before restore", rigOf(d.io));
+ }
+ for(const k of [...await keysOf("bak-day-"), PRE_TAG + "-io"]){
+  if(!k.endsWith("-io")) continue;
+  const b = await s.get(k, { type: "json" }).catch(() => null);
+  if(!b || !b.keys) continue;
+  add(k, 0, b.at, k.startsWith(PRE_TAG) ? "before v1.25.0" : "nightly", rigOf(b.keys[K.io]));
+ }
+ out.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+ const seen = new Set(), uniq = [];
+ for(const v of out){
+  const h = hash(JSON.stringify(rigClearChecks(normRig(v.rig)).positions));
+  if(seen.has(h)) continue;
+  seen.add(h); uniq.push(v);
+ }
+ return uniq.slice(0, 60);
+}
+async function rigVersionAt(s, K, key, idx){
+ key = str(key, 120);
+ if(key === ioHistKey(K)){
+  const h = await s.get(key, { type: "json" });
+  const e = h && Array.isArray(h.list) ? h.list[clampInt(idx, 0, 1000, 0)] : null;
+  return e ? normRig(e.rig) : null;
+ }
+ if(/^backup-\d+-(reset|io-restore)$/.test(key)){
+  const b = await s.get(key, { type: "json" });
+  if(!b || !b.data || (b.data.county != null && b.data.county !== K.cty)) return null;
+  return rigOf(b.data.io);
+ }
+ if(/^bak-day-\d{4}-\d{2}-\d{2}-io$/.test(key) || key === PRE_TAG + "-io"){
+  const b = await s.get(key, { type: "json" });
+  return b && b.keys ? rigOf(b.keys[K.io]) : null;
+ }
+ return null;
+}
+
 /* ---- access control (v1.10.0) ----
    Until now the Day PIN was enforced only in the browser: the API itself was
    open, so anyone with the URL could read every check-in, issue, praise — and
@@ -1576,7 +2108,7 @@ function storeName(){
   .toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 40);
  return `${STORE}--${ctx}--${branch}`;
 }
-const openStore = () => _storeFactory ? _storeFactory() : getStore(storeName(), { consistency: "strong" });
+export const openStore = () => _storeFactory ? _storeFactory() : getStore(storeName(), { consistency: "strong" });
 
 export default async (req, context) => {
  const s = openStore();
@@ -1607,12 +2139,12 @@ export default async (req, context) => {
      when nothing is missing). */
   const part = wantPart;
   if(part === "churches"){
-   const ch = await compareAndSwap(s, "churches", normChurches, c => {
+   const ch = await casChurches(s, c => {
     const merged = mergeStarterChurches(c);
     const compacted = chCompactLog(c);
     if(compacted) c.rev++;
     return (merged || compacted) ? c : undefined;
-   }, emptyChurches);
+   }, null, emptyChurches);
    const body = JSON.stringify(ch);
    const etag = 'W/"' + hash(body) + '"';
    if(req.headers.get("if-none-match") === etag){
@@ -1673,6 +2205,7 @@ export default async (req, context) => {
    return rateBlockedResp("changes");
   }
  }
+ await preBackups(s);
  }
 
  /* ---- PIN verification (no state change) ---- */
@@ -2024,10 +2557,25 @@ export default async (req, context) => {
  }, () => ({ list: [], buses: [] }));
  break;
  }
+ /* A save must name the revision it was edited from. If the stored lineup
+    has moved on, the save is refused instead of silently replacing it — an
+    editor opened before the first sync (or offline) starts from the built-in
+    roster at rev 0, and that is how the team's lineup was overwritten with
+    the code defaults. v1.25.0+ clients send baseRev + saveId and get a 409
+    with the current lineup. Older clients only carry rig.rev (the rev they
+    opened); they get a 400, which their outbox drops instead of retrying. */
  case "rigSave": {
  const next = normRig(payload.rig);
  if(!next) return json({ error:"bad lineup" }, 400);
- await compareAndSwap(s, K.io, normIO, io => {
+ const modern = Number.isSafeInteger(payload.baseRev);
+ const baseRev = modern ? payload.baseRev : clampInt(payload.rig && payload.rig.rev, 0, 1e9, 0);
+ const saveId = typeof payload.saveId === "string" && /^[a-zA-Z0-9_-]{1,60}$/.test(payload.saveId) ? payload.saveId : "";
+ let prev = null, conflict = null;
+ const saved = await compareAndSwap(s, K.io, normIO, io => {
+  prev = null; conflict = null;
+  const curRev = (io.rig && io.rig.rev) || 0;
+  if(saveId && io.rig && io.rig.saveId === saveId) return undefined; // confirmed retry
+  if(io.rig && curRev !== baseRev){ conflict = io.rig; return undefined; }
   /* The editor's copy of the checkmarks is stale by definition — keep the
      server's tick state for every input that still exists. */
   const cur = new Map(rigInputs(io.rig).map(e => [e.x.id, e.x]));
@@ -2035,13 +2583,26 @@ export default async (req, context) => {
    const c = cur.get(x.id);
    x.done = !!(c && c.done); x.by = (c && c.done) ? c.by : ""; x.t = (c && c.done) ? c.t : "";
   }
-  next.rev = ((io.rig && io.rig.rev) || 0) + 1;
+  prev = io.rig;
+  next.rev = curRev + 1;
   next.savedAt = new Date().toISOString(); next.savedBy = str(payload.by, 40);
   next.from = (io.rig && io.rig.from) || next.from || null;
+  next.saveId = saveId;
   io.rig = next;
   return io;
  }, () => ({ list: [], buses: [] }));
- break;
+ if(conflict){
+  return modern
+   ? json({ error:"lineup changed since you opened it", conflict:true, rig: conflict }, 409)
+   : json({ error:"lineup changed since you opened it — reopen the editor", conflict:true }, 400);
+ }
+ if(prev) await ioHistoryPush(s, K, prev, "save", payload.by);
+ return json({ ok:true, rig: saved.rig });
+ }
+ case "rigVersions": {
+ const list = await rigVersionsFor(s, K);
+ return json({ ok:true, county: K.cty, current: (await s.get(K.io, { type:"json" }).then(rigOf).catch(() => null) || {}).rev || 0,
+  versions: list.map(v => ({ key: v.key, idx: v.idx, at: v.at, kind: v.kind, ...rigSummary(v.rig) })) });
  }
  case "rigClearChecks":
  await compareAndSwap(s, K.io, normIO, io => {
@@ -2061,21 +2622,28 @@ export default async (req, context) => {
  break;
  }
  case "rigRestore": {
- const from = (payload.from === "last" || payload.from === "template") ? payload.from : "builtin";
+ const from = ["last","template","version"].includes(payload.from) ? payload.from : "builtin";
  let src = null;
  if(from === "last") src = await rigFromPrevious(s, K);
  else if(from === "template") src = await rigFromTemplate(s);
+ else if(from === "version"){
+  const r = await rigVersionAt(s, K, payload.key, payload.idx).catch(() => null);
+  src = r ? { rig: r, from: { kind:"version", county:"", name: str(r.savedAt, 10) } } : null;
+ }
  else { const r = normRig(payload.seed); src = r ? { rig: r, from: { kind:"builtin", county:"", name:"" } } : null; }
  if(!src) return json({ error:"nothing to restore from", from }, 404);
  await snapshot(s, "io-restore", { county: K.cty, io: await s.get(K.io, { type:"json" }) });
+ let prev = null;
  await compareAndSwap(s, K.io, normIO, io => {
+  prev = io.rig;
   const r = rigClearChecks(normRig(src.rig));
   r.rev = ((io.rig && io.rig.rev) || 0) + 1;
   r.savedAt = new Date().toISOString(); r.savedBy = str(payload.by, 40);
-  r.from = src.from;
+  r.from = src.from; r.saveId = "";
   io.rig = r;
   return io;
  }, () => ({ list: [], buses: [] }));
+ if(prev) await ioHistoryPush(s, K, prev, "restore", payload.by);
  break;
  }
  case "ioSetRow": {
@@ -2571,15 +3139,22 @@ export default async (req, context) => {
     deleting the master list is leader-PIN-gated (see LEADER_ACTIONS). Every
     write bumps rev and lands in the activity log. */
  case "churchAdd": {
- const rec = normChurch(payload.church || {});
- if(!rec.name) break;
+ const rec = normChurch({ ...(payload.church || {}), origin: "app", v: 1 });
+ delete rec.verified;
+ if(!rec.name) return json({ error:"name required" }, 400);
+ const key = chKeyOf(rec);
+ let res = null;
  await casChurches(s, c => {
+ res = null;
  if(c.list.some(x => x.id === rec.id)) return undefined; // idempotent retry
- if(c.list.some(x => x.name.toLowerCase() === rec.name.toLowerCase() && x.town.toLowerCase() === rec.town.toLowerCase())) return undefined; // duplicate guard
- c.list.push(rec); c.list = c.list.slice(0, 800);
+ const dup = c.list.find(x => chKeyOf(x) === key);
+ if(dup){ res = { error:"already on the list", duplicate:true, id: dup.id, name: dup.name, status: 409 }; return undefined; }
+ if(c.list.length >= CH_LIST_MAX){ res = { error:"the master list is full (" + CH_LIST_MAX + ")", full:true, status: 507 }; return undefined; }
+ c.list.push(rec);
  chLogPush(c, { ch: rec.id, type:"add", by: rec.addedBy || "Ambassador", note: rec.name, t: rec.t, d: rec.d });
  c.rev++; return c;
- });
+ }, () => [{ at: new Date().toISOString(), actor: str(rec.addedBy || "Ambassador", 40), src: "app", act: "create", ch: rec.id, name: rec.name, changes: chDiff({}, rec) }]);
+ if(res) return json(res, res.status);
  break;
  }
  case "churchLog": {
@@ -2613,64 +3188,98 @@ export default async (req, context) => {
  case "churchConnect": {
  const conn = normChConn(payload);
  if(!conn.amb) break;
+ let res = null, name = "";
  await casChurches(s, c => {
+ res = null;
  const it = c.list.find(x => x.id === payload.ch);
  if(!it) return undefined;
  if(it.connections.some(x => x.amb.toLowerCase() === conn.amb.toLowerCase())) return undefined;
- it.connections.push(conn); it.connections = it.connections.slice(0, 40);
+ if(it.connections.length >= CH_CONN_MAX){ res = { error:"this church already has " + CH_CONN_MAX + " connections", full:true }; return undefined; }
+ it.connections.push(conn); it.v = (it.v || 0) + 1; name = it.name;
  chLogPush(c, { ch: it.id, type:"connect", by: conn.amb, note: conn.note, t: conn.t, d: conn.d });
  c.rev++; return c;
- });
+ }, () => [{ at: new Date().toISOString(), actor: conn.amb, src: "app", act: "connect", ch: idStr(payload.ch), name, changes: { connections: { from: "", to: conn.amb } } }]);
+ if(res) return json(res, 507);
  break;
  }
  case "churchInterest": {
  const n = Math.max(0, Math.min(5, Math.round(Number(payload.interest) || 0)));
+ let was = 0, name = "";
  await casChurches(s, c => {
  const it = c.list.find(x => x.id === payload.ch);
  if(!it || it.interest === n) return undefined;
- it.interest = n;
+ was = it.interest; name = it.name;
+ it.interest = n; it.v = (it.v || 0) + 1;
  chLogPush(c, { ch: it.id, type:"interest", by: payload.by, note: "Interest set to " + n + "/5", t: payload.t, d: payload.d });
  c.rev++; return c;
- });
+ }, () => [{ at: new Date().toISOString(), actor: str(payload.by, 40), src: "app", act: "update", ch: idStr(payload.ch), name, changes: { interest: { from: was, to: n } } }]);
  break;
  }
  case "churchFlag": {
  if(!payload.reason) break;
+ let name = "";
  await casChurches(s, c => {
  if(chLogged(c, payload.id)) return undefined; // retry of an applied write
  const it = c.list.find(x => x.id === payload.ch);
  if(!it) return undefined;
  it.flag = normChurch({ flag:{ reason: payload.reason, note: payload.note, by: payload.by, t: payload.t, d: payload.d } }).flag;
- it.align = "flagged";
+ it.align = "flagged"; it.v = (it.v || 0) + 1; name = it.name;
  chLogPush(c, { id: payload.id, ch: it.id, type:"flag", by: payload.by, note: str(payload.reason, 80) + (payload.note ? " — " + str(payload.note, 200) : ""), t: payload.t, d: payload.d });
  c.rev++; return c;
- });
+ }, () => [{ at: new Date().toISOString(), actor: str(payload.by, 40), src: "app", act: "flag", ch: idStr(payload.ch), name, changes: { flag: { from: "", to: str(payload.reason, 80) } } }]);
  break;
  }
  case "churchFlagClear": {
+ let name = "";
  await casChurches(s, c => {
  if(chLogged(c, payload.id)) return undefined;
  const it = c.list.find(x => x.id === payload.ch);
  if(!it || !it.flag) return undefined;
- it.flag = null;
+ it.flag = null; it.v = (it.v || 0) + 1; name = it.name;
  it.align = CH_ALIGNS.has(payload.align) && payload.align !== "flagged" ? payload.align : "unverified";
  chLogPush(c, { id: payload.id, ch: it.id, type:"unflag", by: payload.by, note: "Flag cleared", t: payload.t, d: payload.d });
  c.rev++; return c;
- });
+ }, () => [{ at: new Date().toISOString(), actor: "leader:" + str(payload.by, 40), src: "app", act: "unflag", ch: idStr(payload.ch), name, changes: {} }]);
  break;
  }
+ /* Field-level optimistic concurrency. v1.25.0+ clients send only the
+    fields the leader changed, plus `base` — each of those fields as it was
+    when the form opened. If another leader changed any of the same fields
+    in the meantime, nothing is written and the caller gets 409 with the
+    current record. Fields nobody else touched merge cleanly, so two leaders
+    editing different fields of one church both land. Older clients send no
+    base and keep their previous behaviour. */
  case "churchEdit": {
  const patch = payload.patch || {};
+ const base = payload.base && typeof payload.base === "object" ? payload.base : null;
+ let res = null, changes = {}, name = "";
  await casChurches(s, c => {
+ res = null; changes = {};
  if(chLogged(c, payload.id)) return undefined;
  const i = c.list.findIndex(x => x.id === payload.ch);
- if(i < 0) return undefined;
+ if(i < 0){ if(base) res = { status: 404, body: { error:"that church is no longer on the list", gone:true } }; return undefined; }
  const cur = c.list[i], merged = { ...cur };
- for(const k of CH_EDIT_FIELDS) if(k in patch) merged[k] = patch[k];
- c.list[i] = normChurch({ ...merged, id: cur.id, connections: cur.connections, flag: cur.flag, addedBy: cur.addedBy });
- chLogPush(c, { id: payload.id, ch: cur.id, type:"edit", by: payload.by, note: "Details updated", t: payload.t, d: payload.d });
+ const fields = CH_EDIT_FIELDS.filter(k => k in patch);
+ if(base){
+  const norm = o => normChurch({ ...cur, ...o, id: cur.id });
+  const was = norm(base), now = cur;
+  const clash = fields.filter(k => k in base && JSON.stringify(was[k] ?? "") !== JSON.stringify(now[k] ?? ""));
+  if(clash.length){ res = { status: 409, body: { error:"someone else changed this church", conflict:true, fields: clash, church: cur } }; return undefined; }
+ }
+ for(const k of fields) merged[k] = patch[k];
+ const next = normChurch({ ...merged, id: cur.id, connections: cur.connections, flag: cur.flag, addedBy: cur.addedBy, origin: cur.origin, src: cur.src, researchedAt: cur.researchedAt });
+ changes = chDiff(cur, next);
+ if(!Object.keys(changes).length) return undefined;
+ const key = chKeyOf(next);
+ const twin = key !== chKeyOf(cur) && c.list.find(x => x.id !== cur.id && chKeyOf(x) === key);
+ if(twin){ res = { status: 409, body: { error:"another entry already has that name and town", duplicate:true, id: twin.id, name: twin.name } }; return undefined; }
+ next.v = (cur.v || 0) + 1;
+ c.list[i] = next; name = next.name;
+ const labels = Object.keys(changes).slice(0, 6).join(", ");
+ chLogPush(c, { id: payload.id, ch: cur.id, type:"edit", by: payload.by, note: base ? "Updated " + labels : "Details updated", t: payload.t, d: payload.d });
  c.rev++; return c;
- });
+ }, () => [{ at: new Date().toISOString(), actor: "leader:" + str(payload.by, 40), src: "app", act: "update", ch: idStr(payload.ch), name, changes }]);
+ if(res) return json(res.body, res.status);
  break;
  }
  case "churchTemplate": {
@@ -2681,19 +3290,47 @@ export default async (req, context) => {
  c.tpl = { subject: str(payload.subject, 200), email: str(payload.email, 4000), sms: str(payload.sms, 600) };
  chLogPush(c, { id: payload.id, ch: "", type:"edit", by: payload.by, note: "Updated the master email & text templates", t: payload.t, d: payload.d });
  c.rev++; return c;
- });
+ }, () => [{ at: new Date().toISOString(), actor: "leader:" + str(payload.by, 40), src: "app", act: "template", ch: "", name: "", changes: {} }]);
  break;
  }
  case "churchDelete": {
+ const raw = await s.get("churches", { type:"json" }).catch(() => null);
+ let gone = null;
+ if(raw && normChurches(raw).list.some(x => x.id === payload.ch)) await chSnapshot(s, "delete", raw);
  await casChurches(s, c => {
+ gone = null;
  const it = c.list.find(x => x.id === payload.ch);
  if(!it) return undefined;
+ gone = it;
  c.list = c.list.filter(x => x.id !== it.id);
  if(!c.removed.includes(it.id)) c.removed.push(it.id); // tombstone: don't re-seed
  chLogPush(c, { ch: it.id, type:"delete", by: payload.by, note: it.name, t: payload.t, d: payload.d });
  c.rev++; return c;
- });
+ }, () => gone ? [{ at: new Date().toISOString(), actor: "leader:" + str(payload.by, 40), src: "app", act: "delete", ch: gone.id, name: gone.name, changes: chDiff(gone, {}) }] : []);
  break;
+ }
+ /* ---- church backups (v1.25.0, leader) ---- */
+ case "backupList":
+ return json({ ok:true, backups: await backupList(s) });
+ case "churchRestore": {
+ const key = str(payload.key, 120);
+ if(!isChurchBackupKey(key)) return json({ error:"not a church backup" }, 400);
+ const b = await s.get(key, { type:"json" });
+ if(!b || !b.data) return json({ error:"backup not found" }, 404);
+ const from = normChurches(b.data);
+ const raw = await s.get("churches", { type:"json" }).catch(() => null);
+ if(raw) await chSnapshot(s, "prerestore", raw);
+ let before = 0;
+ const out = await casChurches(s, cur => {
+  before = cur.list.length;
+  const next = normChurches(JSON.parse(JSON.stringify(from)));
+  next.rev = cur.rev + 1;
+  next.migr = [...new Set([...cur.migr, ...next.migr])];
+  const st = { t: chNowLabel(), d: chToday() };
+  next.log.push(normChLog({ ch: "", type: "edit", by: payload.by || "Leadership", note: "Restored the master list from a backup (" + (b.at || key).slice(0, 16).replace("T", " ") + ")", ...st }));
+  return next;
+ }, () => [{ at: new Date().toISOString(), actor: "leader:" + str(payload.by, 40), src: "app", act: "restore", ch: "", name: "", changes: { list: { from: before, to: from.list.length } }, key }]);
+ return json({ ok:true, count: out.list.length, rev: out.rev });
  }
  case "capturePurge": {
  /* Refuse while anything is still unfiled — the button's whole premise is
