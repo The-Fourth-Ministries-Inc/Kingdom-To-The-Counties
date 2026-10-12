@@ -227,7 +227,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
    onclick="fn('...')" handlers all over this file, so a lone ' would break out
    of the JS string literal inside the attribute. */
 function esc(s){return(s||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
-function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],miracles:Array.isArray(s.miracles)?s.miracles:[],witnessMin:s.witnessMin||2,binNotes:Array.isArray(s.binNotes)?s.binNotes:[],binState:(s.binState&&typeof s.binState==="object")?s.binState:{},binsRev:(s.binsRev!=null?s.binsRev:null),county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],ioBuses:Array.isArray(s.ioBuses)?s.ioBuses:[],rig:(s.rig&&Array.isArray(s.rig.positions))?s.rig:null,sets:(s.sets&&s.sets.sets&&typeof s.sets.sets==="object")?s.sets:null,schedule:(s.schedule&&typeof s.schedule==="object")?s.schedule:null,dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0};}
+function normalize(s){return{checklist:s.checklist||{},locked:!!s.locked,notes:s.notes||{},announcements:s.announcements||[],checkins:s.checkins||[],feedback:s.feedback||[],praises:s.praises||[],miracles:Array.isArray(s.miracles)?s.miracles:[],witnessMin:s.witnessMin||2,binNotes:Array.isArray(s.binNotes)?s.binNotes:[],binState:(s.binState&&typeof s.binState==="object")?s.binState:{},binsRev:(s.binsRev!=null?s.binsRev:null),county:s.county||"",countyAuto:s.countyAuto!==false,dayPin:s.dayPin||"",dayPinManual:!!s.dayPinManual,dayPinAuto:s.dayPinAuto||"",pinRollsOver:s.pinRollsOver||"",nextCounty:s.nextCounty||"",nextPin:s.nextPin||"",eventDate:s.eventDate||"",count:s.count||0,decisions:s.decisions||0,decBy:s.decBy||{},extras:Array.isArray(s.extras)?s.extras:[],event:s.event||{name:"",date:""},ioList:s.ioList||[],ioBuses:Array.isArray(s.ioBuses)?s.ioBuses:[],rig:(s.rig&&Array.isArray(s.rig.positions))?s.rig:null,sets:(s.sets&&s.sets.sets&&typeof s.sets.sets==="object")?s.sets:null,schedule:(s.schedule&&typeof s.schedule==="object")?s.schedule:null,dayPinSet:!!s.dayPinSet,funding:s.funding||{pct:64,needed:"$60,000"},tallyBy:s.tallyBy||{},radios:Array.isArray(s.radios)?s.radios:[],prompter:(s.prompter&&Array.isArray(s.prompter.scripts))?s.prompter:{scripts:[]},captureCount:s.captureCount||0,captureBytes:s.captureBytes||0,captureBudget:s.captureBudget||0,churchesRev:(s.churchesRev!=null?s.churchesRev:null),churchCount:s.churchCount||0,partnerCount:(s.partnerCount!=null?s.partnerCount:null),partnerGoal:s.partnerGoal||100,partnerTiers:(s.partnerTiers&&typeof s.partnerTiers==="object")?s.partnerTiers:null};}
 /* toast(msg) is the plain one. toast(msg,label,fn) adds a tappable action —
    used for Undo, which gets a longer dwell because you have to reach for it. */
 function toast(msg,actLabel,actFn){
@@ -366,7 +366,7 @@ var OB_KEY={
 };
 /* Actions the server gates behind the leader PIN — held in the queue (not
    sent, not dropped) whenever this session has no PIN, e.g. after a reload. */
-var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,rigSave:1,rigClearChecks:1,setSets:1,setEvent:1,setFunding:1,miracleDelete:1,binNoteAck:1,annDelete:1};
+var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,rigSave:1,rigClearChecks:1,setSets:1,setEvent:1,setFunding:1,miracleDelete:1,binNoteAck:1,annDelete:1,backupList:1,churchRestore:1,rigVersions:1};
 var OUTBOX=[];
 try{OUTBOX=JSON.parse(localStorage.getItem("k2c_outbox")||"[]");}catch(_){OUTBOX=[];}
 if(!Array.isArray(OUTBOX))OUTBOX=[];
@@ -421,6 +421,14 @@ function obFlush(){
     obSending=false;obSendingId="";inflight=Math.max(0,inflight-1);
     if(err===403){updateSync();return;}               // PIN rejected — queue held until the leader unlocks again
     if(err===400){obDrop(op.id);outboxSave();updateSync();if(OUTBOX.length)obFlush();return;} // server refused it outright — a retry can't succeed
+    /* Someone else saved first (the server refuses a write based on an older
+       copy). Retrying can't help; drop it, say so, and show the newer one. */
+    if(err===409){
+      obDrop(op.id);outboxSave();updateSync();
+      toast(op.a==="rigSave"?"Someone else saved the lineup first — yours wasn't saved. Open ✏️ Edit to redo it.":"Someone else saved first — your change wasn't applied.");
+      refreshFromServer();
+      if(OUTBOX.length)obFlush();return;
+    }
     obFails++;
     if(LIVE){LIVE=false;}
     updateSync();
@@ -545,6 +553,9 @@ window.addEventListener("pagehide",function(){
 });
 /* Demo content is for local development only — see boot(). */
 function isLocalDev(){
+  /* Capacitor uses localhost in production; an offline phone must restore
+     its real saved board rather than seeded development data. */
+  if(capNative())return false;
   try{var h=location.hostname;return h==="localhost"||h==="127.0.0.1"||h==="::1"||h===""||location.protocol==="file:";}catch(_){return false;}
 }
 /* Last good server payload, so an offline boot shows the real board (clearly
@@ -1241,6 +1252,15 @@ function renderEvent(){
   var warn=document.getElementById("evDateWarn");if(warn)warn.style.display=parseEventSaturday()?"none":"block";
   var rb=document.getElementById("rainBanner");
   if(rb)rb.style.display=shifted?"block":"none";
+  renderPartnerChip();
+}
+/* "N / 100 partner churches" on Event Day (v1.25.0). Only a number the
+   server sent — hidden until there is one, never a placeholder. */
+function renderPartnerChip(){
+  var el=document.getElementById("nowPartners");if(!el)return;
+  if(STATE.partnerCount==null){el.style.display="none";return;}
+  el.style.display="inline-flex";
+  el.innerHTML='🤝 <b>'+Number(STATE.partnerCount)+'</b> / '+Number(STATE.partnerGoal||100)+' partner churches ›';
 }
 /* ---- season roll-up (v1.10.0) ----
    Reset used to be the end of the story: each event's numbers were wiped and
@@ -2149,7 +2169,10 @@ function show(id,opts){
   if(id==="church"&&typeof renderChurchPage==="function"){renderChurchPage();if(typeof chFetch==="function")chFetch();}
 }
 /* v1.6.1 — Share-this-app QR (drawn locally from the current URL, works offline) */
-function appShareUrl(){return location.origin+location.pathname.replace(/index\.html$/,"");}
+function appShareUrl(){
+  if(capNative())return "https://ambassadorcompanion.netlify.app/";
+  return location.origin+location.pathname.replace(/index\.html$/,"");
+}
 function renderShareQR(){
   var box=document.getElementById("qrBox");if(!box)return;
   var url=appShareUrl();

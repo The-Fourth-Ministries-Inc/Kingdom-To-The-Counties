@@ -254,6 +254,25 @@ textarea, select,
   .chip2.strong{background:#dfeee0;color:#2f6b3a}
   .chip2.partial{background:#f7edd0;color:#6e5311}
   .chip2.stars{background:#f7edd0;color:#8a6d1f;letter-spacing:1px}
+  .chip2.tier{background:var(--wine);color:var(--cream)}
+  .chip2.tier.praying{background:var(--cream);color:var(--wine);border:1px solid var(--line)}
+  .chip2.due{background:var(--rust);color:var(--card)}
+  .chip2.bot{background:var(--cream);color:var(--muted);border:1px dashed var(--line)}
+  /* Partner counter (v1.25.0) — Pre-Crusade card + Event Day chip */
+  .partnerbar{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--wine);border-radius:14px;padding:12px 14px;margin:0 0 12px;box-shadow:var(--shadow)}
+  .partnerbar .pn{font-family:var(--serif);font-size:26px;font-weight:700;color:var(--wine);line-height:1}
+  .partnerbar .pn small{font-family:var(--sans);font-size:13px;font-weight:700;color:var(--muted)}
+  .partnerbar .pl{font-size:12px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-top:4px}
+  .partnerbar .track{height:8px;border-radius:5px;background:var(--line);overflow:hidden;margin:9px 0 7px}
+  .partnerbar .track i{display:block;height:100%;background:var(--wine);border-radius:5px}
+  .partnerbar .tiers{font-size:12.5px;color:var(--ink)}
+  .partnerchip{display:inline-flex;align-items:center;gap:6px;min-height:44px;margin:0 0 12px;padding:8px 14px;border:1px solid var(--line);border-radius:22px;background:var(--card);color:var(--wine);font-weight:800;font-size:13.5px;font-family:var(--sans);cursor:pointer;box-shadow:var(--shadow)}
+  .partnerchip b{font-family:var(--serif);font-size:16px}
+  .chpart .give b{font-family:var(--sans);font-size:13px;text-align:right;max-width:60%}
+  .chbak{display:flex;align-items:center;gap:8px;padding:8px 2px;border-top:1px dashed var(--line);font-size:12.5px}
+  .chbak:first-child{border-top:none}
+  .chbak span{flex:1;min-width:0}
+  .chbak button{flex:none;min-height:44px;border:1px solid var(--line);background:var(--cream);border-radius:9px;padding:6px 12px;font-weight:700;font-size:12px;cursor:pointer;color:var(--ink)}
   .chrow .arr{color:var(--muted);font-size:18px;flex:none}
   .chstars{display:flex;gap:8px;margin:6px 0 2px}
   .chstars button{border:none;background:none;font-size:28px;cursor:pointer;padding:2px;line-height:1;filter:grayscale(1);opacity:.35;transition:all .15s}
@@ -863,6 +882,11 @@ textarea, select,
   .iorestore{display:flex;flex-wrap:wrap;align-items:center;gap:7px;background:#faf6f7;border:1px solid #dcc9ce;border-radius:12px;padding:10px 12px;margin:-4px 0 12px}
   .iorestore>b{flex-basis:100%;font-size:12.5px}
   .iorestore>span{flex-basis:100%;font-size:11px;color:var(--muted)}
+  .iorestore>.iohint{flex-basis:100%;margin:0}
+  .ioverlist{flex-basis:100%}
+  .iover{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px dashed var(--line);font-size:12px}
+  .iover>span{flex:1;min-width:0}
+  .iover small{color:var(--muted)}
   .ioclash li.w{color:#6e5311}
   .iosub{padding:6px 12px 2px;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);background:#faf8f3;border-bottom:1px solid var(--line)}
   .ioperf .ph .chip+.chip{margin-left:-4px}
@@ -1244,7 +1268,7 @@ textarea, select,
 <body>
 <div class="topwrap">
 <header class="topbar">
-  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.24.0</span></span></div>
+  <div class="brand"><span class="k">KINGDOM <small>TO THE</small> COUNTIES '26</span><span class="s">Ambassador Companion <span class="ver">v1.25.0</span></span></div>
   <div class="clock"><div class="t" id="clockTime">--:--</div><div class="d" id="clockDate">SATURDAY</div></div>
 </header>
 <div class="nowstrip" id="nowStrip" onclick="goSchedule()">
@@ -1258,6 +1282,7 @@ textarea, select,
     <p class="eyebrow">Live Now</p><h1 class="title">Event Day</h1>
     <div class="eventtag" id="eventTag" style="display:none"></div>
     <p class="sub">Auto-updates by the clock — no refreshing needed.</p>
+    <button class="partnerchip" id="nowPartners" style="display:none" onclick="show('mobilize')"></button>
     <div class="hero">
       <span class="live" id="liveTag"><span class="blip"></span> <span id="liveTagText">Live</span></span>
       <h2 id="nowName">Next stop</h2><div class="when" id="nowWhen"></div>
@@ -1674,6 +1699,10 @@ textarea, select,
       <button data-v="conn" onclick="chSetView('conn')">🙋 We know someone</button>
       <button data-v="eng" onclick="chSetView('eng')">🗣️ We've talked</button>
       <button data-v="flag" onclick="chSetView('flag')">🚩 Flagged</button>
+      <button data-v="partner" onclick="chSetView('partner')">🤝 Partners</button>
+      <button data-v="praying" onclick="chSetView('praying')">🙏 Praying</button>
+      <button data-v="due" onclick="chSetView('due')">⏰ Next step due</button>
+      <button data-v="unver" onclick="chSetView('unver')">🤖 To verify</button>
     </div>
     <details class="preview" id="chAddWrap" style="margin:0 0 12px"><summary>➕ Add a church or ministry — any ambassador can</summary>
       <div class="body">
@@ -1694,6 +1723,7 @@ textarea, select,
     <div id="chList"></div>
     <button class="btn ghost" style="margin-top:12px" onclick="chExportCSV()">📊 Export master list (CSV)</button>
     <div id="chTplWrap" style="margin-top:10px"></div>
+    <div id="chBakWrap" style="margin-top:10px"></div>
     <details class="preview" style="margin-top:10px"><summary>📜 Change log — every touch &amp; edit, newest first</summary><div class="body" id="chGlobalLog"></div></details>
     <p class="hint" style="margin:12px 2px 26px">✅ / 🟡 Alignment = fit with our <a onclick="event.preventDefault();show('faith')" style="color:var(--wine);font-weight:700;cursor:pointer;text-decoration:underline">Statement of Faith</a>. When in doubt, read it before you reach out.</p>
   </section>
