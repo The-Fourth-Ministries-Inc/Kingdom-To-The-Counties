@@ -4,6 +4,94 @@ A lightweight, no-login companion app for K2C ambassadors. Everyone shares one
 live view: checklist, announcements, check-ins, headcount, praises, and feedback
 all stay in sync across phones within a few seconds.
 
+## Tech I/O kept on the server, copied before every write (v1.26.0)
+
+The Tech I/O lineup, the legacy roster, the PA outputs and the season
+Template live only in Netlify Blobs (`io~<county>`, `io`, `io-template`). Phones
+hold a display copy. No app version, store update or deploy carries lineup
+data, so none of them can replace it.
+
+- **A copy before every write.** Every write to a Tech I/O blob goes through
+  `ioWrite()` in `data.mjs`: saves, restores, roster edits, Template saves,
+  first-time setup, migrations and every single checkmark. It first stores
+  the blob *exactly as stored* (raw, before any normalization) in its own
+  write-once blob, `iosnap-<blob>-<ms>-<id>-<action>`. If that copy can't be
+  written, the write is refused, and the phone's outbox retries it. If another
+  phone wrote between our copy and our write, the version we actually
+  replaced is copied too.
+- **What's kept.** Checkmark snapshots: the newest 500 per event. Everything
+  else (saves, restores, roster edits, Template, setup, migration): up to
+  3,000 per blob, which at about 20 KB a lineup is a few tens of MB. These sit
+  alongside the nightly `bak-day-*-io` copies and `io-history~<county>`.
+- **Restore.** **Tech I/O → ↺ Restore… → An earlier saved version…** (leader
+  PIN) lists the newest 60 copies taken before a save, restore or roster edit,
+  plus the newest 10 taken before a checkmark. It also lists every other
+  event's lineup, the saved Template, the nightly copies, and the reset and
+  restore snapshots. Any of them can be put back, and putting one back is
+  itself snapshotted first. Without the app:
+  `node scripts/recover-techio.mjs` (read-only) now lists the `iosnap-*`
+  copies as well.
+- **Only leaders change the lineup, on the server too.** `rigSave`,
+  `rigRestore`, `rigClearChecks` and `rigTemplateSave` are in
+  `LEADER_ACTIONS`. The app always asked for the leader PIN for these, but the
+  server accepted them from any Day-PIN session. Techs still tick inputs.
+- **A deploy can't trim it.** A checkmark, first-time setup or clear writes
+  back the stored lineup. Such a write is refused if normalization would
+  shrink it (fewer positions, inputs, roster rows or buses). So if a future
+  deploy tightens a limit, the lineup isn't trimmed.
+- **The weekly rollover can't overwrite it.** The first read for a new county
+  used to copy the pre-split `state` blob into that county's Tech I/O,
+  check-ins and board, and into the season-wide `prompter`, with plain
+  writes. Concurrent first reads raced. Those writes are now create-only.
+  Scope adoption (`ensureScopeReady`) is create-only too.
+
+### What wiped the lineup in 1.24.0, in plain words
+
+The phone's lineup editor needed a starting point. When the phone didn't have
+the team's saved lineup yet, it quietly used the app's built-in sample roster
+instead. That happens in the first moments after opening, offline, or on the
+native app, which on 1.24.0 started offline in demo mode. A leader who tapped
+✏️ Edit at that moment was editing the sample, not the team's lineup. Saving
+sent the sample, with their few changes, to the server, and the server
+accepted it without checking what it was replacing. If the phone was offline,
+the save waited and went through when signal came back.
+
+1.24.0 didn't add this bug. It had been possible since the lineup arrived in
+1.21.0 on Oct 6. But it went off once, on Oct 9 at 4:54 PM Eastern, the
+afternoon before the Rockingham event and the day 1.24.0 shipped. The lineup
+on the server today is the built-in sample with four names changed (Angel,
+Padre and David in, Alissa and Steve out). It's rev 584, saved by "Brother".
+Anything else the team had set up since Oct 6 was replaced. v1.25.0 closed
+the hole: the editor won't open until the real lineup has loaded, and the
+server refuses a save made from an older copy. v1.26.0 adds the copy before
+every write, so even a bad save can be undone.
+
+### Can the old lineup be recovered?
+
+Possibly, but only from copies that already existed. Before v1.25.0 the
+server kept no history of lineup saves, and Netlify Blobs has no undo of its
+own. Rockingham was the first and only event with a lineup, so there's no
+earlier event to borrow from. Where a pre-Oct-9 copy could still be:
+
+1. **The saved Template** (`io-template`), if a leader tapped **Save as
+   Template** before Oct 9. Restore → Template, or pick it from the versions
+   list.
+2. **A reset snapshot** (`backup-*-reset`), if a leader ran the end-of-day
+   reset between Oct 6 and Oct 9. Only the newest 20 `backup-*` snapshots of
+   any kind are kept, so older ones may be gone.
+3. **The legacy roster** (`list` on `io~rockingham`), the pre-1.21 Tech I/O
+   map. It's the older format, but it can be exported.
+4. **A phone that hasn't synced since.** Any phone or tablet that loaded the
+   lineup before Oct 9 at 4:54 PM and hasn't been online with the app since
+   still has it in its local cache. Open the app there with Wi-Fi off and use
+   **⬇ CSV**.
+
+A leader can check options 1 and 2 in the app in a minute: Tech I/O → ↺
+Restore… → An earlier saved version…. Look for anything dated before Oct 9,
+4:54 PM. Or run `scripts/recover-techio.mjs` with `NETLIFY_SITE_ID` and
+`NETLIFY_AUTH_TOKEN`. If none of these turns one up, the earlier version is
+gone. From v1.26.0 on, that can't happen again.
+
 ## Partner churches, safer church data, bot imports, Tech I/O history (v1.25.0)
 
 Everything here is server data in Netlify Blobs: church list edits, partner
@@ -370,6 +458,7 @@ The end-of-day **Reset** still leaves Tech I/O entirely alone.
   list + IEM sheet, download a **⬇ CSV** of both, and tick inputs off as
   they're patched (`rigCheck`, keyed per input, merged on the server).
 - **Leaders** edit (`rigSave`), clear checkmarks, save the Template and restore.
+  Since v1.26.0 the server enforces this too, not just the app.
 
 Saving never wipes a tech's ticks: the server keeps its own current tick state
 for every input that still exists. If another leader saved while you were

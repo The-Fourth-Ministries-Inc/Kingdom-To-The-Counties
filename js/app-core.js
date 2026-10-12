@@ -366,7 +366,7 @@ var OB_KEY={
 };
 /* Actions the server gates behind the leader PIN — held in the queue (not
    sent, not dropped) whenever this session has no PIN, e.g. after a reload. */
-var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,rigSave:1,rigClearChecks:1,setSets:1,setEvent:1,setFunding:1,miracleDelete:1,binNoteAck:1,annDelete:1,backupList:1,churchRestore:1,rigVersions:1};
+var OB_LEADER={setCheck:1,setChecklistNote:1,setAck:1,addAnnouncement:1,setIOList:1,rigSave:1,rigClearChecks:1,setSets:1,setEvent:1,setFunding:1,miracleDelete:1,binNoteAck:1,annDelete:1,backupList:1,churchRestore:1,rigVersions:1,rigRestore:1,rigTemplateSave:1};
 var OUTBOX=[];
 try{OUTBOX=JSON.parse(localStorage.getItem("k2c_outbox")||"[]");}catch(_){OUTBOX=[];}
 if(!Array.isArray(OUTBOX))OUTBOX=[];
