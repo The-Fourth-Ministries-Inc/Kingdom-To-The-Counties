@@ -953,8 +953,7 @@ function chApplyImport(c, items, opt){
  if(changed) c.rev++;
  return { results, audit, changed, created };
 }
-export async function importChurches(opt){
- const s = openStore();
+export async function importChurches(s, opt){
  const items = opt.records.map(apiRecord);
  const o = { bot: opt.bot, botLabel: opt.botLabel || opt.bot, mode: opt.mode === "upsert" ? "upsert" : "create_only",
   maxCreates: Math.max(0, opt.maxCreates == null ? Infinity : opt.maxCreates), runId: str(opt.runId, 60) };
@@ -971,8 +970,7 @@ export async function importChurches(opt){
  }, () => res ? res.audit : []);
  return { dryRun: false, rev: out.rev, results: res.results, created: res.created };
 }
-export async function churchKeys(state){
- const s = openStore();
+export async function churchKeys(s, state){
  const raw = await s.get("churches", { type: "json" }).catch(() => null);
  const c = raw ? normChurches(raw) : seededChurches();
  const st = str(state, 2).toUpperCase();
@@ -980,8 +978,7 @@ export async function churchKeys(state){
   churches: c.list.filter(x => !st || x.state === st).map(x => ({ id: x.id, key: chKeyOf(x), name: x.name, town: x.town, county: x.county, verified: x.verified !== false })),
   removed: c.removed };
 }
-export async function churchLookup(q){
- const s = openStore();
+export async function churchLookup(s, q){
  const raw = await s.get("churches", { type: "json" }).catch(() => null);
  const c = raw ? normChurches(raw) : seededChurches();
  const state = (str(q.state, 2) || "NH").toUpperCase();
@@ -1520,6 +1517,27 @@ async function readEpoch(s, K){
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const backoff = attempt => sleep(Math.floor(Math.random() * 25) + attempt * 4);
 
+/* Netlify Blobs' onlyIfMatch is NOT a reliable lock: measured on a deploy
+ preview, 20 parallel increments of one key all reported modified:true and
+ the counter ended at 8. So a "won" write is not trusted until it is seen to
+ have survived. Each write appends a random mark to a short trail kept in the
+ blob's METADATA (the stored value's shape is untouched); a successor that
+ built on our value inherits the trail. After a short settle we read the
+ metadata back (no body download): our mark present means our change is in
+ the lineage; absent means someone overwrote it from an older base, and we
+ re-apply `mutate` on the current value exactly as for an ordinary conflict. */
+const CAS_TRAIL = 40;
+const CAS_SETTLE_MS = 150;
+const casTrail = m => (m && Array.isArray(m.w)) ? m.w.filter(x => typeof x === "string").slice(-(CAS_TRAIL - 1)) : [];
+async function casSurvived(s, key, mark){
+ if(typeof s.getMetadata !== "function") return true;
+ await sleep(CAS_SETTLE_MS + Math.floor(Math.random() * 60));
+ try {
+  const m = await s.getMetadata(key);
+  if(!m) return false;
+  return !m.metadata || !Array.isArray(m.metadata.w) ? true : m.metadata.w.includes(mark);
+ } catch(_) { return true; }
+}
 async function compareAndSwap(s, key, normalize, mutate, fallback){
  for(let attempt = 0; attempt < 30; attempt++){
   if(attempt) await backoff(attempt);
@@ -1530,10 +1548,15 @@ async function compareAndSwap(s, key, normalize, mutate, fallback){
   if(normalize) base = normalize(base);
   const next = mutate(base);
   if(next === undefined) return base; // caller signalled no-op
-  const opts = exists ? { onlyIfMatch: res.etag } : { onlyIfNew: true };
+  const mark = uid();
+  const opts = { metadata: { w: [...casTrail(exists && res.metadata), mark] } };
+  if(exists) opts.onlyIfMatch = res.etag; else opts.onlyIfNew = true;
   let w;
   try { w = await s.setJSON(key, next, opts); } catch(_) { w = { modified:false }; }
-  if(w && w.modified) return next;
+  if(w && w.modified){
+   if(await casSurvived(s, key, mark)) return next;
+   continue;
+  }
   /* The write may have LANDED even though we couldn't confirm it (an error
      thrown after the commit, or a client that doesn't report `modified`).
      Blindly retrying then re-applies `mutate` on a base that already contains
@@ -1666,14 +1689,16 @@ async function bumpDecAgg(s, K, effTotal, effBy){
   try { res = await s.getWithMetadata(K.decAgg, { type:"json" }); } catch(_) { res = null; }
   if(!(res && res.data && typeof res.data.total === "number")){
    const fresh = await rebuildDecAgg(s, K);
-   let w; try { w = await s.setJSON(K.decAgg, fresh, { onlyIfNew:true }); } catch(_) { w = { modified:false }; }
-   if(w && w.modified) return;
+   const mark = uid();
+   let w; try { w = await s.setJSON(K.decAgg, fresh, { onlyIfNew:true, metadata: { w: [mark] } }); } catch(_) { w = { modified:false }; }
+   if(w && w.modified && await casSurvived(s, K.decAgg, mark)) return;
    continue;
   }
   const agg = { total: Math.max(0, (Number(res.data.total) || 0) + (effTotal || 0)), by: { ...res.data.by } };
   if(effBy) for(const k of Object.keys(effBy)) agg.by[k] = Math.max(0, (Number(agg.by[k]) || 0) + effBy[k]);
-  let w; try { w = await s.setJSON(K.decAgg, agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
-  if(w && w.modified) return;
+  const mark = uid();
+  let w; try { w = await s.setJSON(K.decAgg, agg, { onlyIfMatch: res.etag, metadata: { w: [...casTrail(res.metadata), mark] } }); } catch(_) { w = { modified:false }; }
+  if(w && w.modified && await casSurvived(s, K.decAgg, mark)) return;
  }
  await s.delete(K.decAgg).catch(() => {});
 }
@@ -1703,14 +1728,16 @@ async function bumpAgg(s, K, effTotal, effBy){
   if(!(res && res.data && typeof res.data.total === "number")){
    // No cache yet — seed it from the shards (which already include this tap).
    const fresh = await rebuildAgg(s, K);
-   let w; try { w = await s.setJSON(K.agg, fresh, { onlyIfNew:true }); } catch(_) { w = { modified:false }; }
-   if(w && w.modified) return;
+   const mark = uid();
+   let w; try { w = await s.setJSON(K.agg, fresh, { onlyIfNew:true, metadata: { w: [mark] } }); } catch(_) { w = { modified:false }; }
+   if(w && w.modified && await casSurvived(s, K.agg, mark)) return;
    continue; // someone else seeded it; loop to apply our delta on top
   }
   const agg = { total: Math.max(0, (Number(res.data.total) || 0) + (effTotal || 0)), by: { ...res.data.by } };
   if(effBy) for(const k of Object.keys(effBy)) agg.by[k] = Math.max(0, (Number(agg.by[k]) || 0) + effBy[k]);
-  let w; try { w = await s.setJSON(K.agg, agg, { onlyIfMatch: res.etag }); } catch(_) { w = { modified:false }; }
-  if(w && w.modified) return;
+  const mark = uid();
+  let w; try { w = await s.setJSON(K.agg, agg, { onlyIfMatch: res.etag, metadata: { w: [...casTrail(res.metadata), mark] } }); } catch(_) { w = { modified:false }; }
+  if(w && w.modified && await casSurvived(s, K.agg, mark)) return;
  }
  await s.delete(K.agg).catch(() => {}); // give up cleanly → next read rebuilds
 }
@@ -2099,19 +2126,34 @@ export function __setStoreFactory(fn){ _storeFactory = fn; }
    Netlify Blobs are site-wide, not deploy-scoped, so every preview build used
    to read and write the live event data: opening a preview link and tapping
    anything edited production. That is how a preview of this very feature
-   overwrote the team's Tech I/O roster. CONTEXT is "production" only for the
-   real site; everything else is namespaced and therefore harmless to test. */
-function storeName(){
- const ctx = (typeof process !== "undefined" && process.env && process.env.CONTEXT) || "";
- if(!ctx || ctx === "production") return STORE;
- const branch = (process.env.BRANCH || process.env.HEAD || process.env.DEPLOY_ID || "preview")
-  .toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 40);
- return `${STORE}--${ctx}--${branch}`;
+   overwrote the team's Tech I/O roster.
+
+   process.env.CONTEXT is a BUILD variable — it is not set when a function
+   runs, so it cannot be the only signal. At runtime Netlify hands every
+   function context.deploy.context, and every non-production URL carries a
+   "<deploy>--<site>" host. Any one non-production signal namespaces the
+   store; only the real site (no signal at all) gets the live data.
+   Scheduled functions take no request and only run on the published
+   production deploy. */
+const slug = v => String(v || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+export function storeName(req, context, env){
+ const e = env || (typeof process !== "undefined" && process.env) || {};
+ const g = typeof Netlify !== "undefined" && Netlify && Netlify.context;
+ const dep = (context && context.deploy) || (g && g.deploy) || {};
+ let host = "";
+ try { host = req && req.url ? new URL(req.url).hostname.toLowerCase() : ""; } catch(_) {}
+ const hostTag = host.indexOf("--") > 0 ? host.slice(0, host.indexOf("--")) : "";
+ const ctx = [dep.context, e.CONTEXT].map(slug).find(c => c && c !== "production")
+  || (hostTag ? "deploy" : "");
+ if(!ctx) return STORE;
+ const tag = slug(hostTag || e.BRANCH || e.HEAD || dep.id || e.DEPLOY_ID) || "preview";
+ // Blobs rejects store names over 64 bytes.
+ return `${STORE}--${ctx.slice(0, 20)}--${tag}`.slice(0, 64);
 }
-export const openStore = () => _storeFactory ? _storeFactory() : getStore(storeName(), { consistency: "strong" });
+export const openStore = (req, context) => _storeFactory ? _storeFactory() : getStore(storeName(req, context), { consistency: "strong" });
 
 export default async (req, context) => {
- const s = openStore();
+ const s = openStore(req, context);
  // Which county's board are we on? Everything day-scoped keys off this.
  await ensureScopeReady(s);
  const active = await readActive(s);

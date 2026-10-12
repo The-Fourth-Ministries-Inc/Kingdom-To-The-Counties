@@ -53,6 +53,25 @@ longer reads the whole roster.
   nothing is saved and you see the latest copy. Edits to different fields of
   the same church both land. Copies older than v1.25.0 save the way they always
   did.
+- **No lost writes (v1.25.1).** Every shared blob (churches, Tech I/O,
+  announcements, counters) is written with compare-and-swap: read with its
+  etag, write `onlyIfMatch`, retry on a lost race. Two things made that a
+  fiction before v1.25.1:
+  - `@netlify/blobs` 8.x silently ignored `onlyIfMatch`/`onlyIfNew`. The app
+    now pins 10.7.x, the newest line that runs on Node 18+ (11.x needs Node
+    22.12). `test/blobs-client.test.js` fails if the installed client stops
+    honouring conditional writes.
+  - Netlify's `onlyIfMatch` is not atomic under contention. On a deploy
+    preview, 20 parallel conditional writes to one blob all reported success
+    and only 6–11 of the changes survived. So `compareAndSwap` no longer
+    trusts a "won" write. Each write adds a random mark to a short trail in
+    the blob's *metadata* (the stored value is unchanged), and a write built
+    on ours inherits the trail. About 150 ms later the writer reads the
+    metadata back. If its mark is gone, someone overwrote it from an older
+    copy, and the change is re-applied to the current value. The same
+    20-writer test then landed 20/20, 20/20 and 30/30, and 20 and 30
+    simultaneous church-log requests all landed. `test/cas-lossy.test.js`
+    reproduces the non-atomic store.
 - **Audit log.** Every change records who, when, and the before and after for
   each field in `churches-audit-YYYY-MM`, including bot imports and the
   one-time migrations.
@@ -370,12 +389,20 @@ older than v1.21.0 still read and write `list` (`setIOList` / `ioSetRow`). Those
 writes are accepted and can never touch `rig`, which `normIO` carries through
 every write. Once an event has a lineup, the poll stops sending the old list.
 
-### Non-production deploys get their own data
+### Non-production deploys get their own data (v1.25.1)
 
-Netlify Blobs are site-wide, not deploy-scoped, so `storeName()` namespaces the
-store by `CONTEXT` and branch. Only production touches `k2c-ambassador`. A
-deploy preview lands in `k2c-ambassador--deploy-preview--<branch>` and is safe
-to try the Lineup on.
+Netlify Blobs are site-wide, not deploy-scoped, so `storeName()` gives every
+non-production deploy its own store. Only the real site touches
+`k2c-ambassador`. A deploy preview lands in
+`k2c-ambassador--deploy-preview--deploy-preview-<N>` (starting empty) and is
+safe to try the Lineup, church edits and the bot API on.
+
+`CONTEXT` is a *build* variable and is not set when a function runs, so the
+check uses the runtime signals instead: the function's
+`context.deploy.context`, and the `<deploy>--<site>.netlify.app` host every
+preview, branch deploy and deploy permalink is served from. Any one of them
+marks the request non-production. Until v1.25.1 the check read only
+`CONTEXT`, so previews (including the v1.25.0 preview) wrote to live data.
 
 ### The routing workbook
 
