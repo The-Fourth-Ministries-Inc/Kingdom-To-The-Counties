@@ -1517,6 +1517,27 @@ async function readEpoch(s, K){
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const backoff = attempt => sleep(Math.floor(Math.random() * 25) + attempt * 4);
 
+/* Netlify Blobs' onlyIfMatch is NOT a reliable lock: measured on a deploy
+ preview, 20 parallel increments of one key all reported modified:true and
+ the counter ended at 8. So a "won" write is not trusted until it is seen to
+ have survived. Each write appends a random mark to a short trail kept in the
+ blob's METADATA (the stored value's shape is untouched); a successor that
+ built on our value inherits the trail. After a short settle we read the
+ metadata back (no body download): our mark present means our change is in
+ the lineage; absent means someone overwrote it from an older base, and we
+ re-apply `mutate` on the current value exactly as for an ordinary conflict. */
+const CAS_TRAIL = 40;
+const CAS_SETTLE_MS = 150;
+const casTrail = m => (m && Array.isArray(m.w)) ? m.w.filter(x => typeof x === "string").slice(-(CAS_TRAIL - 1)) : [];
+async function casSurvived(s, key, mark){
+ if(typeof s.getMetadata !== "function") return true;
+ await sleep(CAS_SETTLE_MS + Math.floor(Math.random() * 60));
+ try {
+  const m = await s.getMetadata(key);
+  if(!m) return false;
+  return !m.metadata || !Array.isArray(m.metadata.w) ? true : m.metadata.w.includes(mark);
+ } catch(_) { return true; }
+}
 async function compareAndSwap(s, key, normalize, mutate, fallback){
  for(let attempt = 0; attempt < 30; attempt++){
   if(attempt) await backoff(attempt);
@@ -1527,10 +1548,15 @@ async function compareAndSwap(s, key, normalize, mutate, fallback){
   if(normalize) base = normalize(base);
   const next = mutate(base);
   if(next === undefined) return base; // caller signalled no-op
-  const opts = exists ? { onlyIfMatch: res.etag } : { onlyIfNew: true };
+  const mark = uid();
+  const opts = { metadata: { w: [...casTrail(exists && res.metadata), mark] } };
+  if(exists) opts.onlyIfMatch = res.etag; else opts.onlyIfNew = true;
   let w;
   try { w = await s.setJSON(key, next, opts); } catch(_) { w = { modified:false }; }
-  if(w && w.modified) return next;
+  if(w && w.modified){
+   if(await casSurvived(s, key, mark)) return next;
+   continue;
+  }
   /* The write may have LANDED even though we couldn't confirm it (an error
      thrown after the commit, or a client that doesn't report `modified`).
      Blindly retrying then re-applies `mutate` on a base that already contains
@@ -2154,18 +2180,7 @@ export default async (req, context) => {
    const key = "diagcnt-" + Date.now();
    const n = Number(new URL(req.url).searchParams.get("n")) || 20;
    const stats = { wins: 0, conflicts: 0, throws: 0, noEtag: 0 };
-   const one = async () => {
-    for(let i = 0; i < 60; i++){
-     if(i) await backoff(i);
-     const r = await s.getWithMetadata(key, { type: "json" });
-     if(r && !r.etag) stats.noEtag++;
-     const next = { n: ((r && r.data && r.data.n) || 0) + 1 };
-     let w;
-     try { w = await s.setJSON(key, next, r ? { onlyIfMatch: r.etag } : { onlyIfNew: true }); } catch(e){ stats.throws++; continue; }
-     if(w && w.modified){ stats.wins++; return; }
-     stats.conflicts++;
-    }
-   };
+   const one = () => compareAndSwap(s, key, v => v || { n: 0 }, c => { stats.wins++; return { n: (Number(c.n) || 0) + 1 }; }, () => ({ n: 0 })).catch(() => { stats.throws++; });
    await Promise.all(Array.from({ length: n }, one));
    const fin = await s.get(key, { type: "json" });
    return new Response(JSON.stringify({ n, final: fin, stats }), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
