@@ -13,11 +13,17 @@
      CHURCH_API_WRITES        "on" (default) · "dryrun" (only dry runs allowed) · "off" (503)
      CHURCH_API_DAILY_CREATES new churches per bot per day (default 150)
 
+   Record fields (v1.27.0): name, town, state (NH/ME/VT/MA), county, address,
+   pastor, phone, email, socialLinks [ ], website, description, denomination,
+   accreditations [ ], network, size (band or head count), type, sourceUrls [ ],
+   researchedAt, plus kind, contact, contactRole, notes and ref. keys and lookup
+   also return partnerLevel and partner (true for Partner / Covenant).
+
    The rules for what a bot may change live with the roster in data.mjs
    (apiRecord / chApplyImport): create unverified rows with sources, fill
    blanks only, never overwrite, delete, or touch partnership fields. */
 import { createHash, timingSafeEqual } from "node:crypto";
-import { openStore, importChurches, churchKeys, churchLookup } from "./data.mjs";
+import { openStore, importChurches, churchKeys, churchLookup, stateCode, CH_STATES } from "./data.mjs";
 
 const MAX_BODY = 1024 * 1024;
 const MAX_RECORDS = 100;
@@ -128,12 +134,15 @@ export default async (req, context, env = process.env) => {
   }
   if(route === "keys"){
    if(req.method !== "GET") return json({ error: "GET only" }, 405, { "Allow": "GET" });
-   return json({ ok: true, ...(await churchKeys(s, url.searchParams.get("state") || "")) });
+   const st = url.searchParams.get("state") || "";
+   if(st && !stateCode(st)) return json({ error: "state must be one of " + CH_STATES.join(", ") }, 422);
+   return json({ ok: true, ...(await churchKeys(s, st)) });
   }
   if(route === "lookup"){
    if(req.method !== "GET") return json({ error: "GET only" }, 405, { "Allow": "GET" });
    const q = Object.fromEntries(["name","town","state","county","phone","website"].map(k => [k, url.searchParams.get(k) || ""]));
    if(!q.name || !q.town) return json({ error: "name and town are required" }, 422);
+   if(q.state && !stateCode(q.state)) return json({ error: "state must be one of " + CH_STATES.join(", ") }, 422);
    return json({ ok: true, ...(await churchLookup(s, q)) });
   }
   return json({ error: "not found" }, 404);

@@ -473,10 +473,38 @@ const CH_PARTNER = new Set(CH_PARTNER_LEVELS);
 const CH_COUNTS_TOWARD_GOAL = new Set(["partner","covenant"]);
 export const CH_PARTNER_GOAL = 100;
 const CH_SIZES = new Set(["under-50","50-99","100-249","250-499","500-999","1000+"]);
+/* The church profile (v1.27.0, Zach's list): what kind of congregation it
+   is, the larger network it belongs to, accreditations, a short public
+   description and its social media links. */
+export const CH_STATES = ["NH","ME","VT","MA"];
+export const CH_TYPES = ["congregation","house-church","church-plant","campus","other"];
+const CH_TYPE = new Set(CH_TYPES);
+const CH_LIST_ITEMS = 10;
+const CH_STATE_NAMES = { "new hampshire":"NH", "maine":"ME", "vermont":"VT", "massachusetts":"MA", "mass":"MA" };
+/* "NH", "nh", "N.H." or "New Hampshire" → "NH"; anything outside the four → "". */
+export function stateCode(v){
+ const s = str(v, 30).trim().toLowerCase().replace(/\./g, "");
+ const code = CH_STATE_NAMES[s] || s.toUpperCase();
+ return CH_STATES.includes(code) ? code : "";
+}
+export function churchTypeOf(v){
+ const t = str(v, 30).trim().toLowerCase().replace(/[\s_]+/g, "-");
+ return CH_TYPE.has(t) ? t : "";
+}
+/* A head count → the size band it falls in. */
+export function sizeBandOf(v){
+ if(typeof v === "string" && CH_SIZES.has(v)) return v;
+ const n = Number(v);
+ if(!Number.isFinite(n) || n < 0 || (typeof v === "string" && !/^\s*\d+\s*$/.test(v))) return "";
+ return n < 50 ? "under-50" : n < 100 ? "50-99" : n < 250 ? "100-249" : n < 500 ? "250-499" : n < 1000 ? "500-999" : "1000+";
+}
+const urlList = v => [...new Set((Array.isArray(v) ? v : []).map(u => safeUrl(u, 300)).filter(Boolean))].slice(0, CH_LIST_ITEMS);
+const textList = (v, n) => [...new Set((Array.isArray(v) ? v : []).map(x => str(x, n).trim()).filter(Boolean))].slice(0, CH_LIST_ITEMS);
+const CH_PROFILE_FIELDS = ["churchType","network","accreditations","description","social"];
 const CH_PARTNER_FIELDS = ["denomination","sizeBand","partnerLevel","partnerSince","commitments","pastorNeeds",
  "nextStep","nextStepDue","owner","followName","followPhone","followEmail"];
 const CH_EDIT_FIELDS = ["name","kind","town","county","state","address","phone","email","website",
- "contact","contactRole","leader","notes","intro","ask","align","interest","verified", ...CH_PARTNER_FIELDS];
+ "contact","contactRole","leader","notes","intro","ask","align","interest","verified", ...CH_PARTNER_FIELDS, ...CH_PROFILE_FIELDS, "src"];
 /* Hard limits. Hitting one is an error the caller sees, never a silent drop. */
 const CH_LIST_MAX = 5000;
 const CH_CONN_MAX = 200;
@@ -506,10 +534,15 @@ function chExtras(x){
   followName: str(x.followName, 80),
   followPhone: str(x.followPhone, 40),
   followEmail: str(x.followEmail, 120),
+  churchType: churchTypeOf(x.churchType),
+  network: str(x.network, 100),
+  accreditations: textList(x.accreditations, 100),
+  description: str(x.description, 600),
+  social: urlList(x.social),
   origin: str(x.origin, 30),
   /* Only bot-added rows start unverified; everything else is a person's entry. */
   verified: x.verified === false || x.verified === "false" ? false : true,
-  src: (Array.isArray(x.src) ? x.src : []).map(u => safeUrl(u, 300)).filter(Boolean).slice(0, 10),
+  src: urlList(x.src),
   researchedAt: isoDay(x.researchedAt)
  };
  const out = {};
@@ -884,9 +917,14 @@ async function backupList(s){
    partnership, alignment, flags, interest or connections, and never re-adds
    a church a leader removed. */
 export const CH_COUNTIES = ["Belknap","Carroll","Cheshire","Coös","Grafton","Hillsborough","Merrimack","Rockingham","Strafford","Sullivan"];
-const CH_API_FIELDS = ["name","kind","town","county","state","address","phone","email","website","contact","contactRole","leader","notes","denomination","sizeBand"];
+const CH_API_FIELDS = ["name","kind","town","county","state","address","phone","email","website","contact","contactRole","leader","notes","denomination","sizeBand",
+ ...CH_PROFILE_FIELDS];
+/* Zach's names for the profile fields → where the roster stores them. The
+   stored names are accepted too; sending both with different values is an error. */
+const CH_API_ALIAS = { pastor: "leader", size: "sizeBand", type: "churchType", socialLinks: "social" };
+const CH_API_NAME = Object.fromEntries([...CH_API_FIELDS.map(k => [k, k]), ...Object.entries(CH_API_ALIAS).map(([a, k]) => [k, a])]);
 const CH_API_FORBIDDEN = ["id","partnerLevel","partnerSince","commitments","pastorNeeds","nextStep","nextStepDue","owner",
- "followName","followPhone","followEmail","align","flag","interest","connections","verified","origin","addedBy","v"];
+ "followName","followPhone","followEmail","align","flag","interest","connections","verified","origin","addedBy","v","partner"];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function apiCounty(v, state){
  const c = str(v, 40).trim();
@@ -900,10 +938,16 @@ export function apiRecord(x){
  if(!x || typeof x !== "object" || Array.isArray(x)) return { error: "record must be an object" };
  const bad = CH_API_FORBIDDEN.filter(k => k in x);
  if(bad.length) return { error: "leaders set " + bad.join(", ") + " in the app — leave " + (bad.length > 1 ? "them" : "it") + " out" };
- const unknown = Object.keys(x).filter(k => !CH_API_FIELDS.includes(k) && !["sourceUrls","researchedAt","ref"].includes(k));
+ const unknown = Object.keys(x).filter(k => !CH_API_FIELDS.includes(k) && !(k in CH_API_ALIAS) && !["sourceUrls","researchedAt","ref"].includes(k));
  if(unknown.length) return { error: "unknown field" + (unknown.length > 1 ? "s " : " ") + unknown.slice(0, 5).join(", ") };
- const state = (str(x.state, 20) || "NH").toUpperCase();
- if(!/^[A-Z]{2}$/.test(state)) return { error: "state must be a two-letter code" };
+ x = { ...x };
+ for(const [alias, k] of Object.entries(CH_API_ALIAS)){
+  if(!(alias in x)) continue;
+  if(k in x && JSON.stringify(x[k]) !== JSON.stringify(x[alias])) return { error: alias + " and " + k + " are the same field — send one" };
+  x[k] = x[alias]; delete x[alias];
+ }
+ const state = x.state == null || x.state === "" ? "NH" : stateCode(x.state);
+ if(!state) return { error: "state must be one of " + CH_STATES.join(", ") };
  const name = str(x.name, 120).trim(), town = str(x.town, 60).trim();
  if(!name) return { error: "name is required" };
  if(!town) return { error: "town is required" };
@@ -911,23 +955,58 @@ export function apiRecord(x){
  if(county === null) return { error: "county must be one of " + CH_COUNTIES.join(", ") + " or Out of state" };
  if(state === "NH" && !county) return { error: "county is required for NH churches" };
  if(x.kind != null && !CH_KINDS.has(x.kind)) return { error: "kind must be church or ministry" };
- if(x.sizeBand != null && x.sizeBand !== "" && !CH_SIZES.has(x.sizeBand)) return { error: "sizeBand must be one of " + [...CH_SIZES].join(", ") };
+ if(x.sizeBand != null && x.sizeBand !== ""){
+  const band = sizeBandOf(x.sizeBand);
+  if(!band) return { error: "size must be a head count or one of " + [...CH_SIZES].join(", ") };
+  x.sizeBand = band;
+ }
+ if(x.churchType != null && x.churchType !== "" && !churchTypeOf(x.churchType)) return { error: "type must be one of " + CH_TYPES.join(", ") };
  if(x.email && !EMAIL_RE.test(str(x.email, 120))) return { error: "email doesn't look like an address" };
  if(x.website && !safeUrl(x.website)) return { error: "website must be an http(s) URL" };
- const src = (Array.isArray(x.sourceUrls) ? x.sourceUrls : []).map(u => safeUrl(u, 300)).filter(Boolean);
+ for(const [k, max] of [["description", 600], ["network", 100]]){
+  if(x[k] != null && typeof x[k] !== "string") return { error: CH_API_NAME[k] + " must be text" };
+  if(x[k] && x[k].length > max) return { error: CH_API_NAME[k] + " is over " + max + " characters" };
+ }
+ const listErr = (k, v, each) => {
+  if(v == null) return "";
+  if(!Array.isArray(v)) return k + " must be a list";
+  if(v.length > CH_LIST_ITEMS) return k + " has more than " + CH_LIST_ITEMS + " entries";
+  const bad = v.find(each);
+  return bad === undefined ? "" : k + " has an entry that isn't " + (k === "accreditations" ? "text under 100 characters" : "an http(s) link") + ": " + str(JSON.stringify(bad), 60);
+ };
+ const notUrl = u => typeof u !== "string" || !safeUrl(u, 300) || u.length > 300;
+ const err = listErr("socialLinks", x.social, notUrl) || listErr("accreditations", x.accreditations, a => typeof a !== "string" || !a.trim() || a.length > 100)
+  || listErr("sourceUrls", x.sourceUrls, notUrl);
+ if(err) return { error: err };
+ const src = urlList(x.sourceUrls);
  if(!src.length) return { error: "sourceUrls needs at least one http(s) link to where this was found" };
  const researchedAt = isoDay(x.researchedAt);
  if(!researchedAt) return { error: "researchedAt must be a YYYY-MM-DD date" };
  const rec = {};
- for(const k of CH_API_FIELDS) if(x[k] != null && x[k] !== "") rec[k] = x[k];
- Object.assign(rec, { name, town, state, county, src: src.slice(0, 10), researchedAt });
+ for(const k of CH_API_FIELDS) if(!chEmpty(x[k])) rec[k] = x[k];
+ Object.assign(rec, { name, town, state, county, src, researchedAt });
  const n = normChurch(rec);
  const out = {};
- for(const k of [...CH_API_FIELDS, "src", "researchedAt"]) if(n[k] != null && n[k] !== "" && !(Array.isArray(n[k]) && !n[k].length)) out[k] = n[k];
+ for(const k of [...CH_API_FIELDS, "src", "researchedAt"]) if(!chEmpty(n[k])) out[k] = n[k];
  if(!("kind" in rec)) delete out.kind;
  return { rec: out, ref: str(x.ref, 80) };
 }
 const chEmpty = v => v == null || v === "" || (Array.isArray(v) && !v.length);
+/* The app's add and edit forms: the same state and list limits the bot API
+   enforces, refused rather than trimmed. The state is rewritten to its code. */
+function chInputError(o){
+ if(o.state != null && o.state !== ""){
+  const st = stateCode(o.state);
+  if(!st) return "state must be one of " + CH_STATES.join(", ");
+  o.state = st;
+ }
+ for(const k of ["social","accreditations","src"]){
+  if(Array.isArray(o[k]) && o[k].length > CH_LIST_ITEMS) return k + " has more than " + CH_LIST_ITEMS + " entries";
+ }
+ return "";
+}
+const apiName = k => CH_API_NAME[k] || k;
+const partnerOf = x => ({ partnerLevel: x.partnerLevel || "", partner: CH_COUNTS_TOWARD_GOAL.has(x.partnerLevel) && !x.flag });
 /* Same phone or website domain in the same town (or county) — probably the
    same church under another name. Held for a person to decide. */
 function chNearMatch(list, rec){
@@ -967,7 +1046,7 @@ function chApplyImport(c, items, opt){
    const newSrc = (rec.src || []).filter(u => !(hit.src || []).includes(u));
    if(!fills.length){
     r.status = clashes.length ? "conflict" : "exists";
-    if(clashes.length) r.conflicts = clashes;
+    if(clashes.length) r.conflicts = clashes.map(apiName);
     return;
    }
    const before = { ...hit }, next = { ...hit };
@@ -979,8 +1058,8 @@ function chApplyImport(c, items, opt){
    c.list[c.list.indexOf(hit)] = row; byKey.set(key, row);
    chLogPush(c, { ch: hit.id, type: "edit", by, note: "Filled in " + fills.join(", ") + " (researched " + rec.researchedAt + ")", t, d });
    audit.push({ at, actor: "bot:" + bot, src: "api", act: "update", ch: hit.id, name: hit.name, changes: chDiff(before, row), runId: opt.runId, ref: r.ref });
-   r.status = "updated"; r.fields = fills;
-   if(clashes.length) r.conflicts = clashes;
+   r.status = "updated"; r.fields = fills.map(apiName);
+   if(clashes.length) r.conflicts = clashes.map(apiName);
    changed = true;
    return;
   }
@@ -1023,20 +1102,20 @@ export async function importChurches(s, opt){
 export async function churchKeys(s, state){
  const raw = await s.get("churches", { type: "json" }).catch(() => null);
  const c = raw ? normChurches(raw) : seededChurches();
- const st = str(state, 2).toUpperCase();
+ const st = stateCode(state);
  return { rev: c.rev, count: c.list.length,
-  churches: c.list.filter(x => !st || x.state === st).map(x => ({ id: x.id, key: chKeyOf(x), name: x.name, town: x.town, county: x.county, verified: x.verified !== false })),
+  churches: c.list.filter(x => !st || x.state === st).map(x => ({ id: x.id, key: chKeyOf(x), name: x.name, town: x.town, county: x.county, verified: x.verified !== false, ...partnerOf(x) })),
   removed: c.removed };
 }
 export async function churchLookup(s, q){
  const raw = await s.get("churches", { type: "json" }).catch(() => null);
  const c = raw ? normChurches(raw) : seededChurches();
- const state = (str(q.state, 2) || "NH").toUpperCase();
+ const state = stateCode(q.state) || "NH";
  const key = dedupKey(q.name, q.town, state);
  const hit = c.list.find(x => chKeyOf(x) === key) || null;
  const near = hit ? null : chNearMatch(c.list, { town: str(q.town, 60), county: apiCounty(q.county, state) || "", phone: str(q.phone, 40), website: safeUrl(q.website) });
  const pick = x => x && { id: x.id, name: x.name, town: x.town, county: x.county, state: x.state, verified: x.verified !== false,
-  missing: CH_API_FIELDS.filter(k => chEmpty(x[k])) };
+  ...partnerOf(x), missing: CH_API_FIELDS.filter(k => chEmpty(x[k])).map(apiName) };
  return { key, match: pick(hit), possibleDuplicate: pick(near), removed: c.removed.includes(slugId(q.name, q.town)) };
 }
 
@@ -3343,6 +3422,8 @@ export default async (req, context) => {
     deleting the master list is leader-PIN-gated (see LEADER_ACTIONS). Every
     write bumps rev and lands in the activity log. */
  case "churchAdd": {
+ const inErr = chInputError(payload.church || {});
+ if(inErr) return json({ error: inErr }, 400);
  const rec = normChurch({ ...(payload.church || {}), origin: "app", v: 1 });
  delete rec.verified;
  if(!rec.name) return json({ error:"name required" }, 400);
@@ -3455,6 +3536,8 @@ export default async (req, context) => {
     base and keep their previous behaviour. */
  case "churchEdit": {
  const patch = payload.patch || {};
+ const inErr = chInputError(patch);
+ if(inErr) return json({ error: inErr }, 400);
  const base = payload.base && typeof payload.base === "object" ? payload.base : null;
  let res = null, changes = {}, name = "";
  await casChurches(s, c => {
@@ -3471,7 +3554,7 @@ export default async (req, context) => {
   if(clash.length){ res = { status: 409, body: { error:"someone else changed this church", conflict:true, fields: clash, church: cur } }; return undefined; }
  }
  for(const k of fields) merged[k] = patch[k];
- const next = normChurch({ ...merged, id: cur.id, connections: cur.connections, flag: cur.flag, addedBy: cur.addedBy, origin: cur.origin, src: cur.src, researchedAt: cur.researchedAt });
+ const next = normChurch({ ...merged, id: cur.id, connections: cur.connections, flag: cur.flag, addedBy: cur.addedBy, origin: cur.origin, researchedAt: cur.researchedAt });
  changes = chDiff(cur, next);
  if(!Object.keys(changes).length) return undefined;
  const key = chKeyOf(next);
