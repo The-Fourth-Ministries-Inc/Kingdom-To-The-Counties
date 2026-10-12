@@ -919,9 +919,11 @@ function ioVersionsHtml(){
   if(!ioVersionsOpen)return "";
   if(ioVersions==null)return '<p class="iohint">Loading earlier versions…</p>';
   if(!ioVersions.length)return '<p class="iohint">No earlier versions saved for this event yet.</p>';
-  var KIND={nightly:"Nightly copy","before v1.25.0":"Before the v1.25.0 update","before reset":"Before an end-of-day reset","before restore":"Before a restore"};
+  var KIND={nightly:"Nightly copy","before v1.25.0":"Before the v1.25.0 update","before reset":"Before an end-of-day reset","before restore":"Before a restore",
+    "before save":"Before a save","before roster edit":"Before a roster edit","before seed":"Before the lineup was first set up","before migration":"Before a data migration",
+    "before checkmark":"Before a checkmark","before clear checkmarks":"Before checkmarks were cleared",template:"The saved Template"};
   return '<div class="ioverlist">'+ioVersions.map(function(v,i){
-    var why=/^history:/.test(v.kind)?("Replaced by a "+v.kind.slice(8)):(KIND[v.kind]||v.kind);
+    var why=/^history:/.test(v.kind)?("Replaced by a "+v.kind.slice(8)):(/^event: /.test(v.kind)?(v.kind.slice(7)+" lineup"):(KIND[v.kind]||v.kind));
     var when=(v.savedAt||v.at||"").slice(0,16).replace("T"," ");
     return '<div class="iover"><span><b>'+esc(why)+'</b> · '+esc(when)+(v.savedBy?" · "+esc(v.savedBy):"")+
       '<br><small>'+Number(v.positions)+' positions · '+esc((v.people||[]).join(", ")||"no names")+'</small></span>'+
