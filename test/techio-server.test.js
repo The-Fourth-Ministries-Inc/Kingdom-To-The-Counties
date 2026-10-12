@@ -197,3 +197,53 @@ test("the end-of-day reset leaves the lineup and its checkmarks alone", async ()
   assert.equal(s.rig.positions[0].person, "Kyle");
   assert.equal(s.rig.positions[0].inputs[0].done, true);
 });
+
+/* v1.25.0 — the reset bug. An editor opened before the saved lineup loaded
+   starts from the built-in roster at rev 0; saving it must not replace the
+   team's lineup. */
+test("a save from a stale or built-in draft is refused, not applied", async () => {
+  await post("setCounty", { county: "rockingham" });
+  assert.equal(await post("rigSave", { rig: { ...rig("Team Kyle"), rev: 0 }, by: "MN" }), 200);
+  assert.equal(await post("rigSave", { rig: { ...rig("Team Steve"), rev: 1 }, by: "MN" }), 200);
+  let s = await get();
+  assert.equal(s.rig.rev, 2);
+  // Old app copy: draft from the built-in roster (rev 0) → 400, which its outbox drops.
+  assert.equal(await post("rigSave", { rig: { ...rig("Built-in Default"), rev: 0 }, by: "MN" }), 400);
+  // New app copy: names its base revision → 409 with the current lineup.
+  const r = await call("rigSave", { rig: rig("Built-in Default"), baseRev: 0, saveId: "s1", by: "MN" });
+  assert.equal(r.status, 409);
+  const body = await r.json();
+  assert.equal(body.conflict, true);
+  assert.equal(body.rig.positions[0].person, "Team Steve");
+  s = await get();
+  assert.equal(s.rig.positions[0].person, "Team Steve", "the team's lineup survives");
+});
+
+test("a confirmed save with the current baseRev lands once, even when retried", async () => {
+  await post("setCounty", { county: "rockingham" });
+  const base = (await get()).rig.rev;
+  const p = { rig: rig("Team Ana"), baseRev: base, saveId: "save-ana", by: "MN" };
+  assert.equal(await post("rigSave", p), 200);
+  assert.equal(await post("rigSave", p), 200, "retry of the same save is a no-op, not a conflict");
+  const s = await get();
+  assert.equal(s.rig.rev, base + 1);
+  assert.equal(s.rig.positions[0].person, "Team Ana");
+});
+
+test("every replaced lineup is kept and a leader can put one back", async () => {
+  await post("setCounty", { county: "rockingham" });
+  const hist = await store.get("io-history~rockingham");
+  assert.ok(hist.list.length >= 2);
+  assert.ok(hist.list.some(e => e.rig.positions[0].person === "Team Steve"));
+  const r = await call("rigVersions", {});
+  assert.equal(r.status, 200);
+  const { versions } = await r.json();
+  const steve = versions.find(v => v.people.includes("Team Steve"));
+  assert.ok(steve, JSON.stringify(versions.map(v => v.people)));
+  assert.equal(await post("rigRestore", { from: "version", key: steve.key, idx: steve.idx, by: "MN" }), 200);
+  const s = await get();
+  assert.equal(s.rig.positions[0].person, "Team Steve");
+  assert.equal(s.rig.from.kind, "version");
+  assert.equal(await post("rigVersions", {}, asTech), 403, "leader only");
+  assert.equal(await post("rigRestore", { from: "version", key: "churches", idx: 0, by: "MN" }), 404, "only lineup sources");
+});

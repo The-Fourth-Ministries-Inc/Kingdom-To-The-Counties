@@ -504,10 +504,17 @@ function ioIssuesNote(rig,D){
     errs.concat(warns).map(function(x){return '<li'+(x.lvl==="err"?"":' class="w"')+'>'+esc(x.msg)+'</li>';}).join("")+'</ul>'+
     (ioEditing?'<span>Fix these in the Lineup and Inputs tabs, then Save.</span>':(LEADER?'<span>Tap ✏️ Edit to fix.</span>':'<span>A leader can fix these in Edit.</span>'))+'</div>';
 }
+/* True while the app is drawing the built-in roster only because this
+   event's saved lineup hasn't arrived yet (first load, locked, offline with
+   no cached copy). Nothing may be saved from that state. */
+function ioNotLoaded(){
+  return typeof STATE==="undefined"||(!(STATE.rig&&STATE.rig.positions)&&!everSynced);
+}
 function ioFromNote(rig){
+  if(ioNotLoaded())return '<div class="ioclash stale"><b>Showing the built-in lineup</b><span>This event\'s saved lineup hasn\'t loaded yet'+(LIVE?"":" — you\'re offline")+'. Editing unlocks once it arrives.</span></div>';
   var f=rig.from;
   if(!f||!f.kind)return "";
-  var what=f.kind==="last"?("Started from "+(f.name||"the previous event")+"'s roster"):(f.kind==="template"?"Started from the saved Template":"Started from the built-in roster");
+  var what=f.kind==="last"?("Started from "+(f.name||"the previous event")+"'s roster"):(f.kind==="template"?"Started from the saved Template":(f.kind==="version"?("Restored from an earlier saved version"+(f.name?" ("+f.name+")":"")):"Started from the built-in roster"));
   return '<p class="iohint">'+esc(what)+(rig.savedBy?(" · last saved by "+esc(rig.savedBy)):"")+'</p>';
 }
 function ioToolsBar(rig){
@@ -530,7 +537,8 @@ function ioToolsBar(rig){
     '<button class="iobtn" onclick="ioRestore(\'last\')">Last event\'s roster</button>'+
     '<button class="iobtn" onclick="ioRestore(\'template\')">The saved Template</button>'+
     '<button class="iobtn" onclick="ioRestore(\'builtin\')">The built-in roster</button>'+
-    '<span>Clears this event\'s checkmarks. A backup of the current roster is saved first.</span></div>':"";
+    '<button class="iobtn" onclick="ioVersionsToggle()">An earlier saved version…</button>'+
+    '<span>Clears this event\'s checkmarks. A backup of the current roster is saved first.</span>'+ioVersionsHtml()+'</div>':"";
   return '<div class="iobar">'+prog+tools+'</div>'+restore;
 }
 
@@ -826,6 +834,9 @@ function ioToggle(iid){
 }
 function ioStartEdit(){
   if(!LEADER){askPin(function(){ioStartEdit();});return;}
+  /* Editing from the built-in roster before the saved one arrives is how
+     the team's lineup got replaced with the code defaults. */
+  if(ioNotLoaded()){toast("This event's saved lineup hasn't loaded yet"+(LIVE?" — give it a moment.":" — connect, then try again."));return;}
   var cur=ioCurrent();
   ioDraft=ioClone(cur);ioDraftSnap=JSON.stringify(ioDraft);ioDraftBase=Number(cur.rev)||0;ioEditing=true;ioOpenIn="";ioRestoreOpen=false;
   ioView="lineup";
@@ -841,12 +852,14 @@ function ioSaveEdit(){
   if(errs.length&&!confirm(errs.length+" thing"+(errs.length===1?"":"s")+" still need fixing (listed at the top). Save anyway?"))return;
   /* Remember everyone who has been on the roster so they stay pickable. */
   rig.people=ioPeopleKnown(rig).slice(0,80);
-  function commit(){
+  /* The save names the revision it replaces (baseRev). If the server has
+     moved on by the time it lands, it is refused (409) rather than applied. */
+  function commit(baseRev){
     var by=myTag()||"Leader";
     ioEditing=false;ioDraft=null;ioOpenIn="";if(ioView==="lineup")ioView="cards";
-    queueWrite("rigSave",{rig:rig,by:by},function(){
+    queueWrite("rigSave",{rig:rig,by:by,baseRev:baseRev,saveId:uid()},function(){
       var next=ioMergeChecks(ioClone(rig),STATE.rig);
-      next.rev=(Number(ioDraftBase)||0)+1;next.savedBy=by;next.from=(STATE.rig&&STATE.rig.from)||rig.from||null;
+      next.rev=baseRev+1;next.savedBy=by;next.from=(STATE.rig&&STATE.rig.from)||rig.from||null;
       STATE.rig=next;
     },function(){renderIOList();renderDashboard();});
     toast("Lineup saved");
@@ -856,9 +869,9 @@ function ioSaveEdit(){
     refreshFromServer().then(function(){
       var rev=Number(STATE.rig&&STATE.rig.rev)||0;
       if(rev!==ioDraftBase&&!confirm("Someone else saved the lineup"+(STATE.rig&&STATE.rig.savedBy?(" ("+STATE.rig.savedBy+")"):"")+" while you were editing. Save yours over theirs?"))return;
-      commit();
+      commit(rev);
     });
-  }else commit();
+  }else commit(Number(ioDraftBase)||0);
 }
 function ioClearAll(){
   if(!LEADER){askPin(ioClearAll);return;}
@@ -872,7 +885,7 @@ function ioTemplateSave(){
   if(!confirm("Make this event's saved lineup the Template? New events start from the previous event, and Restore can bring the Template back any time."))return;
   apiPost("rigTemplateSave",{by:myTag()||"Leader"}).then(function(){toast("Template saved");}).catch(function(e){if(e!==403)toast("Couldn't save the Template — try again.");});
 }
-function ioRestoreToggle(){ioRestoreOpen=!ioRestoreOpen;renderIOList();}
+function ioRestoreToggle(){ioRestoreOpen=!ioRestoreOpen;if(!ioRestoreOpen){ioVersionsOpen=false;ioVersions=null;}renderIOList();}
 function ioRestore(from){
   if(!LEADER){askPin(function(){ioRestore(from);});return;}
   if(!LIVE){toast("You're offline — restoring needs a connection.");return;}
@@ -887,6 +900,42 @@ function ioRestore(from){
     if(e===404)toast(from==="last"?"No earlier event has a saved roster yet.":"No Template has been saved yet.");
     else if(e!==403)toast("Couldn't restore — try again.");
   });
+}
+
+/* ---- earlier saved versions (v1.25.0) ----
+   Every lineup a save or restore replaced, plus the nightly and pre-upgrade
+   copies, newest first. Restoring one is a normal restore: backed up first,
+   checkmarks cleared. */
+var ioVersions=null,ioVersionsOpen=false;
+function ioVersionsToggle(){
+  if(!LEADER){askPin(ioVersionsToggle);return;}
+  if(!LIVE){toast("You're offline — earlier versions need a connection.");return;}
+  ioVersionsOpen=!ioVersionsOpen;ioVersions=null;renderIOList();
+  if(!ioVersionsOpen)return;
+  apiPost("rigVersions",{}).then(function(r){ioVersions=(r&&r.versions)||[];renderIOList();})
+    .catch(function(e){ioVersions=[];renderIOList();if(e!==403)toast("Couldn't load earlier versions — try again.");});
+}
+function ioVersionsHtml(){
+  if(!ioVersionsOpen)return "";
+  if(ioVersions==null)return '<p class="iohint">Loading earlier versions…</p>';
+  if(!ioVersions.length)return '<p class="iohint">No earlier versions saved for this event yet.</p>';
+  var KIND={nightly:"Nightly copy","before v1.25.0":"Before the v1.25.0 update","before reset":"Before an end-of-day reset","before restore":"Before a restore"};
+  return '<div class="ioverlist">'+ioVersions.map(function(v,i){
+    var why=/^history:/.test(v.kind)?("Replaced by a "+v.kind.slice(8)):(KIND[v.kind]||v.kind);
+    var when=(v.savedAt||v.at||"").slice(0,16).replace("T"," ");
+    return '<div class="iover"><span><b>'+esc(why)+'</b> · '+esc(when)+(v.savedBy?" · "+esc(v.savedBy):"")+
+      '<br><small>'+Number(v.positions)+' positions · '+esc((v.people||[]).join(", ")||"no names")+'</small></span>'+
+      '<button class="iobtn" onclick="ioRestoreVersion('+i+')">Restore</button></div>';
+  }).join("")+'</div>';
+}
+function ioRestoreVersion(i){
+  var v=ioVersions&&ioVersions[i];if(!v)return;
+  if(!LIVE){toast("You're offline — restoring needs a connection.");return;}
+  if(!confirm("Replace this event's lineup with the version from "+(v.savedAt||v.at||"").slice(0,16).replace("T"," ")+(v.savedBy?" ("+v.savedBy+")":"")+"? This clears this event's checkmarks. A backup is saved first."))return;
+  apiPost("rigRestore",{from:"version",key:v.key,idx:v.idx,by:myTag()||"Leader"}).then(function(){
+    ioRestoreOpen=false;ioVersionsOpen=false;ioVersions=null;toast("Restored the earlier lineup");
+    return refreshFromServer();
+  }).catch(function(e){if(e===404)toast("That version is no longer available.");else if(e!==403)toast("Couldn't restore — try again.");});
 }
 
 /* ---- draft editing ---- */

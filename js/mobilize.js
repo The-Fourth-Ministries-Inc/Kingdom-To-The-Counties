@@ -28,6 +28,16 @@ function chById(id){for(var i=0;i<CH.list.length;i++)if(CH.list[i].id===id)retur
 function chLogFor(id){return CH.log.filter(function(e){return e.ch===id;});}
 function chLastEngage(id){var l=CH.log;for(var i=l.length-1;i>=0;i--)if(l[i].ch===id&&CH_ENGAGE[l[i].type])return l[i];return null;}
 function chDigits(p){var d=(p||"").replace(/\D/g,"");if(d.length===11&&d.charAt(0)==="1")d=d.slice(1);return d;}
+/* Partnership (v1.25.0). Partner + Covenant/Host count toward the goal;
+   Praying is the first step. Flagged churches never count. */
+var CH_TIERS={praying:{ic:"🙏",lbl:"Praying"},partner:{ic:"🤝",lbl:"Partner"},covenant:{ic:"🏛",lbl:"Covenant / Host"}};
+var CH_SIZES=[["","Size…"],["under-50","Under 50"],["50-99","50–99"],["100-249","100–249"],["250-499","250–499"],["500-999","500–999"],["1000+","1,000+"]];
+function chPartnerStats(){
+  var n={praying:0,partner:0,covenant:0};
+  CH.list.forEach(function(c){if(!c.flag&&n[c.partnerLevel]!=null)n[c.partnerLevel]++;});
+  n.count=n.partner+n.covenant;return n;
+}
+function chDue(c){return !!(c.nextStepDue&&c.nextStepDue<=dateKey(new Date()));}
 function chOnMob(){var p=document.querySelector(".page.active");p=p?p.id:"";return p==="page-mobilize"||p==="page-church";}
 function chMaybeSync(){if(chOnMob()&&STATE.churchesRev!=null&&STATE.churchesRev!==CH.rev)chFetch(true);}
 function chFetch(force){
@@ -56,7 +66,16 @@ function chRenderAll(){
 function chAction(action,payload,localApply){
   if(!LIVE){toast("📶 No connection — try again when you're back online");return false;}
   if(localApply){localApply();chSave();chRenderAll();}
-  apiPost(action,payload).then(function(){chFetch(true);}).catch(function(){});
+  apiPost(action,payload).then(function(){chFetch(true);}).catch(function(e){
+    /* The server refused it — say why and put the real list back. */
+    if(e===409)toast(action==="churchAdd"?"Already on the master list — search for it instead.":(action==="churchEdit"?"Someone else just changed this church — your edit wasn't saved. Here's the latest; edit again if needed.":"Someone else saved first — showing the latest."));
+    else if(e===507)toast("The list is full — tell a leader. Nothing was saved.");
+    else if(e===404)toast("That church was removed from the list.");
+    else if(e!==403)toast("Couldn't save — try again.");
+    /* The server copy didn't change, so its ETag didn't either — drop ours
+       or the 304 would leave the optimistic edit on screen. */
+    chEtag="";chFetch(true);
+  });
   return true;
 }
 function chMe(cb){if(myTag())cb();else askName(function(){cb();});}
@@ -74,11 +93,18 @@ function chMatches(c){
   if(chView==="conn")return conn;
   if(chView==="eng")return eng;
   if(chView==="flag")return flag;
+  if(chView==="partner")return !flag&&(c.partnerLevel==="partner"||c.partnerLevel==="covenant");
+  if(chView==="praying")return !flag&&c.partnerLevel==="praying";
+  if(chView==="due")return !flag&&chDue(c);
+  if(chView==="unver")return c.verified===false;
   return true;
 }
 function chStarsTxt(n){return n>0?("★".repeat(n)+"☆".repeat(5-n)):"";}
 function chRowHtml(c){
-  var eng=chLastEngage(c.id),chips="";
+  var eng=chLastEngage(c.id),chips="",tier=CH_TIERS[c.partnerLevel];
+  if(tier&&!c.flag)chips+='<span class="chip2 tier '+esc(c.partnerLevel)+'">'+tier.ic+' '+tier.lbl+'</span>';
+  if(!c.flag&&chDue(c))chips+='<span class="chip2 due">⏰ Next step due</span>';
+  if(c.verified===false)chips+='<span class="chip2 bot">🤖 To verify</span>';
   if(c.flag)chips+='<span class="chip2 flagged">🚩 Flagged</span>';
   else if(c.align==="strong")chips+='<span class="chip2 strong">✅ Strong fit</span>';
   else if(c.align==="partial")chips+='<span class="chip2 partial">🟡 Verify fit</span>';
@@ -100,7 +126,16 @@ function renderMobilize(){
     else need++;
     if(c.interest>0&&(!hot||c.interest>hot.interest))hot=c;
   });
-  stats.innerHTML='<div class="stat">'
+  /* Before the roster has loaded, show the server's count (or a dash) —
+     never a computed 0 that reads as "no partners". */
+  var ps=chPartnerStats(),goal=(STATE.partnerGoal||100),tiers=STATE.partnerTiers;
+  if(!CH.list.length)ps=STATE.partnerCount!=null?{count:STATE.partnerCount,praying:tiers?tiers.praying:"—",partner:tiers?tiers.partner:"—",covenant:tiers?tiers.covenant:"—"}:{count:"—",praying:"—",partner:"—",covenant:"—"};
+  var pct=typeof ps.count==="number"?Math.min(100,Math.round(ps.count/goal*100)):0;
+  stats.innerHTML='<div class="partnerbar" role="button" tabindex="0" onclick="chSetView(\'partner\')" style="cursor:pointer">'
+    +'<div class="pn">'+ps.count+' <small>/ '+goal+'</small></div><div class="pl">Partner churches</div>'
+    +'<div class="track" aria-hidden="true"><i style="width:'+pct+'%"></i></div>'
+    +'<div class="tiers">🙏 '+ps.praying+' Praying · 🤝 '+ps.partner+' Partner · 🏛 '+ps.covenant+' Covenant / Host</div></div>'
+    +'<div class="stat">'
     +'<div class="box"><div class="n">'+total+'</div><div class="l">On the list</div></div>'
     +'<div class="box alt"><div class="n" style="color:var(--good)">'+eng+'</div><div class="l">We’ve talked</div></div>'
     +'<div class="box alt"><div class="n" style="color:#2b4a68">'+conn+'</div><div class="l">Know someone</div></div>'
@@ -124,6 +159,7 @@ function renderMobilize(){
   if(asel&&!asel.options.length)asel.innerHTML='<option value="">County…</option>'+NHC.map(function(x){return '<option>'+x+'</option>';}).join("")+'<option>Out of state</option>';
   chRenderList();
   renderChTpl();
+  renderChBak();
   // global change log
   var gl=document.getElementById("chGlobalLog");
   if(gl){
@@ -160,7 +196,8 @@ function chAddOpen(){
 }
 /* CSV export — open to every ambassador (the list is shared team data). */
 function chExportCSV(){
-  var cols=["Name","Type","Alignment","Status","Interest (0-5)","Town","County","State","Address","Phone","Email","Website","Primary contact","Contact role","Pastor / leader","Team connections","Last conversation","Flagged","Notes"];
+  var cols=["Name","Type","Alignment","Status","Interest (0-5)","Town","County","State","Address","Phone","Email","Website","Primary contact","Contact role","Pastor / leader","Team connections","Last conversation","Flagged","Notes",
+    "Partner level","Date committed","Commitments","Pastor needs","Next step","Next step due","Owner","Follow-up contact","Follow-up phone","Follow-up email","Denomination","Size","Verified","Sources"];
   var q=function(v){v=(v==null?"":""+v);return '"'+v.replace(/"/g,'""')+'"';};
   var rows=CH.list.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(c){
     var eng=chLastEngage(c.id);
@@ -168,7 +205,9 @@ function chExportCSV(){
     return [c.name,c.kind,c.align,status,c.interest,c.town,c.county,c.state,c.address,c.phone,c.email,c.website,c.contact,c.contactRole,c.leader,
       c.connections.map(function(x){return x.amb+(x.note?" ("+x.note+")":"");}).join("; "),
       eng?((chFmtD(eng.d)||eng.t)+" — "+eng.by+(eng.note?": "+eng.note:"")):"",
-      c.flag?(c.flag.reason+(c.flag.note?" — "+c.flag.note:"")):"",c.notes].map(q).join(",");
+      c.flag?(c.flag.reason+(c.flag.note?" — "+c.flag.note:"")):"",c.notes,
+      CH_TIERS[c.partnerLevel]?CH_TIERS[c.partnerLevel].lbl:"",c.partnerSince||"",c.commitments||"",c.pastorNeeds||"",c.nextStep||"",c.nextStepDue||"",c.owner||"",
+      c.followName||"",c.followPhone||"",c.followEmail||"",c.denomination||"",c.sizeBand||"",c.verified===false?"No":"Yes",(c.src||[]).join(" ")].map(q).join(",");
   });
   var csv="﻿"+cols.map(q).join(",")+"\r\n"+rows.join("\r\n");
   var a=document.createElement("a");
@@ -318,6 +357,38 @@ function chTplSave(){
   });
   toast("✉️ Master templates saved — live for the whole team");
 }
+/* ---- backups & restore (v1.25.0, leaders) ----
+   The server keeps a copy every night, before every delete, import and
+   restore, and the one from just before v1.25.0. Restoring replaces the
+   whole master list for everyone — and is itself backed up first. */
+var chBakOpen=false,chBaks=null;
+function renderChBak(){
+  var w=document.getElementById("chBakWrap");if(!w)return;
+  if(!LEADER){w.innerHTML="";return;}
+  if(!chBakOpen){w.innerHTML='<div class="lockbar">🗄 Backups of the master list — nightly and before every big change.<button onclick="chBakToggle()">Open</button></div>';return;}
+  var rows=chBaks==null?'<p class="hint">Loading…</p>':(!chBaks.length?'<p class="hint">No backups yet — the first nightly copy is made tonight.</p>':chBaks.map(function(b,i){
+    var tag=/^bak-day-/.test(b.key)?"Nightly":(/pre-v/.test(b.key)?"Before v1.25.0":(/-delete$/.test(b.key)?"Before a delete":(/-import$/.test(b.key)?"Before a bot import":(/-prerestore$/.test(b.key)?"Before a restore":"Snapshot"))));
+    return '<div class="chbak"><span><b>'+esc(tag)+'</b><br><span style="color:var(--muted)">'+esc((b.at||"").slice(0,16).replace("T"," "))+'</span></span><button onclick="chBakRestore('+i+')">Restore</button></div>';
+  }).join(""));
+  w.innerHTML='<div class="card"><h3>🗄 Backups &amp; restore (leaders)</h3><p class="hint" style="margin:0 0 6px">Restoring replaces the whole master list for everyone with that copy. The current list is backed up first, so a restore can be undone.</p>'+rows
+    +'<button class="btn ghost" style="margin-top:8px" onclick="chBakToggle()">Close</button></div>';
+}
+function chBakToggle(){
+  if(!LEADER){askPin(chBakToggle);return;}
+  chBakOpen=!chBakOpen;chBaks=null;renderChBak();
+  if(!chBakOpen)return;
+  if(!LIVE){chBaks=[];renderChBak();toast("📶 Backups need a connection.");return;}
+  apiPost("backupList",{}).then(function(r){chBaks=((r&&r.backups)||[]).filter(function(b){return b.kind==="churches";}).slice(0,40);renderChBak();})
+    .catch(function(e){chBaks=[];renderChBak();if(e!==403)toast("Couldn't load backups — try again.");});
+}
+function chBakRestore(i){
+  var b=chBaks&&chBaks[i];if(!b)return;
+  if(!LIVE){toast("📶 Restoring needs a connection.");return;}
+  if(!confirm("Replace the whole master list with the copy from "+(b.at||"").slice(0,16).replace("T"," ")+"?\n\nEvery change since then is undone for everyone. The current list is backed up first."))return;
+  apiPost("churchRestore",{key:b.key,by:myTag()||"Leadership"}).then(function(r){
+    chBakOpen=false;toast("🗄 Restored — "+((r&&r.count)||0)+" churches");chFetch(true);renderChBak();
+  }).catch(function(e){if(e!==403)toast("Couldn't restore — try again.");});
+}
 /* ---- interest, connections, notes ---- */
 function chSetInterest(id,n){
   chMe(function(){
@@ -406,23 +477,45 @@ function chAddSubmit(){
   });
 }
 /* ---- leader edit / delete ---- */
+/* The record as it was when the form opened. Saves send only the fields the
+   leader changed, each with its value from here, so the server can refuse an
+   edit that would undo someone else's change to the same field. */
+var chEditBase=null;
 function chEditToggle(id){
   if(!LEADER){askPin(function(){chEditToggle(id);});return;}
-  chEditOpen=!chEditOpen;renderChurchPage();
+  chEditOpen=!chEditOpen;
+  chEditBase=chEditOpen?JSON.parse(JSON.stringify(chById(id)||{})):null;
+  renderChurchPage();
   if(chEditOpen)setTimeout(function(){var e=document.getElementById("cheName");if(e)e.scrollIntoView({block:"center",behavior:"smooth"});},60);
 }
 function chEditSubmit(id){
   var g=function(i){var e=document.getElementById(i);return e?e.value.trim():"";};
   var st=chStamp(),by=myTag()||"Leadership",lid=uid();
-  var patch={name:g("cheName"),town:g("cheTown"),county:g("cheCounty"),state:g("cheState"),address:g("cheAddress"),
+  var form={name:g("cheName"),town:g("cheTown"),county:g("cheCounty"),state:g("cheState"),address:g("cheAddress"),
     phone:g("chePhone"),email:g("cheEmail"),website:g("cheWebsite"),contact:g("cheContact"),contactRole:g("cheContactRole"),
-    leader:g("cheLeader"),notes:g("cheNotes"),align:g("cheAlign"),kind:g("cheKind")};
-  if(!patch.name){flash("cheName");return;}
-  chAction("churchEdit",{id:lid,ch:id,patch:patch,by:by,t:st.t,d:st.d},function(){
-    var c=chById(id);if(c)for(var k in patch)if(patch[k]!==undefined)c[k]=patch[k];
-    CH.log.push({id:lid,ch:id,type:"edit",by:by,note:"Details updated",t:st.t,d:st.d});
+    leader:g("cheLeader"),notes:g("cheNotes"),align:g("cheAlign"),kind:g("cheKind"),
+    partnerLevel:g("cheTier"),partnerSince:g("chePartnerSince"),commitments:g("cheCommitments"),pastorNeeds:g("chePastorNeeds"),
+    nextStep:g("cheNextStep"),nextStepDue:g("cheNextStepDue"),owner:g("cheOwner"),
+    followName:g("cheFollowName"),followPhone:g("cheFollowPhone"),followEmail:g("cheFollowEmail"),
+    denomination:g("cheDenom"),sizeBand:g("cheSize")};
+  var vb=document.getElementById("cheVerified");if(vb)form.verified=!!vb.checked;
+  if(!form.name){flash("cheName");return;}
+  /* A level set for the first time gets today's date unless one was typed. */
+  if(form.partnerLevel&&!form.partnerSince&&!(chEditBase&&chEditBase.partnerLevel))form.partnerSince=st.d;
+  var was=chEditBase||chById(id)||{},patch={},base={},n=0;
+  /* A flagged church's alignment is cleared from the flag bar, not here. */
+  if(was.align==="flagged")delete form.align;
+  for(var k in form){
+    var before=was[k]==null?(k==="verified"?true:""):was[k];
+    if(form[k]!==before){patch[k]=form[k];base[k]=before;n++;}
+  }
+  chEditOpen=false;chEditBase=null;
+  if(!n){renderChurchPage();toast("Nothing changed");return;}
+  chAction("churchEdit",{id:lid,ch:id,patch:patch,base:base,by:by,t:st.t,d:st.d},function(){
+    var c=chById(id);if(c)for(var k in patch)c[k]=patch[k];
+    CH.log.push({id:lid,ch:id,type:"edit",by:by,note:"Updated "+Object.keys(patch).join(", "),t:st.t,d:st.d});
   });
-  chEditOpen=false;renderChurchPage();
+  renderChurchPage();
   toast("✏️ Saved");
 }
 function chDeleteAsk(id){
@@ -483,6 +576,25 @@ function renderChurchPage(){
     +infoRows.map(function(r){return '<div class="give"><span'+(r[1]?"":' style="opacity:.55"')+'>'+r[0]+'</span><b style="font-family:var(--sans);font-size:13px;text-align:right;max-width:60%">'+(r[1]||miss)+'</b></div>';}).join("")
     +(c.notes?'<div class="chknote" style="margin-top:10px">📝 '+esc(c.notes)+'</div>':"")
     +(missing?'<p class="hint" style="margin-top:8px">Know any of the missing info? Post it as a note below and a leader will fill it in.</p>':"")+'</div>';
+  // 🤝 partnership — leaders keep it; everyone can see where it stands
+  var tier=CH_TIERS[c.partnerLevel],sz=CH_SIZES.filter(function(x){return x[0]&&x[0]===c.sizeBand;})[0];
+  var follow=[c.followName,c.followPhone,c.followEmail].filter(Boolean).join(" · ");
+  var pRows=[
+    ["🤝 Level",tier?tier.ic+" "+tier.lbl+(c.partnerSince?' · since '+esc(chFmtD(c.partnerSince)):""):null],
+    ["✍️ Committed to",c.commitments?esc(c.commitments):null],
+    ["🙏 Pastor's needs",c.pastorNeeds?esc(c.pastorNeeds):null],
+    ["➡️ Next step",c.nextStep?esc(c.nextStep)+(c.nextStepDue?' · '+(chDue(c)?'<span style="color:var(--rust)">⏰ ':'<span>')+esc(chFmtD(c.nextStepDue))+'</span>':""):null],
+    ["👤 Owner",c.owner?esc(c.owner):null],
+    ["📇 Follow-up contact",follow?esc(follow):null],
+    ["⛪ Denomination",c.denomination?esc(c.denomination):null],
+    ["👥 Size",sz?esc(sz[1]):null]
+  ].filter(function(r){return r[1];});
+  h+='<div class="card chpart" style="border-left:4px solid var(--wine)"><h3>🤝 Partnership</h3>'
+    +(pRows.length?pRows.map(function(r){return '<div class="give"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>';}).join("")
+      :'<p class="hint" style="margin:0">Not a partner yet. When they commit to praying, partnering or hosting, a leader records it here.</p>')
+    +(c.verified===false?'<p class="hint" style="margin-top:8px">🤖 Added by a research bot'+(c.researchedAt?' ('+esc(chFmtD(c.researchedAt))+')':"")+' — a leader should confirm the details.'
+      +((c.src&&c.src.length)?' Sources: '+c.src.slice(0,3).map(function(u,i){return '<a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:var(--rust)">'+(i+1)+' ↗</a>';}).join(" "):"")+'</p>':"")
+    +'<button class="btn ghost" style="margin-top:10px" onclick="chEditToggle(\''+id+'\')">'+(LEADER?"✏️ Update partnership":"🔒 Update partnership (leaders)")+'</button></div>';
   // 🗣️ conversation record — the manual "engaged" switch
   var convos=chLogFor(c.id).filter(function(e){return e.type==="convo";}).slice(-5).reverse();
   h+='<div class="card" style="border-left:4px solid var(--good)"><h3>🗣️ Have we talked with them?</h3>';
@@ -565,6 +677,18 @@ function renderChurchPage(){
       +'<div class="twocol"><input id="cheContact" maxlength="80" value="'+esc(c.contact)+'" placeholder="Primary contact" /><input id="cheContactRole" maxlength="60" value="'+esc(c.contactRole)+'" placeholder="Their role" /></div>'
       +'<input id="cheLeader" maxlength="80" value="'+esc(c.leader)+'" placeholder="Pastor / leader" />'
       +'<textarea id="cheNotes" rows="3" maxlength="2000" placeholder="Notes…">'+esc(c.notes)+'</textarea>'
+      +flbl("Partnership")
+      +'<div class="twocol"><select id="cheTier">'+opt("",c.partnerLevel||"","Not a partner yet")+opt("praying",c.partnerLevel,"🙏 Praying")+opt("partner",c.partnerLevel,"🤝 Partner")+opt("covenant",c.partnerLevel,"🏛 Covenant / Host")+'</select>'
+      +'<input id="chePartnerSince" type="date" value="'+esc(c.partnerSince||"")+'" aria-label="Date committed" title="Date committed" /></div>'
+      +'<textarea id="cheCommitments" rows="2" maxlength="600" placeholder="What they committed to (pray, volunteers, host a night…)">'+esc(c.commitments||"")+'</textarea>'
+      +'<textarea id="chePastorNeeds" rows="2" maxlength="600" placeholder="What the pastor needs from us">'+esc(c.pastorNeeds||"")+'</textarea>'
+      +'<div class="twocol"><input id="cheNextStep" maxlength="200" value="'+esc(c.nextStep||"")+'" placeholder="Next step" /><input id="cheNextStepDue" type="date" value="'+esc(c.nextStepDue||"")+'" aria-label="Next step due" title="Next step due" /></div>'
+      +'<input id="cheOwner" maxlength="60" value="'+esc(c.owner||"")+'" placeholder="Owner (who on our team keeps this relationship)" />'
+      +'<div class="twocol"><input id="cheFollowName" maxlength="80" value="'+esc(c.followName||"")+'" placeholder="Follow-up contact" /><input id="cheFollowPhone" maxlength="40" inputmode="tel" value="'+esc(c.followPhone||"")+'" placeholder="Their phone" /></div>'
+      +'<input id="cheFollowEmail" maxlength="120" inputmode="email" value="'+esc(c.followEmail||"")+'" placeholder="Their email" />'
+      +flbl("About the church")
+      +'<div class="twocol"><input id="cheDenom" maxlength="60" value="'+esc(c.denomination||"")+'" placeholder="Denomination" /><select id="cheSize">'+CH_SIZES.map(function(x){return opt(x[0],c.sizeBand||"",x[1]);}).join("")+'</select></div>'
+      +(c.verified===false?'<label style="display:flex;align-items:center;gap:10px;min-height:44px;font-size:13.5px;font-weight:600"><input id="cheVerified" type="checkbox" style="width:22px;height:22px" /> I checked these details — mark as verified</label>':"")
       +'<button class="btn wine" onclick="chEditSubmit(\''+id+'\')">💾 Save changes</button>'
       +'<button class="btn ghost" style="margin-top:8px" onclick="chEditOpen=false;renderChurchPage()">Cancel</button>'
       +'<button class="btn ghost" style="margin-top:8px;color:var(--bad);border-color:#e0b7b3" onclick="chDeleteAsk(\''+id+'\')">🗑 Remove from master list</button>'

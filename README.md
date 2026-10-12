@@ -4,6 +4,170 @@ A lightweight, no-login companion app for K2C ambassadors. Everyone shares one
 live view: checklist, announcements, check-ins, headcount, praises, and feedback
 all stay in sync across phones within a few seconds.
 
+## Partner churches, safer church data, bot imports, Tech I/O history (v1.25.0)
+
+Everything here is server data in Netlify Blobs: church list edits, partner
+status and Tech I/O lineups go live on the next poll, with no App Store or
+Google Play build.
+
+### Partner counter and partnership fields
+
+Pre-Crusade opens with **N / 100 partner churches** and a progress bar, and
+Event Day shows the same count as a chip that links to the list. Partner and
+Covenant / Host count toward the 100. Praying is the first step and is shown
+next to them but doesn't count. Flagged churches never count.
+
+Leaders set these in a church's **✏️ Edit** form, under Partnership:
+
+- **Level**: 🙏 Praying, 🤝 Partner or 🏛 Covenant / Host
+- **Date committed**: filled with today if left blank the first time
+- **Commitments** and **pastor's needs**
+- **Next step** with a due date
+- **Owner** on our team
+- **Follow-up contact**: name, phone, email
+- **Denomination** and **size** band
+
+Everyone sees a 🤝 Partnership card on the church page. List chips show the
+level, ⏰ when a next step is due and 🤖 for rows a research bot added that a
+leader hasn't checked yet. The filters across the top include **🤝 Partners,
+🙏 Praying, ⏰ Next step due** and **🤖 To verify**. The CSV export carries
+every new column. The poll sends `partnerCount`, `partnerGoal` and
+`partnerTiers` from a small `churches-meta` blob, so the 5-second poll no
+longer reads the whole roster.
+
+### Church list storage
+
+- **No silent caps.** The old 800-church, 1,200-log-entry and 40-connection
+  trims are gone. The hard limits are 5,000 churches and 200 connections per
+  church, and hitting one is an error (507) the app shows. Past 4,000 entries,
+  the oldest log entries move to `churches-logarch-<ms>` blobs. 🗣️
+  conversations always stay.
+- **Duplicates.** Adding a church whose normalized name + town matches one
+  already on the list is refused (409) with the existing church's id.
+  Normalization ignores case, accents, punctuation, "The", a trailing
+  "Church", St./Saint, Mt./Mount and a trailing "NH"
+  (`netlify/functions/church-dedup.mjs`).
+- **Leaders can't revert each other.** Each church has a version `v`. The edit
+  form sends only the fields you changed, plus their values from when you
+  opened it. If another leader changed one of those fields in the meantime,
+  nothing is saved and you see the latest copy. Edits to different fields of
+  the same church both land. Copies older than v1.25.0 save the way they always
+  did.
+- **Audit log.** Every change records who, when, and the before and after for
+  each field in `churches-audit-YYYY-MM`, including bot imports and the
+  one-time migrations.
+- **Backups.** The first time v1.25.0 runs, it writes one copy of the churches
+  blob and every Tech I/O blob exactly as v1.24.0 left them
+  (`bak-pre-v1.25.0-churches`, `bak-pre-v1.25.0-io`). These are write-once.
+  `netlify/functions/backup-scheduled.mjs` writes `bak-day-<date>-churches`
+  and `-io` every night and keeps 60 days. A copy is also taken before every
+  delete, bot import and restore (`bak-ch-<ms>-<why>`, newest 40). Leaders
+  restore from **Pre-Crusade → 🗄 Backups & restore**. A restore replaces the
+  whole list for everyone, and the list it replaces is backed up first.
+- **Shape.** The roster read (`GET ?part=churches`) has the same shape as
+  before. New fields appear only when they're set. Older app copies ignore
+  them.
+- **One-time data migrations** (`CH_MIGRATIONS` in `data.mjs`) run once, inside
+  the roster's own compare-and-swap. Each is recorded in `migr` and never runs
+  again, even after a leader deletes what it added. Each checks the live list
+  first and only fills blanks on a match. The first one adds **Zeal Movement
+  Church** (Manchester, Hillsborough) as a Partner, with Phil Cuddle as the
+  contact and his spouse's name still to come.
+
+### Bot import API
+
+Research bots add churches through `netlify/functions/churches-api.mjs`:
+
+| Route | |
+|---|---|
+| `POST /api/churches/v1/import` | `{ "dryRun": true, "mode": "create_only" \| "upsert", "runId": "…", "records": [ … ] }` |
+| `GET /api/churches/v1/keys?state=NH` | every church's id + dedup key, and the removed ids |
+| `GET /api/churches/v1/lookup?name=&town=` | match, possible duplicate, missing fields |
+
+Each bot sends `Authorization: Bearer <key>`. Its key lives in a Netlify
+environment variable named **`CHURCH_API_KEY_<BOT>`** (for example
+`CHURCH_API_KEY_SCOUT`), and `<BOT>` is the name shown on everything it
+writes ("🤖 Scout"). A key must be at least 24 characters. Delete the variable
+to revoke the bot. Two optional variables:
+
+- **`CHURCH_API_WRITES`**: `on` (the default), `dryrun` (only dry runs are
+  accepted) or `off` (503).
+- **`CHURCH_API_DAILY_CREATES`**: new churches per bot per day. The default
+  is 150.
+
+A record has `name`, `town`, `county` (required for NH: one of the ten, or
+`Out of state`), `state` (default `NH`), at least one `sourceUrls` link and
+`researchedAt` (YYYY-MM-DD). It may also carry `kind`, `address`, `phone`,
+`email`, `website`, `contact`, `contactRole`, `leader`, `notes`,
+`denomination`, `sizeBand` and your own `ref`. Each record comes back with one
+of these statuses:
+
+- `created`: added unverified, with its sources.
+- `exists`: already on the list. This is what `create_only` returns for a match.
+- `updated`: `upsert` filled blank fields only. It never overwrites a value.
+- `conflict`: `upsert` had different values for fields that are already
+  filled, so nothing changed.
+- `possible_duplicate`: same phone or website domain in that town or county.
+  It is held for a person to decide.
+- `removed`: a leader deleted this church. It is never re-added.
+- `duplicate_in_batch`, `invalid` (with a `reason`) or `limit`.
+
+Bots can never set the partner fields, alignment, flags, interest, connections
+or `verified`, or delete anything. Other limits:
+
+- 100 records and 1 MB per request
+- 30 requests a minute per bot (429 with `Retry-After`)
+- An `Idempotency-Key` header replays the first answer for 7 days
+
+```bash
+curl -sS https://ambassadorcompanion.netlify.app/api/churches/v1/import \
+  -H "Authorization: Bearer $CHURCH_API_KEY_SCOUT" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: scout-2026-10-12-1" \
+  -d '{"dryRun":true,"records":[{"name":"New Hope Church","town":"Keene","county":"Cheshire",
+       "sourceUrls":["https://example.org/about"],"researchedAt":"2026-10-12"}]}'
+```
+
+### Tech I/O: why the lineup reset, and what stops it now
+
+v1.24.0 itself didn't touch Tech I/O data. The lineup was overwritten by an
+ordinary save made from the wrong starting point. The editor drafts from the
+built-in roster (`IO_RIG`) whenever this event's saved lineup isn't on the
+phone yet. That happens on the first moments of a load, behind the Day PIN, or
+offline with no cached copy. Native apps on v1.24.0 also treated their
+`localhost` origin as local development, so an offline boot there showed demo
+data with no lineup at all. `rigSave` then accepted any lineup without
+checking what it was replacing. A save queued offline, or replayed by a
+page-hide beacon, landed the same way.
+
+What changed:
+
+- **Editing is blocked until the saved lineup has loaded.** A banner says when
+  the built-in roster is only a stand-in.
+- **Saves name the revision they replace.** The server refuses a save made
+  from an older revision. v1.25.0+ gets a 409 with "Someone else saved the
+  lineup first". Older copies get a 400, which their outbox drops instead of
+  retrying. A retried save (same `saveId`) is a no-op.
+- **Every lineup a save or restore replaces is kept** in
+  `io-history~<county>` (newest 25). **↺ Restore… → An earlier saved
+  version…** lists those copies, along with the reset and restore snapshots,
+  the nightly copies and the pre-v1.25.0 copy. Identical copies are collapsed.
+  Any of them can be put back.
+- **Native phones** (Capacitor) boot offline into their last real cached
+  board, never demo data. This brings over the v1.23.1 fix that never reached
+  main.
+
+To look for an older lineup without the app, run the read-only script:
+
+```bash
+NETLIFY_SITE_ID=… NETLIFY_AUTH_TOKEN=… node scripts/recover-techio.mjs --county rockingham [--dump ~/k2c-io]
+```
+
+It lists every copy it finds: live, the legacy pre-v1.21 `list`,
+`io-history`, `backup-*-reset`, `backup-*-io-restore`, `bak-day-*-io` and the
+pre-v1.25.0 copy. For each one it shows the revision, when it was saved, who
+saved it and who is on it. A phone that still has the old lineup cached
+(opened offline before it synced) can export it with **⬇ CSV**.
+
 ## Change the event schedule without a store release (v1.24.0)
 
 On **Now → The Day → Edit schedule**, unlock with the leader PIN, change a
@@ -162,8 +326,8 @@ Leader tools (not shown while editing):
 - **🧹 Clear checkmarks** clears only the patch ticks. The lineup is untouched.
 - **💾 Save as Template** stores this event's saved lineup season-wide.
 - **↺ Restore…** replaces this event's lineup with the last event's, the
-  Template, or the built-in roster. It asks first, clears checkmarks, and saves a
-  backup snapshot before it writes.
+  Template, the built-in roster, or (v1.25.0) **an earlier saved version**. It
+  asks first, clears checkmarks, and saves a backup snapshot before it writes.
 
 The end-of-day **Reset** still leaves Tech I/O entirely alone.
 
@@ -176,7 +340,9 @@ The end-of-day **Reset** still leaves Tech I/O entirely alone.
 
 Saving never wipes a tech's ticks: the server keeps its own current tick state
 for every input that still exists. If another leader saved while you were
-editing, you're asked before yours overwrites theirs.
+editing, you're asked before yours overwrites theirs. Since v1.25.0 the server
+also refuses a save made from an older revision than the one it holds (see
+the v1.25.0 section).
 
 ### Why AVB is the left-hand column
 

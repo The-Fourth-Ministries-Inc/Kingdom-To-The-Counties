@@ -8,9 +8,14 @@
    county and therefore no expiry.
    Date maths plus a filter is exactly the combination that is quietly wrong
    for one weekend a season, so it is pinned down here. */
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+
+/* The board tests below read "today" from the clock. Pin it to a mid-season
+   Saturday so they keep testing the rule after the season is over (from
+   12 Oct 2026 every county is retired and the board is legitimately empty). */
+mock.timers.enable({ apis: ["Date"], now: new Date("2026-08-15T16:00:00Z") });
 
 /* ---- in-memory blob store with the bits data.mjs uses ---- */
 function mockStore(){
