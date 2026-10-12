@@ -96,7 +96,7 @@ async function handleImport(req, s, bot, env){
  const dayKey = "capi-day-" + bot + "-" + eventDay();
  const day = (await s.get(dayKey, { type: "json" }).catch(() => null)) || { created: 0 };
  const cap = Math.max(0, Math.round(Number(env.CHURCH_API_DAILY_CREATES ?? 150)));
- const r = await importChurches({
+ const r = await importChurches(s, {
   bot, botLabel: botLabel(bot), records: body.records, dryRun, mode: body.mode,
   runId: body.runId, maxCreates: Math.max(0, cap - (Number(day.created) || 0))
  });
@@ -118,7 +118,7 @@ export default async (req, context, env = process.env) => {
  const route = url.pathname.replace(/^\/api\/churches\/v1\/?/, "").replace(/\/+$/, "");
  const bot = botFor(req, env);
  if(!bot) return json({ error: "missing or unknown API key" }, 401, { "WWW-Authenticate": "Bearer" });
- const s = openStore();
+ const s = openStore(req, context);
  const wait = await rateOk(s, bot);
  if(wait) return json({ error: "rate limited — " + RATE_PER_MIN + " requests a minute" }, 429, { "Retry-After": String(wait) });
  try {
@@ -128,13 +128,13 @@ export default async (req, context, env = process.env) => {
   }
   if(route === "keys"){
    if(req.method !== "GET") return json({ error: "GET only" }, 405, { "Allow": "GET" });
-   return json({ ok: true, ...(await churchKeys(url.searchParams.get("state") || "")) });
+   return json({ ok: true, ...(await churchKeys(s, url.searchParams.get("state") || "")) });
   }
   if(route === "lookup"){
    if(req.method !== "GET") return json({ error: "GET only" }, 405, { "Allow": "GET" });
    const q = Object.fromEntries(["name","town","state","county","phone","website"].map(k => [k, url.searchParams.get(k) || ""]));
    if(!q.name || !q.town) return json({ error: "name and town are required" }, 422);
-   return json({ ok: true, ...(await churchLookup(q)) });
+   return json({ ok: true, ...(await churchLookup(s, q)) });
   }
   return json({ error: "not found" }, 404);
  } catch(e){

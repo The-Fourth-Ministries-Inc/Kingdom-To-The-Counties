@@ -953,8 +953,7 @@ function chApplyImport(c, items, opt){
  if(changed) c.rev++;
  return { results, audit, changed, created };
 }
-export async function importChurches(opt){
- const s = openStore();
+export async function importChurches(s, opt){
  const items = opt.records.map(apiRecord);
  const o = { bot: opt.bot, botLabel: opt.botLabel || opt.bot, mode: opt.mode === "upsert" ? "upsert" : "create_only",
   maxCreates: Math.max(0, opt.maxCreates == null ? Infinity : opt.maxCreates), runId: str(opt.runId, 60) };
@@ -971,8 +970,7 @@ export async function importChurches(opt){
  }, () => res ? res.audit : []);
  return { dryRun: false, rev: out.rev, results: res.results, created: res.created };
 }
-export async function churchKeys(state){
- const s = openStore();
+export async function churchKeys(s, state){
  const raw = await s.get("churches", { type: "json" }).catch(() => null);
  const c = raw ? normChurches(raw) : seededChurches();
  const st = str(state, 2).toUpperCase();
@@ -980,8 +978,7 @@ export async function churchKeys(state){
   churches: c.list.filter(x => !st || x.state === st).map(x => ({ id: x.id, key: chKeyOf(x), name: x.name, town: x.town, county: x.county, verified: x.verified !== false })),
   removed: c.removed };
 }
-export async function churchLookup(q){
- const s = openStore();
+export async function churchLookup(s, q){
  const raw = await s.get("churches", { type: "json" }).catch(() => null);
  const c = raw ? normChurches(raw) : seededChurches();
  const state = (str(q.state, 2) || "NH").toUpperCase();
@@ -2099,19 +2096,33 @@ export function __setStoreFactory(fn){ _storeFactory = fn; }
    Netlify Blobs are site-wide, not deploy-scoped, so every preview build used
    to read and write the live event data: opening a preview link and tapping
    anything edited production. That is how a preview of this very feature
-   overwrote the team's Tech I/O roster. CONTEXT is "production" only for the
-   real site; everything else is namespaced and therefore harmless to test. */
-function storeName(){
- const ctx = (typeof process !== "undefined" && process.env && process.env.CONTEXT) || "";
- if(!ctx || ctx === "production") return STORE;
- const branch = (process.env.BRANCH || process.env.HEAD || process.env.DEPLOY_ID || "preview")
-  .toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 40);
- return `${STORE}--${ctx}--${branch}`;
+   overwrote the team's Tech I/O roster.
+
+   process.env.CONTEXT is a BUILD variable — it is not set when a function
+   runs, so it cannot be the only signal. At runtime Netlify hands every
+   function context.deploy.context, and every non-production URL carries a
+   "<deploy>--<site>" host. Any one non-production signal namespaces the
+   store; only the real site (no signal at all) gets the live data.
+   Scheduled functions take no request and only run on the published
+   production deploy. */
+const slug = v => String(v || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+export function storeName(req, context, env){
+ const e = env || (typeof process !== "undefined" && process.env) || {};
+ const g = typeof Netlify !== "undefined" && Netlify && Netlify.context;
+ const dep = (context && context.deploy) || (g && g.deploy) || {};
+ let host = "";
+ try { host = req && req.url ? new URL(req.url).hostname.toLowerCase() : ""; } catch(_) {}
+ const hostTag = host.indexOf("--") > 0 ? host.slice(0, host.indexOf("--")) : "";
+ const ctx = [dep.context, e.CONTEXT].map(slug).find(c => c && c !== "production")
+  || (hostTag ? "deploy" : "");
+ if(!ctx) return STORE;
+ const tag = slug(hostTag || e.BRANCH || e.HEAD || dep.id || e.DEPLOY_ID) || "preview";
+ return `${STORE}--${ctx}--${tag}`;
 }
-export const openStore = () => _storeFactory ? _storeFactory() : getStore(storeName(), { consistency: "strong" });
+export const openStore = (req, context) => _storeFactory ? _storeFactory() : getStore(storeName(req, context), { consistency: "strong" });
 
 export default async (req, context) => {
- const s = openStore();
+ const s = openStore(req, context);
  // Which county's board are we on? Everything day-scoped keys off this.
  await ensureScopeReady(s);
  const active = await readActive(s);

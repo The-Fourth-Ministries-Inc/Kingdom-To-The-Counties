@@ -370,12 +370,20 @@ older than v1.21.0 still read and write `list` (`setIOList` / `ioSetRow`). Those
 writes are accepted and can never touch `rig`, which `normIO` carries through
 every write. Once an event has a lineup, the poll stops sending the old list.
 
-### Non-production deploys get their own data
+### Non-production deploys get their own data (v1.25.1)
 
-Netlify Blobs are site-wide, not deploy-scoped, so `storeName()` namespaces the
-store by `CONTEXT` and branch. Only production touches `k2c-ambassador`. A
-deploy preview lands in `k2c-ambassador--deploy-preview--<branch>` and is safe
-to try the Lineup on.
+Netlify Blobs are site-wide, not deploy-scoped, so `storeName()` gives every
+non-production deploy its own store. Only the real site touches
+`k2c-ambassador`. A deploy preview lands in
+`k2c-ambassador--deploy-preview--deploy-preview-<N>` (starting empty) and is
+safe to try the Lineup, church edits and the bot API on.
+
+`CONTEXT` is a *build* variable and is not set when a function runs, so the
+check uses the runtime signals instead: the function's
+`context.deploy.context`, and the `<deploy>--<site>.netlify.app` host every
+preview, branch deploy and deploy permalink is served from. Any one of them
+marks the request non-production. Until v1.25.1 the check read only
+`CONTEXT`, so previews (including the v1.25.0 preview) wrote to live data.
 
 ### The routing workbook
 
