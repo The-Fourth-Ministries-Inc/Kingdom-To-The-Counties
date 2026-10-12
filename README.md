@@ -53,6 +53,14 @@ longer reads the whole roster.
   nothing is saved and you see the latest copy. Edits to different fields of
   the same church both land. Copies older than v1.25.0 save the way they always
   did.
+- **Atomic writes (v1.25.1).** Every shared blob (churches, Tech I/O,
+  announcements, counters) is written with compare-and-swap: read with its
+  etag, write `onlyIfMatch`, retry on a lost race. `@netlify/blobs` 8.x
+  silently ignored `onlyIfMatch`/`onlyIfNew`, so until v1.25.1 those writes
+  were last-writer-wins within the same instant. The app now pins
+  `@netlify/blobs` 10.7.x, the newest line that runs on Node 18+ (11.x needs
+  Node 22.12). `test/blobs-client.test.js` fails if the installed client stops
+  honouring conditional writes.
 - **Audit log.** Every change records who, when, and the before and after for
   each field in `churches-audit-YYYY-MM`, including bot imports and the
   one-time migrations.

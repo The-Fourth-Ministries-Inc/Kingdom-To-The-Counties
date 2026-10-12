@@ -2117,7 +2117,8 @@ export function storeName(req, context, env){
   || (hostTag ? "deploy" : "");
  if(!ctx) return STORE;
  const tag = slug(hostTag || e.BRANCH || e.HEAD || dep.id || e.DEPLOY_ID) || "preview";
- return `${STORE}--${ctx}--${tag}`;
+ // Blobs rejects store names over 64 bytes.
+ return `${STORE}--${ctx.slice(0, 20)}--${tag}`.slice(0, 64);
 }
 export const openStore = (req, context) => _storeFactory ? _storeFactory() : getStore(storeName(req, context), { consistency: "strong" });
 

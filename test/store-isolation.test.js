@@ -31,3 +31,10 @@ test("the runtime context alone is enough", () => {
   assert.notEqual(storeName(undefined, undefined, { CONTEXT: "deploy-preview" }), LIVE);
   assert.notEqual(storeName(undefined, { deploy: { context: "dev" } }, {}), LIVE);
 });
+
+test("long branch names still fit Blobs' 64-byte store-name limit", () => {
+  const name = storeName(undefined, { deploy: { context: "branch-deploy-with-a-long-context-name" } },
+    { BRANCH: "cursor/a-very-long-feature-branch-name-that-keeps-going-2836" });
+  assert.ok(name.startsWith(LIVE + "--"));
+  assert.ok(new TextEncoder().encode(name).length <= 64, name);
+});
