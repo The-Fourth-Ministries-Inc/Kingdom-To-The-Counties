@@ -6,7 +6,8 @@
  * Prints every place a lineup survives — the live io~<county> blob (including
  * the legacy pre-v1.21 `list` an old app may have left there), io-history,
  * backup-*-reset / backup-*-io-restore snapshots, the nightly bak-day-*-io
- * copies and the bak-pre-v1.25.0-io copy — with rev, who saved it, when, and
+ * copies, the bak-pre-v1.25.0-io copy and (v1.26.0+) the iosnap-* copy taken
+ * before every write — with rev, who saved it, when, and
  * who is on it. --dump writes each one as JSON to a folder OUTSIDE the repo
  * (it holds names). Nothing is written to the store: to put a version back,
  * a leader uses Tech I/O → ↺ Restore… → "An earlier saved version" in the app.
@@ -61,6 +62,13 @@ for(const k of await keysWith("backup-")){
  if(!d || (county && d.county && d.county !== county)) continue;
  note(k, d.io && d.io.rig, { at: b.at });
  noteList(k + " legacy list", d.io && d.io.list);
+}
+/* v1.26.0+: a copy of the blob taken before every single write. */
+for(const k of await keysWith("iosnap-")){
+ const m = /^iosnap-(.+)-(\d{13})-[a-z0-9]+-([A-Za-z]+)$/.exec(k);
+ if(!m || (!wantKey(m[1]) && m[1] !== "io-template")) continue;
+ const b = await s.get(k, { type: "json" });
+ note(k, b && b.data && b.data.rig, { at: b && b.at, why: m[3] });
 }
 for(const k of [...await keysWith("bak-day-"), ...await keysWith("bak-pre-")]){
  if(!k.endsWith("-io")) continue;

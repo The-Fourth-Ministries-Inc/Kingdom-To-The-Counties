@@ -1346,6 +1346,10 @@ const LEADER_ACTIONS = new Set([
  "churchEdit","churchDelete","churchFlagClear","churchTemplate","miracleDelete","binNoteAck","annDelete",
  /* Church backups and Tech I/O version history (v1.25.0). */
  "backupList","churchRestore","rigVersions",
+ /* Replacing, restoring or clearing the Tech I/O lineup (v1.26.0). The app
+    always asked for the leader PIN here, but the server took them from any
+    Day-PIN session, so anyone holding the day's PIN could overwrite it. */
+ "rigSave","rigRestore","rigClearChecks","rigTemplateSave",
  /* The trailer roster is the leaders' record — volunteers report against it
     (binNoteAdd) but never write it. */
  "binEdit","binAdd","binDelete","binItemAdd","binPackClear",
@@ -1500,7 +1504,7 @@ async function ensureScopeReady(s){
  ];
  await Promise.all(pairs.map(async ([src, dst]) => {
   const [have, already] = await Promise.all([ s.get(src, { type:"json" }), s.get(dst, { type:"json" }) ]);
-  if(have != null && already == null) await s.setJSON(dst, have).catch(() => {});
+  if(have != null && already == null) await s.setJSON(dst, have, { onlyIfNew: true }).catch(() => {});
  }));
  await s.setJSON(ACTIVE_KEY, { county: (a && a.county) || "", mode: (a && a.mode) || "auto", migrated: true }).catch(() => {});
 }
@@ -1659,15 +1663,22 @@ async function migrateIfNeeded(s, K, parts){
  const checkins = normCheckins((old && old.checkins) || []);
  const io = { list: (old && old.ioList) || [], buses: (old && old.ioBuses) || [] };
  const prompter = normPrompter(old && old.prompter);
+ /* Create-only. This runs on the first read after every county rollover (the
+    new county has no core yet), and concurrent first reads race; a plain
+    write here used to replace whatever another request — or a tech seeding
+    the lineup — had already stored, and reset the season-wide prompter. */
+ const ifNew = (k, v) => s.setJSON(k, v, { onlyIfNew: true });
  await Promise.all([
- s.setJSON(K.core, core),
- s.setJSON(K.checkins, checkins),
- s.setJSON(K.io, io),
- s.setJSON("prompter", prompter),
- (old && old.count) ? s.setJSON(devKey("legacy", K), old.count) : Promise.resolve()
+ ifNew(K.core, core),
+ ifNew(K.checkins, checkins),
+ ioWrite(s, K.io, "migrate", "", cur => (cur.rig || cur.list.length || cur.buses.length) ? undefined : normIO(io), () => ({ list: [], buses: [] })),
+ ifNew("prompter", prompter),
+ (old && old.count) ? ifNew(devKey("legacy", K), old.count) : Promise.resolve()
  ]);
+ const [core1, checkins1, prompter1] = await Promise.all([ s.get(K.core, { type:"json" }), s.get(K.checkins, { type:"json" }), s.get("prompter", { type:"json" }) ]);
  // old "state" blob is left in place untouched as a safety net
- return { core, checkins, io, prompter, radios: parts.radios || null, sets: parts.sets || null, schedule: parts.schedule || null };
+ return { core: core1 || core, checkins: checkins1 || checkins, io: await s.get(K.io, { type:"json" }) || io, prompter: prompter1 || prompter,
+  radios: parts.radios || null, sets: parts.sets || null, schedule: parts.schedule || null };
 }
 
 /* ---- head count aggregation ---- */
@@ -2042,7 +2053,7 @@ async function rigEnsure(s, K, seed){
  if(!src) src = await rigFromTemplate(s);
  if(!src){ const r = normRig(seed); if(r) src = { rig: r, from: { kind:"builtin", county:"", name:"" } }; }
  if(!src) return;
- await compareAndSwap(s, K.io, normIO, io => {
+ await ioWrite(s, K.io, "rigEnsure", "", io => {
   if(io.rig) return undefined; // another phone got there first
   const r = rigClearChecks(normRig(src.rig));
   r.rev = 0; r.savedAt = new Date().toISOString(); r.savedBy = ""; r.from = src.from;
@@ -2066,6 +2077,83 @@ async function ioHistoryPush(s, K, prev, why, by){
   return h;
  }, () => ({ list: [] })).catch(e => console.log("io history write failed:", e && e.message));
 }
+/* ---- Tech I/O snapshots (v1.26.0) ----
+   EVERY write to a Tech I/O blob (io~<county>, the unscoped io, io-template)
+   goes through ioWrite(). Before it writes, it stores the blob exactly as it
+   is stored right now — raw, not normalized, so a later deploy with a
+   narrower schema can't have thinned the copy — in its own append-only blob:
+
+     iosnap-<blob key>-<ms, 13 digits>-<random>-<action>
+
+   If that copy can't be written, the write is refused (the outbox retries
+   it). If another writer slipped in between our copy and our write, the
+   version we actually replaced is copied too. Retention: tick-only writes
+   (one per checkmark) keep their newest IO_SNAP_KEEP_TICKS; everything else
+   — saves, restores, roster edits, template saves, seeding — is kept up to
+   IO_SNAP_KEEP per blob, which at ~20 KB a lineup is a few tens of MB. */
+const IO_SNAP_KEEP = 3000;
+const IO_SNAP_KEEP_TICKS = 500;
+const IO_TICK_WHY = new Set(["rigCheck", "ioSetRow"]);
+const IO_STRUCT_WHY = new Set(["rigSave", "rigRestore", "setIOList", "rigEnsure", "rigTemplateSave", "migrate", "scope"]);
+const ioSnapPrefix = blobKey => "iosnap-" + blobKey + "-";
+const ioSnapParse = key => {
+ const m = /^iosnap-(.+)-(\d{13})-[a-z0-9]+-([A-Za-z]+)$/.exec(key || "");
+ return m ? { blob: m[1], ms: Number(m[2]), why: m[3] } : null;
+};
+const ioEmpty = v => v == null || (typeof v === "object" && !v.rig && ioShape(v) === "0/0/0/0/0");
+async function ioSnapshot(s, blobKey, raw, why, by){
+ if(ioEmpty(raw)) return "";
+ const body = { at: new Date().toISOString(), blob: blobKey, why, by: str(by, 40), rev: (raw && raw.rig && Number(raw.rig.rev)) || 0, data: raw };
+ for(let i = 0; i < 3; i++){
+  const key = ioSnapPrefix(blobKey) + String(Date.now()).padStart(13, "0") + "-" + globalThis.crypto.randomUUID().replace(/-/g, "").slice(0, 10) + "-" + why;
+  const w = await s.setJSON(key, body, { onlyIfNew: true });
+  if(!(w && w.modified === false)) return key;
+ }
+ throw new Error("tech i/o snapshot could not get a fresh key");
+}
+async function ioSnapPrune(s, blobKey){
+ const keys = ((await s.list({ prefix: ioSnapPrefix(blobKey) })).blobs || []).map(b => b.key).filter(ioSnapParse).sort();
+ const ticks = keys.filter(k => IO_TICK_WHY.has(ioSnapParse(k).why));
+ const drop = new Set(ticks.slice(0, Math.max(0, ticks.length - IO_SNAP_KEEP_TICKS)));
+ const rest = keys.filter(k => !drop.has(k));
+ for(const k of rest.slice(0, Math.max(0, rest.length - IO_SNAP_KEEP))) drop.add(k);
+ for(const k of drop) await s.delete(k).catch(() => {});
+}
+/* Counts that normalization must never shrink on a write that isn't meant to
+   change the lineup's structure (a tick, a seed, clearing ticks). If a deploy
+   ever tightens normIO/normRig, those writes refuse instead of silently
+   trimming the team's lineup; the raw copy is in the snapshot either way. */
+function ioShape(io){
+ const a = v => Array.isArray(v) ? v : [];
+ const r = io && io.rig;
+ return [a(r && r.positions).length, a(r && r.positions).reduce((n, p) => n + a(p && p.inputs).length, 0),
+  a(io && io.list).length, a(io && io.list).reduce((n, p) => n + a(p && p.rows).length, 0), a(io && io.buses).length].join("/");
+}
+async function ioWrite(s, blobKey, why, by, mutate, fallback, normalize = normIO){
+ const raw0 = await s.get(blobKey, { type: "json" });
+ await ioSnapshot(s, blobKey, raw0, why, by);
+ const snapped = raw0 == null ? "" : JSON.stringify(raw0);
+ let baseRaw = null, wrote = false;
+ const out = await compareAndSwap(s, blobKey, v => {
+  baseRaw = v;
+  const n = normalize(v);
+  if(!IO_STRUCT_WHY.has(why) && v != null && ioShape(n) !== ioShape(v)){
+   console.error("tech i/o: normalizing " + blobKey + " would drop data (" + ioShape(v) + " → " + ioShape(n) + "); " + why + " refused");
+   throw new Error("tech i/o write refused: normalization would drop data");
+  }
+  return n;
+ }, cur => {
+  const next = mutate(cur);
+  wrote = next !== undefined;
+  return next;
+ }, fallback);
+ if(wrote && !ioEmpty(baseRaw) && JSON.stringify(baseRaw) !== snapped){
+  await ioSnapshot(s, blobKey, baseRaw, why, by).catch(e => console.error("tech i/o race snapshot failed:", e && e.message));
+ }
+ if(wrote && Math.random() < 0.1) await ioSnapPrune(s, blobKey).catch(() => {});
+ return out;
+}
+
 const rigOf = io => io ? normRig(io.rig) : null;
 function rigSummary(r){
  const people = [...new Set(r.positions.map(p => p.person).filter(Boolean))];
@@ -2096,6 +2184,21 @@ async function rigVersionsFor(s, K){
   if(!b || !b.keys) continue;
   add(k, 0, b.at, k.startsWith(PRE_TAG) ? "before v1.25.0" : "nightly", rigOf(b.keys[K.io]));
  }
+ const why = { rigSave: "save", rigRestore: "restore", setIOList: "roster edit", rigEnsure: "seed", migrate: "migration",
+  rigCheck: "checkmark", ioSetRow: "checkmark", rigClearChecks: "clear checkmarks", scope: "migration" };
+ const snaps = (await keysOf(ioSnapPrefix(K.io))).filter(k => (ioSnapParse(k) || {}).blob === K.io).sort().reverse();
+ const pick = [...snaps.filter(k => !IO_TICK_WHY.has(ioSnapParse(k).why)).slice(0, 60), ...snaps.filter(k => IO_TICK_WHY.has(ioSnapParse(k).why)).slice(0, 10)];
+ (await Promise.all(pick.map(k => s.get(k, { type: "json" }).catch(() => null)))).forEach((b, i) => {
+  if(b) add(pick[i], 0, b.at, "before " + (why[ioSnapParse(pick[i]).why] || ioSnapParse(pick[i]).why), rigOf(b.data));
+ });
+ for(const ev of SCHEDULE){
+  if(ev.key === K.cty) continue;
+  const io = await s.get(mkKeys(ev.key).io, { type: "json" }).catch(() => null);
+  const r = rigOf(io);
+  if(r) add(mkKeys(ev.key).io, 0, r.savedAt, "event: " + ev.name, r);
+ }
+ const tpl = await s.get(RIG_TEMPLATE, { type: "json" }).catch(() => null);
+ if(tpl && tpl.rig) add(RIG_TEMPLATE, 0, tpl.at, "template", normRig(tpl.rig));
  out.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
  const seen = new Set(), uniq = [];
  for(const v of out){
@@ -2117,6 +2220,16 @@ async function rigVersionAt(s, K, key, idx){
   if(!b || !b.data || (b.data.county != null && b.data.county !== K.cty)) return null;
   return rigOf(b.data.io);
  }
+ const snap = ioSnapParse(key);
+ if(snap && /^io(~[a-z]+)?$|^io-template$/.test(snap.blob)){
+  const b = await s.get(key, { type: "json" });
+  return b ? rigOf(b.data) : null;
+ }
+ if(key === RIG_TEMPLATE){
+  const b = await s.get(key, { type: "json" });
+  return b ? normRig(b.rig) : null;
+ }
+ if(/^io~[a-z]+$/.test(key) && COUNTY_KEYS.has(key.slice(3))) return rigOf(await s.get(key, { type: "json" }));
  if(/^bak-day-\d{4}-\d{2}-\d{2}-io$/.test(key) || key === PRE_TAG + "-io"){
   const b = await s.get(key, { type: "json" });
   return b && b.keys ? rigOf(b.keys[K.io]) : null;
@@ -2564,7 +2677,7 @@ export default async (req, context) => {
     list / reload defaults). Patch checkmark taps go through ioSetRow below
     so concurrent techs can't clobber each other's progress. */
  if(!Array.isArray(payload.list)) break;
- await compareAndSwap(s, K.io, normIO, io => {
+ await ioWrite(s, K.io, "setIOList", payload.by, io => {
   /* Normalize on the way in. This used to store the client's array verbatim,
      which quietly bypassed the field whitelist for the entire roster — the
      one blob a leader can rewrite wholesale. */
@@ -2637,7 +2750,7 @@ export default async (req, context) => {
  break;
  case "rigCheck": {
  await rigEnsure(s, K, payload.seed);
- await compareAndSwap(s, K.io, normIO, io => {
+ await ioWrite(s, K.io, "rigCheck", payload.by, io => {
   if(!io.rig) return undefined;
   const iid = idStr(payload.iid);
   const hit = rigInputs(io.rig).find(e => e.x.id === iid);
@@ -2663,7 +2776,7 @@ export default async (req, context) => {
  const baseRev = modern ? payload.baseRev : clampInt(payload.rig && payload.rig.rev, 0, 1e9, 0);
  const saveId = typeof payload.saveId === "string" && /^[a-zA-Z0-9_-]{1,60}$/.test(payload.saveId) ? payload.saveId : "";
  let prev = null, conflict = null;
- const saved = await compareAndSwap(s, K.io, normIO, io => {
+ const saved = await ioWrite(s, K.io, "rigSave", payload.by, io => {
   prev = null; conflict = null;
   const curRev = (io.rig && io.rig.rev) || 0;
   if(saveId && io.rig && io.rig.saveId === saveId) return undefined; // confirmed retry
@@ -2697,7 +2810,7 @@ export default async (req, context) => {
   versions: list.map(v => ({ key: v.key, idx: v.idx, at: v.at, kind: v.kind, ...rigSummary(v.rig) })) });
  }
  case "rigClearChecks":
- await compareAndSwap(s, K.io, normIO, io => {
+ await ioWrite(s, K.io, "rigClearChecks", payload.by, io => {
   if(!io.rig || !rigInputs(io.rig).some(e => e.x.done)) return undefined;
   rigClearChecks(io.rig);
   return io;
@@ -2706,11 +2819,10 @@ export default async (req, context) => {
  case "rigTemplateSave": {
  const io = normIO(await s.get(K.io, { type:"json" }));
  if(!io.rig) return json({ error:"no lineup saved for this event" }, 404);
- const old = await s.get(RIG_TEMPLATE, { type:"json" });
- if(old) await snapshot(s, "io-template", { template: old });
  const t = rigClearChecks(normRig(io.rig));
  t.from = null;
- await s.setJSON(RIG_TEMPLATE, { at: new Date().toISOString(), by: str(payload.by, 40), county: K.cty, rig: t });
+ await ioWrite(s, RIG_TEMPLATE, "rigTemplateSave", payload.by,
+  () => ({ at: new Date().toISOString(), by: str(payload.by, 40), county: K.cty, rig: t }), () => null, v => v);
  break;
  }
  case "rigRestore": {
@@ -2726,7 +2838,7 @@ export default async (req, context) => {
  if(!src) return json({ error:"nothing to restore from", from }, 404);
  await snapshot(s, "io-restore", { county: K.cty, io: await s.get(K.io, { type:"json" }) });
  let prev = null;
- await compareAndSwap(s, K.io, normIO, io => {
+ await ioWrite(s, K.io, "rigRestore", payload.by, io => {
   prev = io.rig;
   const r = rigClearChecks(normRig(src.rig));
   r.rev = ((io.rig && io.rig.rev) || 0) + 1;
@@ -2739,7 +2851,7 @@ export default async (req, context) => {
  break;
  }
  case "ioSetRow": {
- await compareAndSwap(s, K.io, normIO, io => {
+ await ioWrite(s, K.io, "ioSetRow", payload.by, io => {
  if(!io.list.length && Array.isArray(payload.seed) && payload.seed.length) io.list = normIO({ list: payload.seed }).list;
  let hit = null;
  for(const p of io.list) if(p && p.id === payload.pid) for(const r of (p.rows || [])) if(r && r.id === payload.rid) hit = r;
