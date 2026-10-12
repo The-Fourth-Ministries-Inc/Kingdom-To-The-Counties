@@ -2150,6 +2150,21 @@ export default async (req, context) => {
      The read is also where missing starter churches self-seed (no-op write
      when nothing is missing). */
   const part = wantPart;
+  if(part === "blobsdiag" && storeName(req, context) !== STORE){
+   const out = {};
+   const a = await s.getWithMetadata("churches", { type: "json" });
+   out.readEtag = a && a.etag; out.readEtagType = typeof (a && a.etag);
+   const m = await s.getMetadata("churches").catch(e => ({ err: String(e) }));
+   out.metaEtag = m && m.etag;
+   await s.setJSON("diag", { n: 1 });
+   const d = await s.getWithMetadata("diag", { type: "json" });
+   out.diagEtag = d && d.etag;
+   out.bogus = await s.setJSON("diag", { n: 2 }, { onlyIfMatch: '"bogus"' }).catch(e => ({ err: String(e) }));
+   out.good = d && d.etag ? await s.setJSON("diag", { n: 3 }, { onlyIfMatch: d.etag }).catch(e => ({ err: String(e) })) : "no etag";
+   out.stale = d && d.etag ? await s.setJSON("diag", { n: 4 }, { onlyIfMatch: d.etag }).catch(e => ({ err: String(e) })) : "no etag";
+   out.final = await s.get("diag", { type: "json" });
+   return new Response(JSON.stringify(out), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+  }
   if(part === "churches"){
    const ch = await casChurches(s, c => {
     const merged = mergeStarterChurches(c);
