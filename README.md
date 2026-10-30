@@ -4,6 +4,30 @@ A lightweight, no-login companion app for K2C ambassadors. Everyone shares one
 live view: checklist, announcements, check-ins, headcount, praises, and feedback
 all stay in sync across phones within a few seconds.
 
+## Directory fix reports (v1.28.0)
+
+The public church directory on thefourthministries.com can send corrections
+to info@thefourthministries.com. This app does not show the directory. It
+only receives the reports. The Ambassador app itself is unchanged (v1.27.0).
+
+- **Endpoint.** `POST /api/directory/v1/fix` accepts JSON from the directory
+  pop-up and a normal form post from the no-JavaScript page. `GET` on that
+  same path is the no-JavaScript form (`?id=` a church slug, `?p=` a page
+  slug). `GET /api/directory/v1/fix/thanks` is the thank-you page a form post
+  redirects to.
+- **What we keep.** Each report is saved in Netlify Blobs first (key
+  `dfix-<date>-<id>`), then mailed through Microsoft Graph if the mail
+  settings are present. A missing setting or a mail failure still keeps the
+  report. Reply-To is the reporter's email. The visitor's IP is not stored.
+  A church id is checked against the saved roster; an empty roster is not
+  filled in with starter churches.
+- **Spam.** A filled honeypot or a form sent in under three seconds is
+  dropped quietly. Each visitor is limited to 5 reports in 10 minutes and
+  20 a day. The whole site is limited to 200 a day.
+- **Mail settings.** `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`,
+  `FIX_MAIL_FROM`, `FIX_MAIL_TO`. A person adds these in Netlify. They are
+  not in the repo. Until they exist, reports are saved and no mail is sent.
+
 ## Church profile: every field on Zach's list (v1.27.0)
 
 The church schema, the bot import API and the app all hold the same fields.
