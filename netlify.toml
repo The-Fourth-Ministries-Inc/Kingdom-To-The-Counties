@@ -17,3 +17,16 @@
     X-Frame-Options = "DENY"
     Permissions-Policy = "geolocation=(), interest-cohort=()"
     Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+
+# The directory fix form is a function response. The site-wide form-action
+# 'none' would block its no-JS submit, and a more specific path wins for the
+# same header. JSON posts to this path are unaffected by form-action.
+[[headers]]
+  for = "/api/directory/v1/fix"
+  [headers.values]
+    Content-Security-Policy = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+
+[[headers]]
+  for = "/api/directory/v1/fix/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
