@@ -8,7 +8,8 @@ all stay in sync across phones within a few seconds.
 
 The public church directory on thefourthministries.com can send corrections
 to info@thefourthministries.com. This app does not show the directory. It
-only receives the reports. The Ambassador app itself is unchanged (v1.27.0).
+only receives the reports. The app version is v1.28.0: the web badge and
+the iOS and Android store builds all use that number.
 
 - **Endpoint.** `POST /api/directory/v1/fix` accepts JSON from the directory
   pop-up and a normal form post from the no-JavaScript page. `GET` on that
